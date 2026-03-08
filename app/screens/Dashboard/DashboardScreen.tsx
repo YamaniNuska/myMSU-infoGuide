@@ -8,7 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import BottomNav from "../components/BottomNav";
+import BottomNav from "../Navigation/BottomNav";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -96,7 +96,7 @@ export default function Dashboard() {
         </View>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#800505" style={styles.searchIcon} />
-          <TextInput style={styles.searchInput} placeholder="Search for maps, courses, info..." placeholderTextColor="#888" />
+          <TextInput style={styles.searchInput} placeholder="Search" placeholderTextColor="#6b0b0b" />
         </View>
       </View>
 
@@ -110,7 +110,7 @@ export default function Dashboard() {
               <Text style={styles.handbookTitle}>Student Handbook</Text>
               <Text style={styles.handbookText}>Access all university policies</Text>
             </View>
-            <View style={[styles.iconCircle, { backgroundColor: '#D4AF37' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: '#c0960e' }]}>
               <FontAwesome5 name="book-open" size={20} color="#ffffff" />
             </View>
           </Animated.View>
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
 
   header: { 
-    backgroundColor: "#800505", paddingHorizontal: 22, paddingTop: 60, paddingBottom: 25, 
+    backgroundColor: "#4A0E0E", paddingHorizontal: 22, paddingTop: 60, paddingBottom: 25, 
     borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 8,
   },
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 26, color: "#ffffff", fontWeight: "800", letterSpacing: 0.5 },
   subtitle: { fontSize: 14, color: "rgba(255, 255, 255, 0.8)", marginTop: 2, fontWeight: "500" },
   notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.15)', justifyContent: 'center', alignItems: 'center' },
-  notificationDot: { position: 'absolute', top: 10, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: '#D4AF37', borderWidth: 2, borderColor: '#800505' },
+  notificationDot: { position: 'absolute', top: 10, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: '#D4AF37', borderWidth: 2, borderColor: '#4A0E0E' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 15, height: 50, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 15, color: "#333", fontWeight: '500' },
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   handbook: { 
     backgroundColor: "#ffffff", borderWidth: 1.5, borderColor: "#E5E5E5", 
     padding: 22, marginBottom: 24, flexDirection: "row", justifyContent: "space-between", alignItems: "center", 
-    borderRadius: 16, shadowColor: "#800505", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 4,
+    borderRadius: 16, shadowColor: "#4A0E0E", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 4,
   },
   handbookTitle: { fontSize: 20, color: "#4A0E0E", fontWeight: "700" },
   handbookText: { fontSize: 13, color: "#4A0E0E", opacity: 0.6, marginTop: 4, fontWeight: "500" },
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     shadowColor: "#800505", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 5, elevation: 3,
   },
   cardText: { marginTop: 12, fontSize: 13, color: "#4A0E0E", textAlign: "center", fontWeight: "600", lineHeight: 18 },
-  iconCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#800505", alignItems: "center", justifyContent: "center" },
+  iconCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#4A0E0E", alignItems: "center", justifyContent: "center" },
 
   // --- EXPANDABLE LIST STYLES ---
   sectionContainer: { marginTop: 10 },
