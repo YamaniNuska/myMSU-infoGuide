@@ -11,6 +11,10 @@ export default function TabLayout() {
         name="profile"
         options={{ title: "ProfileScreen" }}
       />
+      <Tabs.Screen
+        name="AI-Chatbot"
+        options={{ title: "AI Chatbot" }}
+      />
     </Tabs>
   );
 }

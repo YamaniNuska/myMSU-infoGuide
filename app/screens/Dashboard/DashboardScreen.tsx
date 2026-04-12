@@ -18,7 +18,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const GRID_ITEMS = [
   { key: 'map', title: 'Campus Map', icon: 'map', IconComponent: Feather },
   { key: 'admin', title: 'Administrative Information', icon: 'information-slab-box-outline', IconComponent: MaterialCommunityIcons },
-  { key: 'chatbot', title: 'AI Chatbot', icon: 'chatbox-outline', IconComponent: Ionicons },
+  { key: 'schedule', title: 'AI Chatbot', icon: 'chatbox-outline', IconComponent: Ionicons },
   { key: 'courses', title: 'Course/Program offerings', icon: 'subject', IconComponent: MaterialIcons },
   { key: 'prospectus', title: 'Prospectus', icon: 'notes', IconComponent: MaterialIcons },
   { key: 'calendar', title: 'Academic Calendar', icon: 'calendar', IconComponent: Entypo },
