@@ -1,98 +1,99 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import React from "react";
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-export default function ProfileScreen() {
+type ProfileScreenProps = {
+  onBack?: () => void;
+};
+
+export default function ProfileScreen({ onBack }: ProfileScreenProps) {
   return (
-    <View style={styles.container}>
-      {/* Header / Avatar Section */}
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <View style={styles.avatarPlaceholder}>
-          <FontAwesome name="user" size={36} color="#D4AF37" />
+        <Pressable style={styles.backButton} onPress={onBack}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+
+        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.subtitle}>
+          Your profile screen is ready for student account details and settings.
+        </Text>
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Student profile placeholder</Text>
+          <Text style={styles.cardText}>
+            This section can later contain name, student number, course, contact
+            details, and account preferences.
+          </Text>
         </View>
-        <Text style={styles.userName}>John Doe</Text>
-        <Text style={styles.userEmail}>john.doe@example.com</Text>
       </View>
-
-      {/* Menu Options */}
-      <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.6}>
-          <Ionicons name="settings-outline" size={22} color="#4A0E0E" />
-          <Text style={styles.menuText}>Settings</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.6}>
-          <Ionicons name="shield-checkmark-outline" size={22} color="#4A0E0E" />
-          <Text style={styles.menuText}>Privacy</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.6}>
-          <Ionicons name="help-circle-outline" size={22} color="#4A0E0E" />
-          <Text style={styles.menuText}>Support</Text>
-        </TouchableOpacity>
-
-        {/* Logout Button */}
-        <TouchableOpacity style={[styles.menuItem, styles.logoutButton]} activeOpacity={0.6}>
-          <Ionicons name="log-out-outline" size={22} color="#a02f10" />
-          <Text style={[styles.menuText, styles.logoutText]}>Log Out</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#F6F4F2",
   },
   header: {
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 30,
+    backgroundColor: "#800505",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 22,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  avatarPlaceholder: {
-    width: 84, 
-    height: 84, 
-    borderRadius: 42,
-    backgroundColor: '#fffaf0',
-    borderWidth: 1.5,
-    borderColor: '#e6d8b8', 
-    justifyContent: 'center',
-    alignItems: 'center',
+  backButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.14)",
     marginBottom: 16,
   },
-  userName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#000000',
+  backText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  userEmail: {
-    fontSize: 15,
-    color: '#555555', 
-    marginTop: 4,
-    fontWeight: '500', 
+  title: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "800",
   },
-  menu: {
-    paddingHorizontal: 40,
+  subtitle: {
+    marginTop: 8,
+    color: "rgba(255,255,255,0.84)",
+    fontSize: 14,
+    lineHeight: 21,
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 18, 
+  content: {
+    flex: 1,
+    padding: 18,
   },
-  menuText: {
-    fontSize: 17, // Bumped up
-    marginLeft: 15,
-    color: '#1A1A1A',
-    fontWeight: '500',
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#EBE6E1",
   },
-  logoutButton: {
-    marginTop: 20,
+  cardTitle: {
+    color: "#3F2626",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 10,
   },
-  logoutText: {
-    color: '#a02f10',
-    fontWeight: '600',
+  cardText: {
+    color: "#5D5151",
+    fontSize: 14,
+    lineHeight: 22,
   },
 });
