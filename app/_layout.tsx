@@ -14,14 +14,14 @@ export default function RootLayout() {
         }}
       />
       <Tabs.Screen
-        name="(tabs)/AI-Chatbot"
+        name="AI-Chatbot"
         options={{
           title: "AI Chat",
           tabBarIcon: ({ color }) => <Ionicons name="chatbubble-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="(tabs)/profile"
+        name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => <FontAwesome name="user" size={24} color={color} />,
