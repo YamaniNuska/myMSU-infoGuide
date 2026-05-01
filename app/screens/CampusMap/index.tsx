@@ -3,20 +3,21 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-type ProfileScreenProps = {
+type CampusMapScreenProps = {
   onBack?: () => void;
 };
 
-export default function ProfileScreen({ onBack }: ProfileScreenProps) {
+export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const router = useRouter();
 
   const handleBack = () => {
     if (onBack) {
       onBack();
     } else {
-      router.push('/');
+      router.push("/");
     }
   };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -25,20 +26,12 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
           <Text style={styles.backText}>Back</Text>
         </Pressable>
 
-        <Text style={styles.title}>Profile</Text>
-        <Text style={styles.subtitle}>
-          Your profile screen is ready for student account details and settings.
-        </Text>
+        <Text style={styles.title}>Campus Map</Text>
+        <Text style={styles.subtitle}>Coming soon</Text>
       </View>
 
       <View style={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Student profile placeholder</Text>
-          <Text style={styles.cardText}>
-            This section can later contain name, student number, course, contact
-            details, and account preferences.
-          </Text>
-        </View>
+        <Text style={styles.message}>This screen is coming soon. Check back later!</Text>
       </View>
     </SafeAreaView>
   );
@@ -86,24 +79,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EBE6E1",
-  },
-  cardTitle: {
+  message: {
     color: "#3F2626",
     fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
-  cardText: {
-    color: "#5D5151",
-    fontSize: 14,
-    lineHeight: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 26,
   },
 });

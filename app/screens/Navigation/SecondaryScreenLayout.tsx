@@ -1,12 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type SecondaryScreenLayoutProps = {
@@ -22,12 +23,21 @@ export default function SecondaryScreenLayout({
   onBack,
   children,
 }: SecondaryScreenLayoutProps) {
+  const router = useRouter();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/');
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={onBack}
+          onPress={handleBack}
           activeOpacity={0.8}
         >
           <Ionicons name="arrow-back" size={20} color="#ffffff" />

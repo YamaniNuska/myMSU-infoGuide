@@ -2,22 +2,23 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import SecondaryScreenLayout from "../components/SecondaryScreenLayout";
 
-type AdminInfoScreenProps = {
+type CourseOfferScreenProps = {
   onBack?: () => void;
 };
 
-export default function AdminInfoScreen({ onBack }: AdminInfoScreenProps) {
+export default function CourseOfferScreen({
+  onBack,
+}: CourseOfferScreenProps) {
   return (
     <SecondaryScreenLayout
-      title="Administrative Information"
-      description="Quick access to registrar, offices, and important university administration details."
+      title="Course and Program Offerings"
+      description="View available degree programs, course offerings, and academic tracks."
       onBack={onBack}
     >
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Office directory</Text>
+        <Text style={styles.cardTitle}>Coming Soon</Text>
         <Text style={styles.cardText}>
-          This screen is ready for your administrative contacts, office hours,
-          and service information.
+          Course and Program Offerings screen is under development.
         </Text>
       </View>
     </SecondaryScreenLayout>

@@ -2,14 +2,15 @@ import { useRouter } from "expo-router";
 import DashboardScreen from "./screens/Dashboard/DashboardScreen";
 
 const ROUTES: Record<string, string> = {
-  campusMap: "/screens/CampusMap/CampusMapScreen",
-  adminInfo: "/screens/AdminInfo/AdminInfoScreen",
+  campusMap: "/screens/CampusMap",
+  adminInfo: "/screens/AdminInfo",
   ai: "/AI-Chatbot",
-  courseOffer: "/screens/CourseOfferings/CourseOfferScreen",
-  prospectus: "/screens/Prospectus/ProspectusScreen",
-  academicCalendar: "/screens/AcademicCalendar/AcademicCalendarScreen",
-  notification: "/screens/Notification/NotificationScreen",
+  courseOffer: "/screens/CourseOfferings",
+  prospectus: "/screens/Prospectus",
+  academicCalendar: "/screens/AcademicCalendar",
+  notification: "/screens/Notification",
   profile: "/profile",
+  handbook: "/screens/HandbookFeature",
 };
 
 export default function Index() {
@@ -18,7 +19,7 @@ export default function Index() {
   const handleNavigate = (destination: string) => {
     const route = ROUTES[destination];
     if (route) {
-      router.push(route);
+      router.push(route as any);
     }
   };
 
