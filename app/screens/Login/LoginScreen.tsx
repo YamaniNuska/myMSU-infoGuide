@@ -48,11 +48,11 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                 <View style={styles.brandSquare} />
                 <View style={styles.brandSquareSmall} />
               </View>
-              <Text style={styles.brandText}>COMPANY</Text>
+              <Text style={styles.brandText}>myMSU-infoGuide</Text>
             </View>
 
             <Text style={styles.tagline}>
-              Convert Your Smart Idea {"\n"}To The Great Business
+              Welcome {"\n"}Please Input your Existing Account
             </Text>
 
             <Text style={styles.heading}>

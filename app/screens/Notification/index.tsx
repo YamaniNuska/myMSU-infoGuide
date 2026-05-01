@@ -2,24 +2,23 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import SecondaryScreenLayout from "../components/SecondaryScreenLayout";
 
-type AcademicCalendarScreenProps = {
+type NotificationScreenProps = {
   onBack?: () => void;
 };
 
-export default function AcademicCalendarScreen({
+export default function NotificationScreen({
   onBack,
-}: AcademicCalendarScreenProps) {
+}: NotificationScreenProps) {
   return (
     <SecondaryScreenLayout
-      title="Academic Calendar"
-      description="See important semester dates, class schedules, and university deadlines."
+      title="Notifications"
+      description="Stay updated with announcements, reminders, and important campus alerts."
       onBack={onBack}
     >
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Important dates</Text>
+        <Text style={styles.cardTitle}>Coming Soon</Text>
         <Text style={styles.cardText}>
-          This screen is ready for enrollment schedules, exam periods, holidays,
-          and semester milestones.
+          Notifications screen is under development.
         </Text>
       </View>
     </SecondaryScreenLayout>

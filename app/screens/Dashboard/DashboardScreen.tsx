@@ -224,7 +224,7 @@ export default function Dashboard({ onNavigate }: DashboardScreenProps) {
           activeOpacity={0.9}
           onPressIn={handleHandbookPressIn}
           onPressOut={handleHandbookPressOut}
-          onPress={() => console.log("Redirect")}
+          onPress={() => onNavigate?.('handbook')}
         >
           <Animated.View
             style={[styles.handbook, { transform: [{ scale: handbookScale }] }]}

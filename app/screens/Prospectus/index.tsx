@@ -2,24 +2,21 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import SecondaryScreenLayout from "../components/SecondaryScreenLayout";
 
-type CourseOfferScreenProps = {
+type ProspectusScreenProps = {
   onBack?: () => void;
 };
 
-export default function CourseOfferScreen({
-  onBack,
-}: CourseOfferScreenProps) {
+export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   return (
     <SecondaryScreenLayout
-      title="Course and Program Offerings"
-      description="View available degree programs, course offerings, and academic tracks."
+      title="Prospectus"
+      description="Check curriculum outlines, required subjects, and program flow."
       onBack={onBack}
     >
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Programs overview</Text>
+        <Text style={styles.cardTitle}>Coming Soon</Text>
         <Text style={styles.cardText}>
-          This screen is ready for program lists, departments, and course
-          details from the university catalog.
+          Prospectus screen is under development.
         </Text>
       </View>
     </SecondaryScreenLayout>

@@ -2,22 +2,21 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import SecondaryScreenLayout from "../components/SecondaryScreenLayout";
 
-type ProspectusScreenProps = {
+type AdminInfoScreenProps = {
   onBack?: () => void;
 };
 
-export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
+export default function AdminInfoScreen({ onBack }: AdminInfoScreenProps) {
   return (
     <SecondaryScreenLayout
-      title="Prospectus"
-      description="Check curriculum outlines, required subjects, and program flow."
+      title="Administrative Information"
+      description="Quick access to registrar, offices, and important university administration details."
       onBack={onBack}
     >
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Curriculum details</Text>
+        <Text style={styles.cardTitle}>Coming Soon</Text>
         <Text style={styles.cardText}>
-          This screen is ready for year-level subject lists, units, and
-          prospectus breakdowns.
+          Administrative Information screen is under development.
         </Text>
       </View>
     </SecondaryScreenLayout>

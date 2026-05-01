@@ -1,16 +1,17 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  LayoutAnimation, 
-  Platform, 
-  UIManager,
-  TextInput,
-  Animated
-} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+    Animated,
+    LayoutAnimation,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    UIManager,
+    View
+} from 'react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -103,7 +104,8 @@ const AccordionItem = ({ chapter, title, content }: { chapter: string, title: st
 // ------------------------------------------------------------------
 // MAIN SCREEN COMPONENT
 // ------------------------------------------------------------------
-export default function HandbookScreen({ navigation }: any) {
+export default function HandbookScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Track the scroll position
@@ -140,7 +142,7 @@ export default function HandbookScreen({ navigation }: any) {
         <View style={styles.topHeaderContent}>
           <TouchableOpacity 
             style={styles.backButton} 
-            onPress={() => navigation?.goBack()}
+            onPress={() => router.back()}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
             <Ionicons name="arrow-back" size={26} color="#D4AF37" />

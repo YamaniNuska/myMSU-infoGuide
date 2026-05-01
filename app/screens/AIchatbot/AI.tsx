@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
@@ -42,6 +43,15 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export default function AI({ onBack }: AIScreenProps) {
+  const router = useRouter();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/');
+    }
+  };
   const [messages, setMessages] = React.useState<ChatMessage[]>([
     INITIAL_MESSAGE,
   ]);
@@ -156,7 +166,7 @@ export default function AI({ onBack }: AIScreenProps) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={onBack}>
+          <Pressable style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={20} color="#ffffff" />
           </Pressable>
 
