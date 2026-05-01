@@ -8,8 +8,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import BottomNav from "../Navigation/BottomNav";
-
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -101,7 +99,7 @@ export default function Dashboard() {
       </View>
 
       {/* SCROLLABLE CONTENT */}
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 120 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
         
         {/* Student Handbook */}
         <TouchableOpacity activeOpacity={0.9} onPressIn={handleHandbookPressIn} onPressOut={handleHandbookPressOut} onPress={() => console.log("Redirect")}>
@@ -165,9 +163,6 @@ export default function Dashboard() {
         </View>
 
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <BottomNav />
     </View>
   );
 }
