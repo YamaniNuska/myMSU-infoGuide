@@ -1,8 +1,10 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import DashboardScreen from "./screens/Dashboard/DashboardScreen";
-import LoginScreen from "./screens/Login/LoginScreen";
-import WelcomeScreen from "./screens/Welcome/WelcomeScreen";
+import { useAuthSession } from "../src/auth/localAuth";
+import { UserRecord } from "../src/data/mymsuDatabase";
+import DashboardScreen from "../src/screens/Dashboard/DashboardScreen";
+import LoginScreen from "../src/screens/Login/LoginScreen";
+import WelcomeScreen from "../src/screens/Welcome/WelcomeScreen";
 
 const ROUTES: Record<string, string> = {
   campusMap: "/screens/CampusMap",
@@ -11,15 +13,18 @@ const ROUTES: Record<string, string> = {
   courseOffer: "/screens/CourseOfferings",
   prospectus: "/screens/Prospectus",
   academicCalendar: "/screens/AcademicCalendar",
+  classSchedule: "/screens/ClassSchedule",
   notification: "/screens/Notification",
   profile: "/profile",
   handbook: "/screens/HandbookFeature",
+  adminPanel: "/screens/AdminPanel",
 };
 
 type FlowStep = "welcome" | "login" | "home";
 
 export default function Index() {
   const router = useRouter();
+  const currentUser = useAuthSession();
   const [step, setStep] = useState<FlowStep>("welcome");
 
   const handleNavigate = (destination: string) => {
@@ -30,7 +35,7 @@ export default function Index() {
   };
 
   const handleGetStarted = () => setStep("login");
-  const handleSignIn = () => setStep("home");
+  const handleSignIn = (_user: UserRecord) => setStep("home");
 
   if (step === "welcome") {
     return <WelcomeScreen onGetStarted={handleGetStarted} />;
@@ -40,5 +45,9 @@ export default function Index() {
     return <LoginScreen onSignIn={handleSignIn} />;
   }
 
-  return <DashboardScreen onNavigate={handleNavigate} />;
+  if (!currentUser) {
+    return <LoginScreen onSignIn={handleSignIn} />;
+  }
+
+  return <DashboardScreen user={currentUser} onNavigate={handleNavigate} />;
 }
