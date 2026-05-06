@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { getLiveAssistantAnswer } from "../../data/appStore";
 import { buildSystemPrompt } from "./msuKnowledge";
 
 type AIScreenProps = {
@@ -36,7 +37,7 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hello! I'm your myMSU-Guide AI powered by Groq. Ask me about MSU Main Campus offices, handbook topics, or how to use this app.",
+    "Hello! I'm your myMSU-Guide AI. Ask me about MSU Main Campus offices, handbook topics, schedules, programs, or how to use this app.",
 };
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -77,13 +78,6 @@ export default function AI({ onBack }: AIScreenProps) {
       return;
     }
 
-    if (!groqApiKey) {
-      setErrorMessage(
-        "Set EXPO_PUBLIC_GROQ_API_KEY in your Expo environment to enable Groq responses.",
-      );
-      return;
-    }
-
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
       role: "user",
@@ -95,6 +89,19 @@ export default function AI({ onBack }: AIScreenProps) {
     setInput("");
     setIsLoading(true);
     setErrorMessage(null);
+
+    if (!groqApiKey) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-assistant-local`,
+          role: "assistant",
+          content: getLiveAssistantAnswer(content),
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(GROQ_API_URL, {
@@ -150,8 +157,7 @@ export default function AI({ onBack }: AIScreenProps) {
         {
           id: `${Date.now()}-assistant-error`,
           role: "assistant",
-          content:
-            "I couldn't reach Groq right now. Please check your API key, network connection, or try again in a moment.",
+          content: getLiveAssistantAnswer(content),
         },
       ]);
     } finally {
@@ -173,7 +179,7 @@ export default function AI({ onBack }: AIScreenProps) {
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerTitle}>AI Chatbot</Text>
             <Text style={styles.headerSubtitle}>
-              Groq-powered MSU assistant
+              MSU guide with offline database fallback
             </Text>
           </View>
 
@@ -191,7 +197,7 @@ export default function AI({ onBack }: AIScreenProps) {
             <Text style={styles.heroTitle}>Ask about MSU Main Campus</Text>
             <Text style={styles.heroText}>
               Handbook topics, registrar concerns, admissions, student affairs,
-              and app navigation support are built in.
+              schedules, programs, and app navigation support are built in.
             </Text>
           </View>
 

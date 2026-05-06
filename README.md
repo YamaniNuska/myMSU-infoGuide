@@ -1,50 +1,55 @@
-# Welcome to your Expo app 👋
+# myMSU-InfoGuide
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Expo Router app for the capstone project "A Comprehensive Digital Handbook
+and Interactive Mobile Student Guide for MSU Main Campus."
 
-## Get started
+## What Is Included
 
-1. Install dependencies
+- Responsive dashboard for mobile and web/PC layouts
+- Digital student handbook with search
+- Administrative office directory
+- Campus map route
+- Class schedule module
+- Course/program offerings
+- Prospectus preview
+- Academic calendar
+- Notifications and reminders
+- AI chatbot with local database fallback
+- SQLite-compatible schema in `database/schema.sql`
+- Runtime seed data in `src/data/mymsuDatabase.ts`
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run Locally
 
 ```bash
-npm run reset-project
+npm install
+npm run web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The current local web server uses:
 
-## Learn more
+```text
+http://localhost:8081
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Verify
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx tsc --noEmit
+npm run lint
+```
 
-## Join the community
+## Web Build
 
-Join our community of developers creating universal apps.
+The deployable static web export was generated with:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo export -p web --output-dir web-deploy
+```
+
+Upload `web-deploy` to a static host such as Netlify, Vercel, Firebase Hosting,
+or a school web server. For a fresh export, run the same command again.
+
+## Database
+
+Use `database/schema.sql` for SQLite. Use the same table names as Firebase
+collection names if syncing the app to Firebase later.
