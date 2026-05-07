@@ -1,7 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Animated,
+  Easing,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -28,6 +31,16 @@ export default function SecondaryScreenLayout({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 760;
+  const entry = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(entry, {
+      toValue: 1,
+      duration: 440,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [entry]);
 
   const handleBack = () => {
     if (onBack) {
@@ -39,27 +52,66 @@ export default function SecondaryScreenLayout({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="arrow-back" size={20} color="#ffffff" />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.headerMotion,
+          {
+            opacity: entry,
+            transform: [
+              {
+                translateY: entry.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-16, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={[colors.maroonDark, colors.maroon]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={20} color="#ffffff" />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
 
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
-        </View>
-      </View>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.description}>{description}</Text>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       <ScrollView
         contentContainerStyle={[styles.content, isWide && styles.contentWide]}
         showsVerticalScrollIndicator={false}
       >
-        {children}
+        <Animated.View
+          style={[
+            styles.contentAnimator,
+            {
+              opacity: entry,
+              transform: [
+                {
+                  translateY: entry.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [18, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {children}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -70,13 +122,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
   },
+  headerMotion: {
+    zIndex: 2,
+  },
   header: {
-    backgroundColor: colors.maroon,
     paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 24,
+    paddingBottom: 26,
     borderBottomLeftRadius: radii.md,
     borderBottomRightRadius: radii.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
   },
   headerInner: {
     width: "100%",
@@ -94,7 +150,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: "rgba(255, 255, 255, 0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
   },
   backText: {
     color: colors.surface,
@@ -103,7 +161,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.surface,
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: "800",
   },
   description: {
@@ -116,6 +174,9 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     padding: 18,
+  },
+  contentAnimator: {
+    width: "100%",
     gap: 14,
   },
   contentWide: {

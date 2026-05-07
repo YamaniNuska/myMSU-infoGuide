@@ -180,6 +180,26 @@ export function searchLiveKnowledgeBase(rawQuery: string, limit = 8) {
     }
   });
 
+  data.campusLocations.forEach((location) => {
+    if (
+      includesQuery(query, [
+        location.name,
+        location.category,
+        location.description,
+        ...location.nearby,
+        ...location.tags,
+      ])
+    ) {
+      results.push({
+        id: location.id,
+        type: "Campus Map",
+        title: location.name,
+        subtitle: location.category,
+        body: `${location.description} Nearby: ${location.nearby.join(", ")}.`,
+      });
+    }
+  });
+
   data.academicEvents.forEach((event) => {
     if (
       includesQuery(query, [

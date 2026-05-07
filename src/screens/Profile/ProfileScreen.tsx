@@ -1,7 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Animated,
+  Easing,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -19,6 +22,16 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 760;
   const user = useAuthSession();
+  const entry = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(entry, {
+      toValue: 1,
+      duration: 460,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [entry]);
 
   const handleSignOut = () => {
     signOut();
@@ -31,10 +44,26 @@ export default function ProfileScreen() {
         contentContainerStyle={[
           styles.content,
           isWide && styles.contentWide,
-          { paddingBottom: 34 },
+          { paddingBottom: 112 },
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View
+          style={[
+            styles.contentMotion,
+            {
+              opacity: entry,
+              transform: [
+                {
+                  translateY: entry.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [18, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
         {!user ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>No Account Signed In</Text>
@@ -50,7 +79,12 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.profileCard}>
+            <LinearGradient
+              colors={[colors.maroonDark, colors.maroon]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.profileCard}
+            >
               <View style={styles.avatar}>
                 <Ionicons name="person" size={32} color={colors.surface} />
               </View>
@@ -60,7 +94,7 @@ export default function ProfileScreen() {
                   {user.role.toUpperCase()} | {user.email}
                 </Text>
               </View>
-            </View>
+            </LinearGradient>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Account Access</Text>
@@ -125,6 +159,7 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -139,6 +174,9 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     padding: 18,
+  },
+  contentMotion: {
+    width: "100%",
     gap: 14,
   },
   contentWide: {
@@ -151,7 +189,8 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 18,
     borderRadius: radii.sm,
-    backgroundColor: colors.maroon,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   avatar: {
     width: 64,

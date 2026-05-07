@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { getLiveAssistantAnswer } from "../../data/appStore";
+import { colors, radii, shadow } from "../../theme";
 import { buildSystemPrompt } from "./msuKnowledge";
 
 type AIScreenProps = {
@@ -45,6 +48,7 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export default function AI({ onBack }: AIScreenProps) {
   const router = useRouter();
+  const entry = React.useRef(new Animated.Value(0)).current;
 
   const handleBack = () => {
     if (onBack) {
@@ -62,6 +66,15 @@ export default function AI({ onBack }: AIScreenProps) {
   const scrollRef = React.useRef<ScrollView>(null);
 
   const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? "";
+
+  React.useEffect(() => {
+    Animated.timing(entry, {
+      toValue: 1,
+      duration: 460,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [entry]);
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
@@ -193,29 +206,44 @@ export default function AI({ onBack }: AIScreenProps) {
           contentContainerStyle={styles.chatContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroCard}>
-            <Text style={styles.heroTitle}>Ask about MSU Main Campus</Text>
-            <Text style={styles.heroText}>
-              Handbook topics, registrar concerns, admissions, student affairs,
-              schedules, programs, and app navigation support are built in.
-            </Text>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.suggestionRow}
+          <Animated.View
+            style={{
+              opacity: entry,
+              transform: [
+                {
+                  translateY: entry.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [18, 0],
+                  }),
+                },
+              ],
+            }}
           >
-            {SUGGESTIONS.map((suggestion) => (
-              <Pressable
-                key={suggestion}
-                style={styles.suggestionChip}
-                onPress={() => sendMessage(suggestion)}
-              >
-                <Text style={styles.suggestionText}>{suggestion}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroTitle}>Ask about MSU Main Campus</Text>
+              <Text style={styles.heroText}>
+                Handbook topics, registrar concerns, admissions, student
+                affairs, schedules, programs, and app navigation support are
+                built in.
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.suggestionRow}
+            >
+              {SUGGESTIONS.map((suggestion) => (
+                <Pressable
+                  key={suggestion}
+                  style={styles.suggestionChip}
+                  onPress={() => sendMessage(suggestion)}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
 
           {messages.map((message) => {
             const isUser = message.role === "user";
@@ -251,7 +279,7 @@ export default function AI({ onBack }: AIScreenProps) {
             <View style={[styles.messageRow, styles.messageRowAssistant]}>
               <View style={[styles.messageBubble, styles.assistantBubble]}>
                 <View style={styles.typingRow}>
-                  <ActivityIndicator size="small" color="#7F0A0A" />
+                  <ActivityIndicator size="small" color={colors.maroon} />
                   <Text style={styles.typingText}>Groq is thinking...</Text>
                 </View>
               </View>
@@ -293,11 +321,11 @@ export default function AI({ onBack }: AIScreenProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F3F1EE",
+    backgroundColor: colors.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: "#F3F1EE",
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: "row",
@@ -306,8 +334,8 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5DCD7",
-    backgroundColor: "#FAF8F6",
+    borderBottomColor: colors.line,
+    backgroundColor: colors.surface,
   },
   backButton: {
     width: 40,
@@ -315,7 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#7F0A0A",
+    backgroundColor: colors.maroon,
   },
   headerTextWrap: {
     flex: 1,
@@ -324,33 +352,34 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#2F1F1F",
+    color: colors.ink,
   },
   headerSubtitle: {
     marginTop: 2,
     fontSize: 12,
-    color: "#8B7E7E",
+    color: colors.muted,
   },
   headerBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#E9DBD0",
+    backgroundColor: colors.maroonSoft,
   },
   headerBadgeText: {
-    color: "#7F0A0A",
+    color: colors.maroon,
     fontSize: 12,
     fontWeight: "700",
   },
   chatContent: {
     padding: 16,
-    paddingBottom: 26,
+    paddingBottom: 112,
   },
   heroCard: {
-    borderRadius: 22,
+    borderRadius: radii.sm,
     padding: 18,
-    backgroundColor: "#7F0A0A",
+    backgroundColor: colors.maroon,
     marginBottom: 14,
+    ...shadow,
   },
   heroTitle: {
     color: "#FFFFFF",
@@ -371,12 +400,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#E6DEDA",
+    borderColor: colors.line,
   },
   suggestionText: {
-    color: "#5F4E4E",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -397,14 +426,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   userBubble: {
-    backgroundColor: "#7F0A0A",
+    backgroundColor: colors.maroon,
     borderBottomRightRadius: 8,
   },
   assistantBubble: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderBottomLeftRadius: 8,
     borderWidth: 1,
-    borderColor: "#E7DFDB",
+    borderColor: colors.line,
   },
   messageText: {
     fontSize: 14,
@@ -414,7 +443,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   assistantText: {
-    color: "#2C2727",
+    color: colors.ink,
   },
   typingRow: {
     flexDirection: "row",
@@ -422,7 +451,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   typingText: {
-    color: "#6C6060",
+    color: colors.muted,
     fontSize: 13,
   },
   errorBanner: {
@@ -431,12 +460,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: "#FEE8E8",
+    backgroundColor: "#FCE8E6",
     borderWidth: 1,
-    borderColor: "#F2B8B8",
+    borderColor: "#F5C2BE",
   },
   errorText: {
-    color: "#8B1E1E",
+    color: colors.danger,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -447,9 +476,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: Platform.OS === "ios" ? 22 : 14,
+    marginBottom: Platform.OS === "ios" ? 92 : 86,
     borderTopWidth: 1,
-    borderTopColor: "#E5DCD7",
-    backgroundColor: "#FAF8F6",
+    borderTopColor: colors.line,
+    backgroundColor: colors.surface,
   },
   input: {
     flex: 1,
@@ -458,10 +488,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#E5DCD7",
-    color: "#2E2222",
+    borderColor: colors.line,
+    color: colors.ink,
     fontSize: 14,
   },
   sendButton: {
@@ -470,7 +500,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#7F0A0A",
+    backgroundColor: colors.maroon,
   },
   sendButtonDisabled: {
     opacity: 0.45,

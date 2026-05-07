@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS campus_locations (
   name TEXT NOT NULL,
   category TEXT NOT NULL,
   description TEXT NOT NULL,
+  map_x REAL NOT NULL DEFAULT 50,
+  map_y REAL NOT NULL DEFAULT 50,
+  latitude REAL,
+  longitude REAL,
   nearby_json TEXT NOT NULL DEFAULT '[]',
   tags_json TEXT NOT NULL DEFAULT '[]',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

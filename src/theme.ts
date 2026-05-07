@@ -1,16 +1,21 @@
-import type { DimensionValue } from "react-native";
+import { Platform, type DimensionValue } from "react-native";
 
 export const colors = {
-  maroon: "#800505",
-  maroonDark: "#4A0E0E",
-  maroonSoft: "#F3E7E7",
-  gold: "#D4AF37",
-  goldDark: "#9B761A",
-  ink: "#2D2424",
-  muted: "#6F6262",
-  line: "#E8DEDA",
+  maroon: "#7A0B14",
+  maroonDark: "#3A080D",
+  maroonSoft: "#F6E8E9",
+  gold: "#D8B446",
+  goldDark: "#896511",
+  ink: "#251D1F",
+  muted: "#76696B",
+  line: "#E9DFDA",
   surface: "#FFFFFF",
-  canvas: "#F8F6F2",
+  surfaceMuted: "#FBF8F3",
+  canvas: "#F7F3EE",
+  teal: "#0F766E",
+  tealSoft: "#E8F5F2",
+  blue: "#2F5F8F",
+  blueSoft: "#EAF1F8",
   warning: "#B54708",
   success: "#247A4D",
   danger: "#B42318",
@@ -27,17 +32,23 @@ export const spacing = {
 
 export const radii = {
   sm: 8,
-  md: 10,
+  md: 8,
+  lg: 12,
   pill: 999,
 };
 
-export const shadow = {
-  shadowColor: "#2B0808",
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.08,
-  shadowRadius: 18,
-  elevation: 4,
-};
+export const shadow =
+  Platform.OS === "web"
+    ? {
+        boxShadow: "0px 10px 24px rgba(31, 17, 17, 0.08)",
+      }
+    : {
+        shadowColor: "#1F1111",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.07,
+        shadowRadius: 20,
+        elevation: 3,
+      };
 
 export const maxContentWidth = 1120;
 
