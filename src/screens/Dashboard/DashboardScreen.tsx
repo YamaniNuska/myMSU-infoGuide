@@ -4,9 +4,11 @@ import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as React from "react";
 import {
   Animated,
+  Easing,
   LayoutAnimation,
   Platform,
   ScrollView,
@@ -172,13 +174,26 @@ const AnimatedGridCard = ({
   item,
   width,
   onPress,
+  index,
 }: {
   item: GridItem;
   width: DimensionValue;
   onPress: () => void;
+  index: number;
 }) => {
   const scale = React.useRef(new Animated.Value(1)).current;
+  const appear = React.useRef(new Animated.Value(0)).current;
   const IconComp = item.IconComponent;
+
+  React.useEffect(() => {
+    Animated.timing(appear, {
+      toValue: 1,
+      duration: 420,
+      delay: 110 + index * 38,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [appear, index]);
 
   const handlePressIn = () => {
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true }).start();
@@ -200,7 +215,23 @@ const AnimatedGridCard = ({
       onPress={onPress}
       style={[styles.cardWrapper, { width }]}
     >
-      <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: appear,
+            transform: [
+              {
+                translateY: appear.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [16, 0],
+                }),
+              },
+              { scale },
+            ],
+          },
+        ]}
+      >
         <View style={styles.iconCircle}>
           <IconComp name={item.icon} size={22} color={colors.surface} />
         </View>
@@ -222,6 +253,7 @@ type DashboardScreenProps = {
 
 export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
   const handbookScale = React.useRef(new Animated.Value(1)).current;
+  const entry = React.useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
   const columns = getColumnCount(width);
   const isWide = width >= 760;
@@ -230,6 +262,15 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const searchResults = searchLiveKnowledgeBase(searchQuery, 6);
+
+  React.useEffect(() => {
+    Animated.timing(entry, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [entry]);
 
   const essentialInfo = React.useMemo<EssentialInfo[]>(
     () => [
@@ -294,8 +335,29 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
+      <Animated.View
+        style={[
+          styles.headerMotion,
+          {
+            opacity: entry,
+            transform: [
+              {
+                translateY: entry.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-18, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={[colors.maroonDark, colors.maroon]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
           <View style={styles.headerTop}>
             <View style={styles.headerCopy}>
               <Text style={styles.appName}>myMSU-InfoGuide</Text>
@@ -335,17 +397,34 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
               </TouchableOpacity>
             ) : null}
           </View>
-        </View>
-      </View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       <ScrollView
         contentContainerStyle={[
           styles.content,
           isWide && styles.contentWide,
-          { paddingBottom: 28 },
+          { paddingBottom: 112 },
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View
+          style={[
+            styles.contentMotion,
+            {
+              opacity: entry,
+              transform: [
+                {
+                  translateY: entry.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [18, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
         {searchQuery.trim() ? (
           <View style={styles.searchResults}>
             <Text style={styles.sectionTitle}>Search Results</Text>
@@ -410,11 +489,12 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
         </View>
 
         <View style={styles.grid}>
-          {visibleGridItems.map((item) => (
+          {visibleGridItems.map((item, index) => (
             <AnimatedGridCard
               key={item.key}
               item={item}
               width={getCardWidth(columns)}
+              index={index}
               onPress={() => handleGridPress(item.key)}
             />
           ))}
@@ -489,6 +569,7 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
             );
           })}
         </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -499,8 +580,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
   },
+  headerMotion: {
+    zIndex: 2,
+  },
   header: {
-    backgroundColor: colors.maroon,
     paddingHorizontal: 18,
     paddingTop: 54,
     paddingBottom: 22,
@@ -530,6 +613,7 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontWeight: "800",
     textTransform: "uppercase",
+    letterSpacing: 0,
   },
   greeting: {
     marginTop: 4,
@@ -570,6 +654,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.sm,
     paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
   },
   searchInput: {
     flex: 1,
@@ -582,6 +668,9 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     padding: 18,
+  },
+  contentMotion: {
+    width: "100%",
     gap: 16,
   },
   contentWide: {
@@ -665,16 +754,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 14,
     borderRadius: radii.sm,
-    backgroundColor: colors.maroon,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   statValue: {
-    color: colors.gold,
+    color: colors.maroon,
     fontSize: 20,
     fontWeight: "900",
   },
   statLabel: {
     marginTop: 3,
-    color: "rgba(255,255,255,0.84)",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -728,6 +819,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: radii.sm,
     backgroundColor: colors.maroon,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   alertTextWrap: {
     flex: 1,
@@ -769,6 +862,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadow,
   },
   listCardHeader: {
     flexDirection: "row",

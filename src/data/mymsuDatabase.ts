@@ -36,6 +36,10 @@ export type CampusLocation = {
   name: string;
   category: string;
   description: string;
+  mapX: number;
+  mapY: number;
+  latitude?: number;
+  longitude?: number;
   nearby: string[];
   tags: string[];
 };
@@ -309,11 +313,189 @@ export const offices: OfficeRecord[] = [
 
 export const campusLocations: CampusLocation[] = [
   {
+    id: "college-agriculture",
+    name: "College of Agriculture",
+    category: "College",
+    description:
+      "Academic area for agriculture programs, farm-based learning, research, and extension activities.",
+    mapX: 18,
+    mapY: 36,
+    nearby: ["Agriculture buildings", "Plant Science", "Animal Science"],
+    tags: ["coa", "agriculture", "college"],
+  },
+  {
+    id: "college-business",
+    name: "College of Business Administration and Accountancy",
+    category: "College",
+    description:
+      "Home of business, management, entrepreneurship, and accountancy programs.",
+    mapX: 42,
+    mapY: 28,
+    nearby: ["Academic core", "1st Street"],
+    tags: ["cbaa", "business", "accountancy", "college"],
+  },
+  {
+    id: "college-education",
+    name: "College of Education",
+    category: "College",
+    description:
+      "Teacher education college connected with basic education, laboratory school, and professional preparation.",
+    mapX: 55,
+    mapY: 38,
+    nearby: ["Integrated Laboratory School", "Academic core"],
+    tags: ["ced", "education", "teacher education", "college"],
+  },
+  {
+    id: "college-engineering",
+    name: "College of Engineering",
+    category: "College",
+    description:
+      "Engineering academic cluster for technical programs, laboratories, and department offices.",
+    mapX: 68,
+    mapY: 45,
+    nearby: ["Engineering laboratories", "Technical classrooms"],
+    tags: ["coe", "engineering", "college"],
+  },
+  {
+    id: "college-fisheries",
+    name: "College of Fisheries and Aquatic Sciences",
+    category: "College",
+    description:
+      "Academic unit focused on fisheries, aquatic sciences, and Lake Lanao-related research and extension.",
+    mapX: 24,
+    mapY: 66,
+    nearby: ["Lake-facing campus edge", "Research areas"],
+    tags: ["cfas", "fisheries", "aquatic sciences", "college"],
+  },
+  {
+    id: "college-forestry",
+    name: "College of Forestry and Environmental Studies",
+    category: "College",
+    description:
+      "Forestry and environmental studies area for natural resource, environmental, and graduate programs.",
+    mapX: 16,
+    mapY: 52,
+    nearby: ["Green campus edge", "Field study areas"],
+    tags: ["cfes", "forestry", "environment", "college"],
+  },
+  {
+    id: "college-hospitality-tourism",
+    name: "College of Hospitality and Tourism Management",
+    category: "College",
+    description:
+      "College for hospitality and tourism programs and the MSU Pavilion venue area.",
+    mapX: 50,
+    mapY: 18,
+    nearby: ["MSU Pavilion", "1st Street"],
+    tags: ["chtm", "hospitality", "tourism", "pavilion", "college"],
+  },
+  {
+    id: "college-cics",
+    name: "College of Information and Computing Sciences",
+    category: "College",
+    description:
+      "Academic college for computing and information technology programs.",
+    mapX: 70,
+    mapY: 30,
+    nearby: ["Computer laboratories", "Faculty offices"],
+    tags: ["cics", "computing", "information technology", "college"],
+  },
+  {
+    id: "college-law",
+    name: "College of Law",
+    category: "College",
+    description:
+      "Academic unit for legal education, law programs, and legal aid-related learning.",
+    mapX: 62,
+    mapY: 62,
+    nearby: ["Academic core", "Administration access"],
+    tags: ["law", "college of law", "college"],
+  },
+  {
+    id: "college-medicine",
+    name: "College of Medicine",
+    category: "College",
+    description:
+      "Medical education unit with main-campus academic presence and related health sciences activities.",
+    mapX: 83,
+    mapY: 58,
+    nearby: ["Health services", "Academic buildings"],
+    tags: ["medicine", "college of medicine", "health", "college"],
+  },
+  {
+    id: "college-cnsm",
+    name: "College of Natural Sciences and Mathematics",
+    category: "College",
+    description:
+      "Science and mathematics academic cluster for instruction, research, and laboratory learning.",
+    mapX: 78,
+    mapY: 38,
+    nearby: ["Science laboratories", "Academic core"],
+    tags: ["cnsm", "science", "mathematics", "college"],
+  },
+  {
+    id: "college-public-affairs",
+    name: "College of Public Affairs",
+    category: "College",
+    description:
+      "Academic unit for public affairs, governance, community development, and social welfare-oriented programs.",
+    mapX: 37,
+    mapY: 48,
+    nearby: ["Academic core", "Student service routes"],
+    tags: ["cpa", "public affairs", "governance", "college"],
+  },
+  {
+    id: "college-social-sciences-humanities",
+    name: "College of Social Sciences and Humanities",
+    category: "College",
+    description:
+      "Academic college for humanities, communication, history, sociology, anthropology, and related programs.",
+    mapX: 45,
+    mapY: 62,
+    nearby: ["Academic core", "Humanities classrooms"],
+    tags: ["cssh", "social sciences", "humanities", "college"],
+  },
+  {
+    id: "college-spear",
+    name: "College of Sports, Physical Education and Recreation",
+    category: "College",
+    description:
+      "Sports, physical education, recreation, fitness, coaching, and dance academic area.",
+    mapX: 73,
+    mapY: 72,
+    nearby: ["Dimaporo Gymnasium", "Sports grounds"],
+    tags: ["cspear", "sports", "physical education", "recreation", "college"],
+  },
+  {
+    id: "college-king-faisal",
+    name: "King Faisal Center for Islamic, Arabic and Asian Studies",
+    category: "College",
+    description:
+      "Academic center for Islamic, Arabic, and Asian studies and related departments.",
+    mapX: 34,
+    mapY: 76,
+    nearby: ["KFCIAAS academic building", "Cultural studies area"],
+    tags: ["kfciaas", "islamic studies", "arabic", "asian studies", "college"],
+  },
+  {
+    id: "main-gate",
+    name: "MSU Main Gate",
+    category: "Landmark",
+    description:
+      "Primary visual campus entry point and common arrival reference for visitors.",
+    mapX: 50,
+    mapY: 7,
+    nearby: ["1st Street", "Visitor entry"],
+    tags: ["gate", "entrance", "landmark"],
+  },
+  {
     id: "alonto-hall",
     name: "Ahmad Domocao Alonto Sr. Hall",
     category: "Administration",
     description:
       "Administrative building associated with registrar and student transaction offices.",
+    mapX: 48,
+    mapY: 41,
     nearby: ["Registrar", "1st Street", "Main administration area"],
     tags: ["registrar", "admin", "records"],
   },
@@ -323,17 +505,43 @@ export const campusLocations: CampusLocation[] = [
     category: "Student Services",
     description:
       "Student affairs area where learners can ask about handbook, good moral, organizations, and student concerns.",
+    mapX: 39,
+    mapY: 38,
     nearby: ["Division of Student Affairs", "1st Street"],
     tags: ["dsa", "student affairs", "good moral"],
   },
   {
-    id: "cics",
-    name: "College of Information and Computing Sciences",
-    category: "College",
+    id: "university-library",
+    name: "University Library",
+    category: "Student Services",
     description:
-      "Academic college for computing and information technology programs.",
-    nearby: ["Classrooms", "Faculty offices", "Student laboratories"],
-    tags: ["cics", "computing", "information technology"],
+      "Central academic resource area for library services, research support, and reading spaces.",
+    mapX: 57,
+    mapY: 54,
+    nearby: ["Academic core", "College libraries"],
+    tags: ["library", "research", "student services"],
+  },
+  {
+    id: "dimaporo-gym",
+    name: "Dimaporo Gymnasium",
+    category: "Landmark",
+    description:
+      "Major event, sports, and commencement venue inside MSU Main Campus.",
+    mapX: 76,
+    mapY: 82,
+    nearby: ["CSPEAR", "Sports grounds"],
+    tags: ["gym", "sports", "events", "commencement"],
+  },
+  {
+    id: "msu-pavilion",
+    name: "MSU Pavilion",
+    category: "Landmark",
+    description:
+      "Campus venue associated with meetings, hospitality, and tourism management activities.",
+    mapX: 56,
+    mapY: 15,
+    nearby: ["CHTM", "1st Street"],
+    tags: ["pavilion", "events", "chtm"],
   },
   {
     id: "clinic",
@@ -341,8 +549,21 @@ export const campusLocations: CampusLocation[] = [
     category: "Health",
     description:
       "Campus health facility for basic consultation and health-related support.",
-    nearby: ["Student service areas"],
+    mapX: 66,
+    mapY: 56,
+    nearby: ["Student service areas", "Academic core"],
     tags: ["clinic", "health", "medical"],
+  },
+  {
+    id: "ict-office",
+    name: "ICT Office",
+    category: "Student Services",
+    description:
+      "Technical support area for portal, connectivity, and campus technology assistance.",
+    mapX: 64,
+    mapY: 24,
+    nearby: ["CICS", "Academic core"],
+    tags: ["ict", "portal", "wifi", "technology"],
   },
 ];
 
@@ -672,6 +893,26 @@ export function searchKnowledgeBase(rawQuery: string, limit = 8) {
         title: program.program,
         subtitle: program.college,
         body: program.overview,
+      });
+    }
+  });
+
+  campusLocations.forEach((location) => {
+    if (
+      includesQuery(query, [
+        location.name,
+        location.category,
+        location.description,
+        ...location.nearby,
+        ...location.tags,
+      ])
+    ) {
+      results.push({
+        id: location.id,
+        type: "Campus Map",
+        title: location.name,
+        subtitle: location.category,
+        body: `${location.description} Nearby: ${location.nearby.join(", ")}.`,
       });
     }
   });

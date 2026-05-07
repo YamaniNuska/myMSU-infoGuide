@@ -23,6 +23,7 @@ import {
 import {
   AcademicEvent,
   AnnouncementRecord,
+  CampusLocation,
   ClassScheduleRecord,
   CourseProgram,
   HandbookEntry,
@@ -35,6 +36,7 @@ type AdminTab =
   | "handbook"
   | "calendar"
   | "offices"
+  | "locations"
   | "schedules"
   | "courses"
   | "prospectus"
@@ -59,6 +61,7 @@ const tabs: { key: AdminTab; label: string }[] = [
   { key: "handbook", label: "Handbook" },
   { key: "calendar", label: "Calendar" },
   { key: "offices", label: "Offices" },
+  { key: "locations", label: "Map" },
   { key: "schedules", label: "Schedules" },
   { key: "courses", label: "Courses" },
   { key: "prospectus", label: "Prospectus" },
@@ -88,6 +91,17 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "location", label: "Location" },
     { key: "contact", label: "Contact" },
     { key: "hours", label: "Office hours" },
+    { key: "tags", label: "Tags, comma separated" },
+  ],
+  locations: [
+    { key: "name", label: "Location name" },
+    { key: "category", label: "Category" },
+    { key: "description", label: "Details", multiline: true },
+    { key: "mapX", label: "Map X percent: 0-100" },
+    { key: "mapY", label: "Map Y percent: 0-100" },
+    { key: "latitude", label: "Latitude, optional" },
+    { key: "longitude", label: "Longitude, optional" },
+    { key: "nearby", label: "Nearby places, comma separated" },
     { key: "tags", label: "Tags, comma separated" },
   ],
   schedules: [
@@ -151,6 +165,17 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
     hours: "Monday to Friday, 8:00 AM to 5:00 PM",
     tags: "",
   },
+  locations: {
+    name: "",
+    category: "College",
+    description: "",
+    mapX: "50",
+    mapY: "50",
+    latitude: "",
+    longitude: "",
+    nearby: "",
+    tags: "",
+  },
   schedules: {
     courseCode: "",
     courseTitle: "",
@@ -199,6 +224,22 @@ const joinList = (value: unknown) =>
 
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+
+const toOptionalNumber = (value: string) => {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const toMapPercent = (value: string, fallback: number) => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(parsed, 0), 100);
+};
 
 function recordToForm(tab: AdminTab, item: Record<string, unknown>) {
   const form = { ...defaultForm[tab] };
@@ -267,42 +308,51 @@ export default function AdminPanelScreen() {
             ? data.offices.map((item) =>
                 mapItem(item, item.name, item.category, item.summary),
               )
-            : activeTab === "schedules"
-              ? data.classSchedules.map((item) =>
+            : activeTab === "locations"
+              ? data.campusLocations.map((item) =>
                   mapItem(
                     item,
-                    `${item.courseCode} - ${item.courseTitle}`,
-                    `${item.day}, ${item.time}`,
-                    `${item.room}. ${item.reminder}`,
+                    item.name,
+                    item.category,
+                    `${item.description} (${item.mapX}, ${item.mapY})`,
                   ),
                 )
-              : activeTab === "courses"
-                ? data.coursePrograms.map((item) =>
-                    mapItem(item, item.program, item.college, item.overview),
+              : activeTab === "schedules"
+                ? data.classSchedules.map((item) =>
+                    mapItem(
+                      item,
+                      `${item.courseCode} - ${item.courseTitle}`,
+                      `${item.day}, ${item.time}`,
+                      `${item.room}. ${item.reminder}`,
+                    ),
                   )
-                : activeTab === "prospectus"
-                  ? data.prospectusRecords.map((item) =>
-                      mapItem(
-                        item,
-                        `${item.program} - ${item.yearLevel}`,
-                        item.semester,
-                        item.subjects.join(", "),
-                      ),
+                : activeTab === "courses"
+                  ? data.coursePrograms.map((item) =>
+                      mapItem(item, item.program, item.college, item.overview),
                     )
-                  : activeTab === "students"
-                    ? data.users
-                        .filter((item) => item.role === "student")
-                        .map((item) =>
-                          mapItem(
-                            item,
-                            item.name,
-                            item.username,
-                            `${item.email} | ${item.role}`,
-                          ),
-                        )
-                    : data.announcements.map((item) =>
-                        mapItem(item, item.title, item.dateLabel, item.body),
-                      );
+                  : activeTab === "prospectus"
+                    ? data.prospectusRecords.map((item) =>
+                        mapItem(
+                          item,
+                          `${item.program} - ${item.yearLevel}`,
+                          item.semester,
+                          item.subjects.join(", "),
+                        ),
+                      )
+                    : activeTab === "students"
+                      ? data.users
+                          .filter((item) => item.role === "student")
+                          .map((item) =>
+                            mapItem(
+                              item,
+                              item.name,
+                              item.username,
+                              `${item.email} | ${item.role}`,
+                            ),
+                          )
+                      : data.announcements.map((item) =>
+                          mapItem(item, item.title, item.dateLabel, item.body),
+                        );
 
     const cleanQuery = query.trim().toLowerCase();
 
@@ -343,13 +393,15 @@ export default function AdminPanelScreen() {
           ? "academicEvents"
           : activeTab === "offices"
             ? "offices"
-            : activeTab === "schedules"
-              ? "classSchedules"
-              : activeTab === "courses"
-                ? "coursePrograms"
-                : activeTab === "prospectus"
-                  ? "prospectusRecords"
-                  : "announcements";
+            : activeTab === "locations"
+              ? "campusLocations"
+              : activeTab === "schedules"
+                ? "classSchedules"
+                : activeTab === "courses"
+                  ? "coursePrograms"
+                  : activeTab === "prospectus"
+                    ? "prospectusRecords"
+                    : "announcements";
 
     deleteRecord(key, item.id);
     setMessage("Record deleted.");
@@ -412,6 +464,21 @@ export default function AdminPanelScreen() {
         hours: form.hours,
         tags: splitList(form.tags),
       } satisfies OfficeRecord);
+    }
+
+    if (activeTab === "locations") {
+      upsertRecord("campusLocations", {
+        id,
+        name: form.name,
+        category: form.category,
+        description: form.description,
+        mapX: toMapPercent(form.mapX, 50),
+        mapY: toMapPercent(form.mapY, 50),
+        latitude: toOptionalNumber(form.latitude),
+        longitude: toOptionalNumber(form.longitude),
+        nearby: splitList(form.nearby),
+        tags: splitList(form.tags),
+      } satisfies CampusLocation);
     }
 
     if (activeTab === "schedules") {

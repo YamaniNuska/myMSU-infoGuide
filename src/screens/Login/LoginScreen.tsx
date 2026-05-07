@@ -2,6 +2,9 @@ import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
+  Animated,
+  Easing,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -34,6 +37,17 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"error" | "success">("error");
+  const entry = React.useRef(new Animated.Value(0)).current;
+  const ctaPress = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(entry, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [entry]);
 
   const resetMessage = () => setMessage("");
 
@@ -91,9 +105,23 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
     setMessage("");
   };
 
+  const animateCta = (toValue: number) => {
+    Animated.spring(ctaPress, {
+      toValue,
+      friction: 7,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const ctaScale = ctaPress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.98],
+  });
+
   return (
     <LinearGradient
-      colors={["#6e0505", "#5a0b0b", "#2d0000"]}
+      colors={[colors.maroonDark, "#5F0A12", "#180506"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.screen}
@@ -104,7 +132,28 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <View style={styles.card}>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: entry,
+                transform: [
+                  {
+                    translateY: entry.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [24, 0],
+                    }),
+                  },
+                  {
+                    scale: entry.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <View style={styles.brandRow}>
               <View style={styles.brandMark}>
                 <View style={styles.brandSquare} />
@@ -278,22 +327,31 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                 </Text>
               ) : null}
 
-              <LinearGradient
-                colors={["#220608", "#110203"]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.button}
-              >
-                <TouchableOpacity
-                  style={styles.buttonInner}
-                  activeOpacity={0.85}
-                  onPress={handleSubmit}
+              <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
+                <LinearGradient
+                  colors={[colors.maroon, colors.maroonDark]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.button}
                 >
-                  <Text style={styles.buttonText}>
-                    {isSignUp ? "Sign up" : "Sign in"}
-                  </Text>
-                </TouchableOpacity>
-              </LinearGradient>
+                  <TouchableOpacity
+                    style={styles.buttonInner}
+                    activeOpacity={0.88}
+                    onPress={handleSubmit}
+                    onPressIn={() => animateCta(1)}
+                    onPressOut={() => animateCta(0)}
+                  >
+                    <Text style={styles.buttonText}>
+                      {isSignUp ? "Sign up" : "Sign in"}
+                    </Text>
+                    <FontAwesome5
+                      name="arrow-right"
+                      size={12}
+                      color={colors.surface}
+                    />
+                  </TouchableOpacity>
+                </LinearGradient>
+              </Animated.View>
             </View>
 
             <View style={styles.footer}>
@@ -308,7 +366,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -332,19 +390,23 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: Math.min(440, maxContentWidth),
-    minHeight: 600,
+    minHeight: 590,
     borderRadius: radii.sm,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 214, 220, 0.12)",
-    shadowColor: "#140405",
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 20 },
-    elevation: 18,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 18px 36px rgba(20, 4, 5, 0.24)" }
+      : {
+          shadowColor: "#140405",
+          shadowOpacity: 0.26,
+          shadowRadius: 26,
+          shadowOffset: { width: 0, height: 18 },
+          elevation: 12,
+        }),
   },
   brandRow: {
     flexDirection: "row",
@@ -375,7 +437,7 @@ const styles = StyleSheet.create({
   brandText: {
     color: colors.maroonDark,
     fontSize: 10,
-    letterSpacing: 1.4,
+    letterSpacing: 0,
     fontWeight: "800",
   },
   tagline: {
@@ -397,7 +459,7 @@ const styles = StyleSheet.create({
   demoPanel: {
     padding: 12,
     borderRadius: radii.sm,
-    backgroundColor: colors.maroonSoft,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.line,
     marginBottom: 18,
@@ -441,11 +503,13 @@ const styles = StyleSheet.create({
   inputShell: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f3f3f3",
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radii.sm,
     minHeight: 44,
     marginBottom: 12,
     paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   inputIcon: {
     marginRight: 10,
@@ -503,21 +567,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5EE",
   },
   button: {
-    alignSelf: "flex-end",
     borderRadius: radii.sm,
     marginTop: 18,
-    shadowColor: colors.maroonDark,
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 6px 16px rgba(58, 8, 13, 0.2)" }
+      : {
+          shadowColor: colors.maroonDark,
+          shadowOpacity: 0.22,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 6,
+        }),
   },
   buttonInner: {
-    minWidth: 106,
+    minWidth: "100%",
+    flexDirection: "row",
+    gap: 9,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
-    paddingVertical: 11,
+    paddingVertical: 13,
   },
   buttonText: {
     color: colors.surface,
