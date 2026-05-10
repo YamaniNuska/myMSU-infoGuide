@@ -1,9 +1,25 @@
 import Entypo from "@expo/vector-icons/Entypo";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { EventEmitter as LocationEventEmitter } from "expo-location";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { colors } from "../src/theme";
+
+if (Platform.OS === "web" && LocationEventEmitter) {
+  const emitter = LocationEventEmitter as unknown as Record<string, unknown>;
+  if (typeof emitter.removeSubscription !== "function" && typeof emitter.remove === "function") {
+    // Expo Location web uses the new EventEmitter implementation, but
+    // the package still expects a removeSubscription API when removing listeners.
+    Object.defineProperty(emitter, "removeSubscription", {
+      value: (subscription: { remove?: () => void }) => {
+        subscription?.remove?.();
+      },
+      writable: false,
+      configurable: true,
+    });
+  }
+}
 
 export default function RootLayout() {
   return (

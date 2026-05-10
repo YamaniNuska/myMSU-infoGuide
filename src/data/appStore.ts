@@ -186,6 +186,7 @@ export function searchLiveKnowledgeBase(rawQuery: string, limit = 8) {
         location.name,
         location.category,
         location.description,
+        location.street ?? "",
         ...location.nearby,
         ...location.tags,
       ])
@@ -195,7 +196,9 @@ export function searchLiveKnowledgeBase(rawQuery: string, limit = 8) {
         type: "Campus Map",
         title: location.name,
         subtitle: location.category,
-        body: `${location.description} Nearby: ${location.nearby.join(", ")}.`,
+        body: `${location.description} Street: ${
+          location.street ?? "Campus route"
+        }. Nearby: ${location.nearby.join(", ")}.`,
       });
     }
   });

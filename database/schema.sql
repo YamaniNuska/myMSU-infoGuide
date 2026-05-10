@@ -41,8 +41,10 @@ CREATE TABLE IF NOT EXISTS campus_locations (
   map_y REAL NOT NULL DEFAULT 50,
   latitude REAL,
   longitude REAL,
+  street TEXT,
   nearby_json TEXT NOT NULL DEFAULT '[]',
   tags_json TEXT NOT NULL DEFAULT '[]',
+  image TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
