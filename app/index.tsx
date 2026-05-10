@@ -1,4 +1,4 @@
-import { useNavigation, useRouter } from "expo-router";
+import { useNavigation, useRouter, type Href } from "expo-router";
 import { useLayoutEffect, useState } from "react";
 import { Platform } from "react-native";
 import { useAuthSession } from "../src/auth/localAuth";
@@ -8,7 +8,7 @@ import LoginScreen from "../src/screens/Login/LoginScreen";
 import WelcomeScreen from "../src/screens/Welcome/WelcomeScreen";
 import { colors } from "../src/theme";
 
-const ROUTES: Record<string, string> = {
+const ROUTES: Record<string, Href> = {
   campusMap: "/screens/CampusMap",
   adminInfo: "/screens/AdminInfo",
   ai: "/AI-Chatbot",
@@ -67,7 +67,7 @@ export default function Index() {
   const handleNavigate = (destination: string) => {
     const route = ROUTES[destination];
     if (route) {
-      router.push(route as any);
+      router.push(route);
     }
   };
 

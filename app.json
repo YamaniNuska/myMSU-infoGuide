@@ -1,16 +1,18 @@
 {
   "expo": {
-    "name": "capstoneMyMSU-infoGuide",
-    "slug": "capstoneMyMSU-infoGuide",
+    "name": "myMSU InfoGuide",
+    "slug": "mymsu-infoguide",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "capstonemymsuinfoguide",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mymsu.infoguide"
     },
     "android": {
+      "package": "com.mymsu.infoguide",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,9 +45,7 @@
           }
         }
       ],
-      "expo-font",
-      "expo-image",
-      "expo-web-browser"
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -122,7 +122,7 @@ export default function ProfileScreen() {
                 {user.role === "admin" ? (
                   <Pressable
                     style={styles.primaryButton}
-                    onPress={() => router.push("/screens/AdminPanel" as any)}
+                    onPress={() => router.push("/screens/AdminPanel")}
                   >
                     <Ionicons
                       name="shield-checkmark-outline"
