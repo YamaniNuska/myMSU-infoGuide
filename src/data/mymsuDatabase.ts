@@ -1,6 +1,6 @@
-export const DATABASE_VERSION = "2026.05.09.3";
+export const DATABASE_VERSION = "2026.05.11.1";
 
-export type UserRole = "student" | "visitor" | "faculty" | "admin";
+export type UserRole = "student" | "visitor" | "faculty" | "employee" | "admin";
 
 export type UserRecord = {
   id: string;
@@ -350,7 +350,8 @@ export const users: UserRecord[] = [
     name: "Campus Visitor",
     role: "visitor",
     username: "visitor",
-    email: "visitor@example.com",
+    email: "visitor@gmail.com",
+    passwordHash: "demo:visitor123",
   },
   {
     id: "user-admin-demo",
@@ -1237,6 +1238,7 @@ export const classSchedules: ClassScheduleRecord[] = [
 
 export const databaseTables = [
   "users",
+  "sessions",
   "handbook_entries",
   "administrative_offices",
   "campus_locations",

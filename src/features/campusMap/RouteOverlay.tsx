@@ -48,7 +48,7 @@ export default function RouteOverlay({
   });
 
   return (
-    <View pointerEvents="none" style={styles.routeLayer}>
+    <View style={styles.routeLayer}>
       {routePixels.slice(1).map((point, index) => {
         const previous = routePixels[index];
         const dx = point.x - previous.x;
@@ -137,6 +137,7 @@ export default function RouteOverlay({
 const styles = StyleSheet.create({
   routeLayer: {
     ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
     zIndex: 7,
   },
   routeSegment: {

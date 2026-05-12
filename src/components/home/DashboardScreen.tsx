@@ -25,7 +25,11 @@ import {
   databaseTables,
   UserRecord,
 } from "../../data/mymsuDatabase";
-import { searchLiveKnowledgeBase, useAppData } from "../../data/appStore";
+import {
+  getVisibleAnnouncements,
+  searchLiveKnowledgeBase,
+  useAppData,
+} from "../../data/appStore";
 import {
   colors,
   getCardWidth,
@@ -262,6 +266,10 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const searchResults = searchLiveKnowledgeBase(searchQuery, 6);
+  const visibleAnnouncements = React.useMemo(
+    () => getVisibleAnnouncements(data.announcements, user?.role),
+    [data.announcements, user?.role],
+  );
 
   React.useEffect(() => {
     Animated.timing(entry, {
@@ -290,7 +298,12 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
   );
 
   const visibleGridItems = React.useMemo(
-    () => (user?.role === "admin" ? [ADMIN_GRID_ITEM, ...GRID_ITEMS] : GRID_ITEMS),
+    () =>
+      user?.role === "admin"
+        ? [ADMIN_GRID_ITEM, ...GRID_ITEMS]
+        : user?.role === "visitor"
+          ? GRID_ITEMS.filter((item) => item.key !== "schedule")
+          : GRID_ITEMS,
     [user?.role],
   );
 
@@ -377,7 +390,9 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
                 size={25}
                 color={colors.surface}
               />
-              <View style={styles.notificationDot} />
+              {visibleAnnouncements.length > 0 ? (
+                <View style={styles.notificationDot} />
+              ) : null}
             </TouchableOpacity>
           </View>
 
@@ -467,26 +482,26 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
           </Animated.View>
         </TouchableOpacity>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{databaseTables.length}</Text>
-            <Text style={styles.statLabel}>Data Tables</Text>
+        {user?.role === "admin" ? (
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{databaseTables.length}</Text>
+              <Text style={styles.statLabel}>Data Tables</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.offices.length}</Text>
+              <Text style={styles.statLabel}>Offices</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{visibleAnnouncements.length}</Text>
+              <Text style={styles.statLabel}>Alerts</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>Admin</Text>
+              <Text style={styles.statLabel}>Access</Text>
+            </View>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{data.offices.length}</Text>
-            <Text style={styles.statLabel}>Offices</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{data.announcements.length}</Text>
-            <Text style={styles.statLabel}>Alerts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {user?.role === "admin" ? "Admin" : "User"}
-            </Text>
-            <Text style={styles.statLabel}>Access</Text>
-          </View>
-        </View>
+        ) : null}
 
         <View style={styles.grid}>
           {visibleGridItems.map((item, index) => (
@@ -503,10 +518,10 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
         <View style={styles.alertStrip}>
           <View style={styles.alertTextWrap}>
             <Text style={styles.alertTitle}>
-              {data.announcements[0]?.title ?? "No announcements yet"}
+              {visibleAnnouncements[0]?.title ?? "No announcements yet"}
             </Text>
             <Text style={styles.alertBody}>
-              {data.announcements[0]?.body ??
+              {visibleAnnouncements[0]?.body ??
                 "Admin can add announcements from the Admin Console."}
             </Text>
           </View>

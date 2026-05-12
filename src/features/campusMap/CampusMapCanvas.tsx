@@ -3,6 +3,7 @@ import React from "react";
 import {
   Animated,
   Image,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -27,6 +28,7 @@ type CampusMapCanvasProps = {
   trackingState: TrackingState;
   mapZoom: number;
   mapRotation: number;
+  resetSignal: number;
   routePoints: MapPoint[];
   routeFlow: Animated.Value;
   userPulse: Animated.Value;
@@ -41,6 +43,7 @@ type CampusMapCanvasProps = {
   onRotateLeft: () => void;
   onRotateRight: () => void;
   onResetMapView: () => void;
+  onZoomChange: (zoom: number) => void;
 };
 
 export default function CampusMapCanvas({
@@ -50,6 +53,7 @@ export default function CampusMapCanvas({
   trackingState,
   mapZoom,
   mapRotation,
+  resetSignal,
   routePoints,
   routeFlow,
   userPulse,
@@ -64,16 +68,134 @@ export default function CampusMapCanvas({
   onRotateLeft,
   onRotateRight,
   onResetMapView,
+  onZoomChange,
 }: CampusMapCanvasProps) {
   const [mapSize, setMapSize] = React.useState({ width: 0, height: 0 });
+  const [panOffset, setPanOffset] = React.useState({ x: 0, y: 0 });
   const [showMapSplash, setShowMapSplash] = React.useState(true);
+  const panOffsetRef = React.useRef({ x: 0, y: 0 });
+  const panStartRef = React.useRef({ x: 0, y: 0 });
+  const pinchStartRef = React.useRef<{
+    distance: number;
+    zoom: number;
+  } | null>(null);
   const trackingActive = trackingState === "active" && !!userMarker;
   const findingUser = trackingState === "loading";
   const activeMapZoom = trackingActive ? Math.max(mapZoom, 1.24) : mapZoom;
   const normalizedRotation = ((mapRotation % 360) + 360) % 360;
 
   // Scale markers inversely with zoom to prevent them from getting too large
-  const markerScaleFactor = Math.max(0.4, 1 / Math.sqrt(activeMapZoom));
+  const markerScaleFactor = isWide
+    ? Math.max(0.48, 1 / Math.sqrt(activeMapZoom))
+    : Math.max(0.72, 1 / Math.sqrt(activeMapZoom));
+
+  const clampPanOffset = React.useCallback(
+    (offset: { x: number; y: number }) => {
+      const maxX = Math.max(
+        0,
+        (mapSize.width * activeMapZoom - mapSize.width) / 2,
+      );
+      const maxY = Math.max(
+        0,
+        (mapSize.height * activeMapZoom - mapSize.height) / 2,
+      );
+
+      return {
+        x: clamp(offset.x, -maxX, maxX),
+        y: clamp(offset.y, -maxY, maxY),
+      };
+    },
+    [activeMapZoom, mapSize.height, mapSize.width],
+  );
+
+  const setClampedPanOffset = React.useCallback(
+    (offset: { x: number; y: number }) => {
+      const nextOffset = clampPanOffset(offset);
+      panOffsetRef.current = nextOffset;
+      setPanOffset(nextOffset);
+    },
+    [clampPanOffset],
+  );
+
+  React.useEffect(() => {
+    setClampedPanOffset(panOffsetRef.current);
+  }, [activeMapZoom, mapSize.height, mapSize.width, setClampedPanOffset]);
+
+  React.useEffect(() => {
+    setClampedPanOffset({ x: 0, y: 0 });
+    pinchStartRef.current = null;
+  }, [resetSignal, setClampedPanOffset]);
+
+  const getTouchDistance = React.useCallback((touches: ArrayLike<any>) => {
+    if (touches.length < 2) {
+      return 0;
+    }
+
+    const first = touches[0];
+    const second = touches[1];
+    const dx = first.pageX - second.pageX;
+    const dy = first.pageY - second.pageY;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: (event) =>
+          (event.nativeEvent.touches ?? []).length >= 2,
+        onMoveShouldSetPanResponder: (event, gesture) =>
+          (event.nativeEvent.touches ?? []).length >= 2 ||
+          Math.abs(gesture.dx) > 4 ||
+          Math.abs(gesture.dy) > 4,
+        onPanResponderGrant: (event) => {
+          panStartRef.current = panOffsetRef.current;
+          const distance = getTouchDistance(event.nativeEvent.touches ?? []);
+
+          pinchStartRef.current =
+            distance > 0 ? { distance, zoom: activeMapZoom } : null;
+        },
+        onPanResponderMove: (event, gesture) => {
+          const touches = event.nativeEvent.touches ?? [];
+
+          if (touches.length >= 2) {
+            const distance = getTouchDistance(touches);
+            const pinchStart = pinchStartRef.current;
+
+            if (distance > 0 && pinchStart) {
+              onZoomChange(
+                clamp(
+                  pinchStart.zoom * (distance / pinchStart.distance),
+                  0.85,
+                  2.4,
+                ),
+              );
+            }
+
+            return;
+          }
+
+          if (activeMapZoom <= 1.01) {
+            return;
+          }
+
+          setClampedPanOffset({
+            x: panStartRef.current.x + gesture.dx,
+            y: panStartRef.current.y + gesture.dy,
+          });
+        },
+        onPanResponderRelease: () => {
+          panStartRef.current = panOffsetRef.current;
+          pinchStartRef.current = null;
+        },
+        onPanResponderTerminate: () => {
+          panStartRef.current = panOffsetRef.current;
+          pinchStartRef.current = null;
+        },
+        onPanResponderTerminationRequest: () => true,
+      }),
+    [activeMapZoom, getTouchDistance, onZoomChange, setClampedPanOffset],
+  );
 
   const routePixels = React.useMemo(
     () =>
@@ -159,16 +281,20 @@ export default function CampusMapCanvas({
   return (
     <View style={styles.mapShell}>
       <View
-        style={[styles.mapBoard, isWide && styles.mapBoardWide]}
+        style={[
+          styles.mapBoard,
+          isWide ? styles.mapBoardWide : styles.mapBoardMobile,
+        ]}
         onLayout={handleMapLayout}
+        {...panResponder.panHandlers}
       >
         <Animated.View
           style={[
             styles.mapFollowLayer,
             {
               transform: [
-                { translateX: followTranslate.x },
-                { translateY: followTranslate.y },
+                { translateX: followTranslate.x + panOffset.x },
+                { translateY: followTranslate.y + panOffset.y },
               ],
             },
           ]}
@@ -193,7 +319,7 @@ export default function CampusMapCanvas({
                 findingUser && styles.mapBackgroundFinding,
               ]}
             />
-            <View pointerEvents="none" style={styles.mapTint} />
+            <View style={styles.mapTint} />
 
             {trackingActive && routePoints.length > 1 ? (
               <RouteOverlay
@@ -253,7 +379,11 @@ export default function CampusMapCanvas({
                         selected && styles.markerIconSelected,
                       ]}
                     >
-                      <Ionicons name={Icon} size={14} color={colors.surface} />
+                      <Ionicons
+                        name={Icon}
+                        size={selected ? 16 : 15}
+                        color={colors.surface}
+                      />
                     </View>
                   </Animated.View>
                   <Animated.Text
@@ -302,7 +432,7 @@ export default function CampusMapCanvas({
           </Animated.View>
         </Animated.View>
 
-        <View pointerEvents="none" style={styles.mapVignette} />
+        <View style={styles.mapVignette} />
         <View style={styles.mapControls}>
           <Pressable style={styles.mapControlButton} onPress={onZoomIn}>
             <Ionicons name="add" size={18} color={colors.maroonDark} />
@@ -357,13 +487,15 @@ const styles = StyleSheet.create({
     position: "relative",
     width: "100%",
     aspectRatio: MAP_ASPECT_RATIO,
-    minHeight: 320,
     overflow: "hidden",
     backgroundColor: "#E8E4DE",
   },
   mapBoardWide: {
     aspectRatio: MAP_ASPECT_RATIO,
-    minHeight: 560,
+  },
+  mapBoardMobile: {
+    aspectRatio: 1.16,
+    minHeight: 300,
   },
   mapFollowLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -381,10 +513,12 @@ const styles = StyleSheet.create({
   },
   mapTint: {
     ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
     backgroundColor: "rgba(255, 252, 244, 0.08)",
   },
   mapVignette: {
     ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
     borderWidth: 1,
     borderColor: "rgba(37, 29, 31, 0.08)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
@@ -447,7 +581,7 @@ const styles = StyleSheet.create({
     marginTop: -28,
   },
   markerSelected: {
-    transform: [{ scale: 1.08 }],
+    zIndex: 18,
   },
   markerMotion: {
     width: 40,
@@ -460,21 +594,23 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    zIndex: 1,
   },
   markerIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: colors.surface,
+    zIndex: 2,
     ...shadow,
   },
   markerIconSelected: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   markerText: {
     maxWidth: 68,

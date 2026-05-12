@@ -1,15 +1,26 @@
 import * as React from "react";
-import { deleteRecord, upsertRecord } from "../data/appStore";
+import {
+  apiCreateUser,
+  apiDeleteUser,
+  apiSignIn,
+  apiSignUp,
+  apiUpdateUser,
+  isBackendConfigured,
+  setApiAuthToken,
+} from "../data/apiClient";
+import { deleteRecord, syncAppData, upsertRecord } from "../data/appStore";
 import { UserRecord, UserRole, users } from "../data/mymsuDatabase";
 
 type AuthAccount = Required<Pick<UserRecord, "passwordHash">> & UserRecord;
+type PublicUserRole = Exclude<UserRole, "admin">;
+type SignupRole = Extract<UserRole, "student" | "faculty" | "employee">;
 
 type SignUpInput = {
   name: string;
   username: string;
   email: string;
   password: string;
-  role: Extract<UserRole, "student" | "admin">;
+  role: SignupRole;
 };
 
 type AuthResult =
@@ -24,15 +35,21 @@ type AuthResult =
 
 const DEMO_PASSWORDS: Record<string, string> = {
   student: "student123",
+  visitor: "visitor123",
   admin: "admin123",
 };
+
+const GMAIL_DOMAIN = "@gmail.com";
+const MSU_ACADEMIC_DOMAINS = ["@s.msumain.edu.ph", "@msumain.edu.ph"];
 
 const hashPassword = (password: string) => `demo:${password}`;
 
 const normalize = (value: string) => value.trim().toLowerCase();
+const isMsuEmail = (email: string) =>
+  MSU_ACADEMIC_DOMAINS.some((domain) => email.endsWith(domain));
 
 const seedAccounts = users
-  .filter((user) => user.role === "student" || user.role === "admin")
+  .filter((user) => !!user.passwordHash)
   .map<AuthAccount>((user) => ({
     ...user,
     passwordHash:
@@ -45,11 +62,71 @@ let currentUser: UserRecord | null = null;
 const listeners = new Set<() => void>();
 
 function toPublicUser(account: AuthAccount): UserRecord {
-  return { ...account };
+  const { passwordHash: _passwordHash, ...publicUser } = account;
+
+  return publicUser;
 }
 
 function emit() {
   listeners.forEach((listener) => listener());
+}
+
+function setSignedInUser(user: UserRecord, token?: string) {
+  currentUser = user;
+  setApiAuthToken(token ?? null);
+
+  if (!isBackendConfigured()) {
+    upsertRecord("users", user);
+  }
+
+  emit();
+}
+
+function resolveSignupRole(
+  email: string,
+  requestedRole: UserRole,
+): { ok: true; role: PublicUserRole } | { ok: false; message: string } {
+  const cleanEmail = normalize(email);
+
+  if (requestedRole === "admin") {
+    return {
+      ok: false,
+      message: "Admin account creation is disabled. Use the fixed admin account.",
+    };
+  }
+
+  if (cleanEmail.endsWith(GMAIL_DOMAIN)) {
+    return {
+      ok: true,
+      role: "visitor",
+    };
+  }
+
+  if (isMsuEmail(cleanEmail)) {
+    return {
+      ok: true,
+      role:
+        requestedRole === "student" ||
+        requestedRole === "faculty" ||
+        requestedRole === "employee"
+          ? requestedRole
+          : "student",
+    };
+  }
+
+  return {
+    ok: false,
+    message:
+      "Use a Gmail address for visitor access or an MSU email address for student, faculty, or employee access.",
+  };
+}
+
+function validatePassword(password: string) {
+  if (password.length < 6) {
+    return "Password must be at least 6 characters.";
+  }
+
+  return null;
 }
 
 export function subscribeAuth(listener: () => void) {
@@ -79,6 +156,12 @@ export function getDemoAccounts() {
       label: "Student Account",
     },
     {
+      role: "visitor" as const,
+      username: "visitor",
+      password: "visitor123",
+      label: "Visitor Account",
+    },
+    {
       role: "admin" as const,
       username: "admin",
       password: "admin123",
@@ -87,7 +170,10 @@ export function getDemoAccounts() {
   ];
 }
 
-export function signIn(identifier: string, password: string): AuthResult {
+export async function signIn(
+  identifier: string,
+  password: string,
+): Promise<AuthResult> {
   const cleanIdentifier = normalize(identifier);
   const cleanPassword = password.trim();
 
@@ -96,6 +182,27 @@ export function signIn(identifier: string, password: string): AuthResult {
       ok: false,
       message: "Enter your username/email and password.",
     };
+  }
+
+  if (isBackendConfigured()) {
+    try {
+      await syncAppData();
+      const result = await apiSignIn(cleanIdentifier, cleanPassword);
+      setSignedInUser(result.user, result.token);
+
+      return {
+        ok: true,
+        user: result.user,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to sign in through the backend.",
+      };
+    }
   }
 
   const account = accounts.find(
@@ -120,7 +227,7 @@ export function signIn(identifier: string, password: string): AuthResult {
   };
 }
 
-export function signUp(input: SignUpInput): AuthResult {
+export async function signUp(input: SignUpInput): Promise<AuthResult> {
   const name = input.name.trim();
   const username = input.username.trim();
   const email = input.email.trim();
@@ -133,11 +240,47 @@ export function signUp(input: SignUpInput): AuthResult {
     };
   }
 
-  if (password.length < 6) {
+  const passwordMessage = validatePassword(password);
+
+  if (passwordMessage) {
     return {
       ok: false,
-      message: "Password must be at least 6 characters.",
+      message: passwordMessage,
     };
+  }
+
+  const resolvedRole = resolveSignupRole(email, input.role);
+
+  if (!resolvedRole.ok) {
+    return resolvedRole;
+  }
+
+  if (isBackendConfigured()) {
+    try {
+      await syncAppData();
+      const result = await apiSignUp({
+        name,
+        username,
+        email,
+        password,
+        role: resolvedRole.role,
+      });
+
+      setSignedInUser(result.user, result.token);
+
+      return {
+        ok: true,
+        user: result.user,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to create the account through the backend.",
+      };
+    }
   }
 
   const duplicate = accounts.some(
@@ -154,9 +297,9 @@ export function signUp(input: SignUpInput): AuthResult {
   }
 
   const account: AuthAccount = {
-    id: `user-${input.role}-${Date.now()}`,
+    id: `user-${resolvedRole.role}-${Date.now()}`,
     name,
-    role: input.role,
+    role: resolvedRole.role,
     username,
     email,
     passwordHash: hashPassword(password),
@@ -175,15 +318,16 @@ export function signUp(input: SignUpInput): AuthResult {
 
 export function signOut() {
   currentUser = null;
+  setApiAuthToken(null);
   emit();
 }
 
-export function createStudentAccount(input: {
+export async function createStudentAccount(input: {
   name: string;
   username: string;
   email: string;
   password: string;
-}): AuthResult {
+}): Promise<AuthResult> {
   const name = input.name.trim();
   const username = input.username.trim();
   const email = input.email.trim();
@@ -193,6 +337,28 @@ export function createStudentAccount(input: {
     return {
       ok: false,
       message: "Complete all student account fields.",
+    };
+  }
+
+  const passwordMessage = validatePassword(password);
+
+  if (passwordMessage) {
+    return {
+      ok: false,
+      message: passwordMessage,
+    };
+  }
+
+  const resolvedRole = resolveSignupRole(email, "student");
+
+  if (!resolvedRole.ok) {
+    return resolvedRole;
+  }
+
+  if (resolvedRole.role !== "student") {
+    return {
+      ok: false,
+      message: "Student accounts must use an MSU email address.",
     };
   }
 
@@ -207,6 +373,32 @@ export function createStudentAccount(input: {
       ok: false,
       message: "Username or email is already registered.",
     };
+  }
+
+  if (isBackendConfigured()) {
+    try {
+      const result = await apiCreateUser({
+        name,
+        username,
+        email,
+        password,
+        role: "student",
+      });
+      upsertRecord("users", result.user);
+
+      return {
+        ok: true,
+        user: result.user,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to create the student account.",
+      };
+    }
   }
 
   const account: AuthAccount = {
@@ -229,7 +421,7 @@ export function createStudentAccount(input: {
   };
 }
 
-export function updateStudentAccount(
+export async function updateStudentAccount(
   id: string,
   patch: {
     name: string;
@@ -237,8 +429,53 @@ export function updateStudentAccount(
     email: string;
     password?: string;
   },
-): AuthResult {
+): Promise<AuthResult> {
   const account = accounts.find((item) => item.id === id);
+  const nextEmail = patch.email.trim();
+  const resolvedRole = resolveSignupRole(nextEmail, "student");
+
+  if (!resolvedRole.ok) {
+    return resolvedRole;
+  }
+
+  if (resolvedRole.role !== "student") {
+    return {
+      ok: false,
+      message: "Student accounts must use an MSU email address.",
+    };
+  }
+
+  if (isBackendConfigured()) {
+    try {
+      const result = await apiUpdateUser(id, {
+        name: patch.name,
+        username: patch.username,
+        email: patch.email,
+        password: patch.password?.trim() || undefined,
+        role: "student",
+      });
+      upsertRecord("users", result.user);
+
+      if (currentUser?.id === id) {
+        currentUser = result.user;
+      }
+
+      emit();
+
+      return {
+        ok: true,
+        user: result.user,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to update the student account.",
+      };
+    }
+  }
 
   if (!account || account.role !== "student") {
     return {
@@ -265,7 +502,7 @@ export function updateStudentAccount(
     ...account,
     name: patch.name.trim(),
     username: patch.username.trim(),
-    email: patch.email.trim(),
+    email: nextEmail,
     passwordHash: patch.password?.trim()
       ? hashPassword(patch.password.trim())
       : account.passwordHash,
@@ -288,7 +525,39 @@ export function updateStudentAccount(
   };
 }
 
-export function deleteStudentAccount(id: string): AuthResult {
+export async function deleteStudentAccount(id: string): Promise<AuthResult> {
+  if (isBackendConfigured()) {
+    try {
+      await apiDeleteUser(id);
+      deleteRecord("users", id);
+
+      if (currentUser?.id === id) {
+        currentUser = null;
+      }
+
+      emit();
+
+      return {
+        ok: true,
+        user: {
+          id,
+          name: "Deleted student",
+          role: "student",
+          username: id,
+          email: "",
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete the student account.",
+      };
+    }
+  }
+
   const account = accounts.find((item) => item.id === id);
 
   if (!account || account.role !== "student") {

@@ -15,13 +15,15 @@ and Interactive Mobile Student Guide for MSU Main Campus."
 - Academic calendar
 - Notifications and reminders
 - AI chatbot with local database fallback
-- SQLite-compatible schema in `database/schema.sql`
+- SQLite backend in `backend/server.mjs`
+- SQLite schema in `database/schema.sql`
 - Runtime seed data in `src/data/mymsuDatabase.ts`
 
 ## Run Locally
 
 ```bash
 npm install
+npm run backend
 npm run web
 ```
 
@@ -30,6 +32,14 @@ The current local web server uses:
 ```text
 http://localhost:8081
 ```
+
+Set `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787` in `.env` so the Expo app
+syncs with the backend. On a physical phone, use your computer's LAN IP instead
+of `localhost`.
+
+For Hygraph-backed account authentication, set `HYGRAPH_AUTH_ENDPOINT` and a
+server-side `HYGRAPH_AUTH_TOKEN` in `.env`. The backend expects an auth model
+with `name`, `username`, `email`, `role`, and `passwordHash` fields by default.
 
 ## Verify
 
@@ -46,9 +56,9 @@ npm run lint
 - Routing/navigation: Expo Router, React Navigation bottom tabs
 - UI libraries: React, React Native components, Expo Vector Icons
 - Native Expo modules: Expo Location, Expo Splash Screen, Expo Status Bar, Expo Video, Expo Linking, Expo Linear Gradient
-- State/data layer: local React state plus the app store in `src/data/appStore.ts`
-- Runtime data source: `src/data/mymsuDatabase.ts`
-- Database reference: SQLite-compatible schema in `database/schema.sql`
+- State/data layer: backend-aware app store in `src/data/appStore.ts`
+- Runtime data source: SQLite backend when configured, seed data fallback in `src/data/mymsuDatabase.ts`
+- Database reference: SQLite schema in `database/schema.sql`
 - Map assets: shared assets in `assets/campusMap`
 - Map routing logic: road graph data in `src/data/mymsuDatabase.ts`, routing helper in `src/features/campusMap/routing.ts`
 - Build tools: npm, Expo CLI, Metro Bundler, TypeScript, Expo ESLint
@@ -83,9 +93,10 @@ signing credentials.
 
 ## Database
 
-The app has one runtime data source: `src/data/mymsuDatabase.ts`.
-`database/schema.sql` is only the SQLite reference schema for a future migration.
-Use the same table names as Firebase collection names if syncing the app later.
+The app can run offline from `src/data/mymsuDatabase.ts`, but when
+`EXPO_PUBLIC_API_BASE_URL` points to the backend it reads and writes through
+SQLite. Admin announcements and content edits are then shared across users
+through backend polling.
 
 ## Campus Location Images
 

@@ -1,10 +1,10 @@
 # myMSU-InfoGuide Database
 
-This folder contains the SQLite-compatible schema for the app data model.
+This folder contains the SQLite schema for the app data model.
 
 The runtime seed data lives in `src/data/mymsuDatabase.ts` so the Expo app can
-work without a native database package during prototype testing. The same
-entities map cleanly to Firebase collections or SQLite tables:
+work offline during prototype testing. When `EXPO_PUBLIC_API_BASE_URL` points to
+the backend in `backend/server.mjs`, the app syncs these same entities to SQLite:
 
 - `users`
 - `handbook_entries`
@@ -12,10 +12,10 @@ entities map cleanly to Firebase collections or SQLite tables:
 - `campus_locations`
 - `class_schedules`
 - `notifications`
+- `sessions`
 - `course_offerings`
 - `prospectus_records`
 - `academic_calendar`
 
-Use `schema.sql` when moving the prototype data into SQLite. For Firebase, use
-the same table names as collection names and keep array fields as native arrays
-instead of JSON strings.
+The backend creates `mymsu.sqlite` in this folder by default. Array fields are
+stored as JSON text in SQLite and returned to the app as arrays.
