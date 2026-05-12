@@ -17,7 +17,6 @@ import CampusMapSplash from "./CampusMapSplash";
 import { MAP_ASPECT_RATIO, campusMapImage } from "./mapAssets";
 import { clamp, getLocationPoint, getMarkerLabel } from "./mapMath";
 import { categoryIcons, getLocationColor } from "./mapTheme";
-import RouteOverlay from "./RouteOverlay";
 import TrackingCat, { type CatMood } from "./TrackingCat";
 import type { MapPoint, TrackingState, UserMarker } from "./types";
 
@@ -29,8 +28,7 @@ type CampusMapCanvasProps = {
   mapZoom: number;
   mapRotation: number;
   resetSignal: number;
-  routePoints: MapPoint[];
-  routeFlow: Animated.Value;
+  routePoints?: MapPoint[];
   userPulse: Animated.Value;
   catMotion: Animated.Value;
   catMood: CatMood;
@@ -54,8 +52,6 @@ export default function CampusMapCanvas({
   mapZoom,
   mapRotation,
   resetSignal,
-  routePoints,
-  routeFlow,
   userPulse,
   catMotion,
   catMood,
@@ -197,17 +193,6 @@ export default function CampusMapCanvas({
     [activeMapZoom, getTouchDistance, onZoomChange, setClampedPanOffset],
   );
 
-  const routePixels = React.useMemo(
-    () =>
-      mapSize.width > 0 && mapSize.height > 0
-        ? routePoints.map((point) => ({
-            x: (point.mapX / 100) * mapSize.width,
-            y: (point.mapY / 100) * mapSize.height,
-          }))
-        : [],
-    [mapSize.height, mapSize.width, routePoints],
-  );
-
   const followTranslate = React.useMemo(() => {
     if (!trackingActive || !userMarker || mapSize.width <= 0) {
       return { x: 0, y: 0 };
@@ -320,14 +305,6 @@ export default function CampusMapCanvas({
               ]}
             />
             <View style={styles.mapTint} />
-
-            {trackingActive && routePoints.length > 1 ? (
-              <RouteOverlay
-                routePoints={routePoints}
-                routePixels={routePixels}
-                routeFlow={routeFlow}
-              />
-            ) : null}
 
             {visibleLocations.map((location) => {
               const selected = selectedLocation?.id === location.id;

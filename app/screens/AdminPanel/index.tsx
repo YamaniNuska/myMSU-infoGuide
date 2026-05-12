@@ -69,6 +69,14 @@ const tabs: { key: AdminTab; label: string }[] = [
   { key: "announcements", label: "Announcements" },
 ];
 
+const announcementAudienceOptions = [
+  "All users",
+  "Students",
+  "Faculty",
+  "Visitors",
+  "Employees",
+] as const;
+
 const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   handbook: [
     { key: "chapter", label: "Chapter" },
@@ -619,17 +627,45 @@ export default function AdminPanelScreen() {
                 ]}
               >
                 <Text style={styles.fieldLabel}>{field.label}</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    field.multiline && styles.inputMultiline,
-                  ]}
-                  value={form[field.key] ?? ""}
-                  onChangeText={(value) => updateField(field.key, value)}
-                  multiline={field.multiline}
-                  placeholder={field.label}
-                  placeholderTextColor="#998B8B"
-                />
+                {activeTab === "announcements" && field.key === "audience" ? (
+                  <View style={styles.choiceRow}>
+                    {announcementAudienceOptions.map((audience) => {
+                      const selected = form.audience === audience;
+
+                      return (
+                        <Pressable
+                          key={audience}
+                          style={[
+                            styles.choiceChip,
+                            selected && styles.choiceChipActive,
+                          ]}
+                          onPress={() => updateField("audience", audience)}
+                        >
+                          <Text
+                            style={[
+                              styles.choiceChipText,
+                              selected && styles.choiceChipTextActive,
+                            ]}
+                          >
+                            {audience}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={[
+                      styles.input,
+                      field.multiline && styles.inputMultiline,
+                    ]}
+                    value={form[field.key] ?? ""}
+                    onChangeText={(value) => updateField(field.key, value)}
+                    multiline={field.multiline}
+                    placeholder={field.label}
+                    placeholderTextColor="#998B8B"
+                  />
+                )}
               </View>
             ))}
           </View>
@@ -778,6 +814,31 @@ const styles = StyleSheet.create({
     minHeight: 92,
     paddingTop: 12,
     textAlignVertical: "top",
+  },
+  choiceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  choiceChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  choiceChipActive: {
+    backgroundColor: colors.maroon,
+    borderColor: colors.maroon,
+  },
+  choiceChipText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  choiceChipTextActive: {
+    color: colors.surface,
   },
   message: {
     marginTop: 12,

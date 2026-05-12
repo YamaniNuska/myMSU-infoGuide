@@ -22,13 +22,13 @@ import LocationList from "../../../src/features/campusMap/LocationList";
 import PathPrompt from "../../../src/features/campusMap/PathPrompt";
 import {
   clamp,
-  formatDistance,
   getLocationPoint,
   normalize,
   projectDeviceCoordinate,
 } from "../../../src/features/campusMap/mapMath";
 import {
   buildRoadRoutePoints,
+  getRouteGuidance,
   getRouteDistanceMeters,
 } from "../../../src/features/campusMap/routing";
 import type {
@@ -43,12 +43,12 @@ type CampusMapScreenProps = {
 };
 
 const walkingCatMessages = [
-  "You're doing great. Keep following the green road.",
+  "You're doing great. Keep following the direction message.",
   "Stay on this road, I'm with you.",
   "Nice pace. The route is still on track.",
   "Almost there, just keep going.",
   "Small steps count. We're getting closer.",
-  "Follow the green line and breathe easy.",
+  "Check the direction cue and breathe easy.",
 ];
 
 export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
@@ -57,7 +57,6 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const { campusLocations } = useAppData();
   const { width } = useWindowDimensions();
   const entry = React.useRef(new Animated.Value(0)).current;
-  const routeFlow = React.useRef(new Animated.Value(0)).current;
   const userPulse = React.useRef(new Animated.Value(0)).current;
   const catMotion = React.useRef(new Animated.Value(0)).current;
   const locationSubscription = React.useRef<Location.LocationSubscription | null>(
@@ -100,14 +99,6 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       useNativeDriver: true,
     }).start();
 
-    const routeLoop = Animated.loop(
-      Animated.timing(routeFlow, {
-        toValue: 1,
-        duration: 2600,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
     const pulseLoop = Animated.loop(
       Animated.timing(userPulse, {
         toValue: 1,
@@ -124,12 +115,10 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
         useNativeDriver: true,
       }),
     );
-    routeLoop.start();
     pulseLoop.start();
     catLoop.start();
 
     return () => {
-      routeLoop.stop();
       pulseLoop.stop();
       catLoop.stop();
       locationSubscription.current?.remove();
@@ -140,7 +129,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
         clearTimeout(catEncouragementTimer.current);
       }
     };
-  }, [catMotion, entry, routeFlow, userPulse]);
+  }, [catMotion, entry, userPulse]);
 
   React.useEffect(() => {
     if (!selectedId && campusLocations.length > 0) {
@@ -246,6 +235,27 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   );
   const routeActive =
     trackingActive && !!routeDestinationLocation && routePoints.length > 1;
+  const routeGuidance = React.useMemo(
+    () =>
+      routeActive &&
+      userMarker &&
+      routeDestinationLocation &&
+      routeDistance !== null
+        ? getRouteGuidance(
+            userMarker,
+            routePoints,
+            routeDestinationLocation.name,
+            routeDistance,
+          )
+        : null,
+    [
+      routeActive,
+      routeDestinationLocation,
+      routeDistance,
+      routePoints,
+      userMarker,
+    ],
+  );
 
   const showTemporaryCatMessage = React.useCallback((message: string) => {
     setCatMessageOverride(message);
@@ -294,7 +304,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       catEncouragementTimer.current = setTimeout(() => {
         const nextMessage =
           routeDistance !== null && routeDistance <= 90
-            ? "You're almost there. Keep following the green road."
+            ? "You're almost there. Keep following the direction cue."
             : walkingCatMessages[
                 Math.floor(Math.random() * walkingCatMessages.length)
               ];
@@ -334,7 +344,8 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       : routeActive && routeDestinationLocation
         ? routeDistance !== null && routeDistance <= 90
           ? "You're almost there."
-          : `Follow the green road to ${routeDestinationLocation.name}.`
+          : routeGuidance?.shortMessage ??
+            `Move toward ${routeDestinationLocation.name}.`
         : pathPromptLocation
           ? "Find path?"
           : trackingState === "loading"
@@ -366,16 +377,33 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const handleSelectLocation = React.useCallback(
     (id: string) => {
       const needsNewRoute = routeDestinationId !== id;
+      const destination = campusLocations.find((location) => location.id === id);
 
       setSelectedId(id);
-      setPathPromptId(needsNewRoute ? id : null);
       setHasArrived(false);
-      if (needsNewRoute) {
+
+      if (!needsNewRoute) {
+        setPathPromptId(null);
+        return;
+      }
+
+      if (trackingActive && destination) {
+        setPathPromptId(null);
+        setRouteDestinationId(destination.id);
+        setMapZoom((value) => Math.max(value, 1.24));
+        setMapRotation(0);
+        showTemporaryCatMessage(`Guide set to ${destination.name}.`);
+      } else {
+        setPathPromptId(id);
         setRouteDestinationId(null);
       }
-      routeFlow.setValue(0);
     },
-    [routeDestinationId, routeFlow],
+    [
+      campusLocations,
+      routeDestinationId,
+      showTemporaryCatMessage,
+      trackingActive,
+    ],
   );
 
   const startTracking = async () => {
@@ -435,7 +463,6 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
     setSelectedId(id);
     setPathPromptId(null);
     setHasArrived(false);
-    routeFlow.setValue(0);
 
     const trackingReady = await startTracking();
 
@@ -448,7 +475,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
     setRouteDestinationId(destination.id);
     setMapZoom((value) => Math.max(value, 1.24));
     setMapRotation(0);
-    showTemporaryCatMessage(`Path set to ${destination.name}.`);
+    showTemporaryCatMessage(`Guide set to ${destination.name}.`);
   };
 
   const cancelPathPrompt = () => {
@@ -460,7 +487,8 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       hasArrived
         ? "We made it!"
         : routeActive
-          ? "You're doing great. Stay with the green road."
+          ? routeGuidance?.shortMessage ??
+            "You're doing great. Keep following the direction cue."
           : "Tap a place first.",
     );
   };
@@ -630,7 +658,6 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
             mapRotation={mapRotation}
             resetSignal={mapResetSignal}
             routePoints={routePoints}
-            routeFlow={routeFlow}
             userPulse={userPulse}
             catMotion={catMotion}
             catMood={catMood}
@@ -674,10 +701,9 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
             <Text style={styles.statusText}>
               Arrived at {routeDestinationLocation.name}.
             </Text>
-          ) : routeActive && routeDistance && routeDestinationLocation ? (
+          ) : routeActive && routeGuidance ? (
             <Text style={styles.statusText}>
-              Road route: {formatDistance(routeDistance)} to{" "}
-              {routeDestinationLocation.name}.
+              {routeGuidance.message}
             </Text>
           ) : userMarker?.accuracy ? (
             <Text style={styles.statusText}>
