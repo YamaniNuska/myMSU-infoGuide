@@ -69,7 +69,7 @@ export default function CampusMapSplash({ onFinish }: CampusMapSplashProps) {
         contentFit="cover"
         playsInline
       />
-      <View pointerEvents="none" style={styles.splashScrim} />
+      <View style={styles.splashScrim} />
       <View style={styles.splashContent}>
         <Text style={styles.splashEyebrow}>MSU Main Entrance</Text>
         <Text style={styles.splashTitle}>Campus Map</Text>
@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
   },
   splashScrim: {
     ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
     backgroundColor: "rgba(20, 12, 14, 0.18)",
   },
   splashContent: {

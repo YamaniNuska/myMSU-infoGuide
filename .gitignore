@@ -29,6 +29,9 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 .expo-web.log
+.expo-web.err
+.backend.log
+.backend.err
 
 # macOS
 .DS_Store
@@ -37,6 +40,10 @@ yarn-error.*
 # local env files
 .env
 .env*.local
+
+# local backend database files
+database/*.sqlite
+database/*.sqlite-*
 
 # typescript
 *.tsbuildinfo

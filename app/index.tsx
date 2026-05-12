@@ -3,9 +3,9 @@ import { useLayoutEffect, useState } from "react";
 import { Platform } from "react-native";
 import { useAuthSession } from "../src/auth/localAuth";
 import { UserRecord } from "../src/data/mymsuDatabase";
-import DashboardScreen from "../src/screens/Dashboard/DashboardScreen";
-import LoginScreen from "../src/screens/Login/LoginScreen";
-import WelcomeScreen from "../src/screens/Welcome/WelcomeScreen";
+import DashboardScreen from "../src/components/home/DashboardScreen";
+import LoginScreen from "../src/components/home/LoginScreen";
+import WelcomeScreen from "../src/components/home/WelcomeScreen";
 import { colors } from "../src/theme";
 
 const ROUTES: Record<string, Href> = {

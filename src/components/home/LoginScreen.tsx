@@ -25,7 +25,7 @@ type LoginScreenProps = {
   onSignIn?: (user: UserRecord) => void;
 };
 
-type SignupRole = Extract<UserRole, "student" | "admin">;
+type SignupRole = Extract<UserRole, "student" | "faculty" | "employee">;
 
 export default function LoginScreen({ onSignIn }: LoginScreenProps) {
   const [name, setName] = useState("");
@@ -35,10 +35,13 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<SignupRole>("student");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"error" | "success">("error");
   const entry = React.useRef(new Animated.Value(0)).current;
   const ctaPress = React.useRef(new Animated.Value(0)).current;
+
+  const resetMessage = React.useCallback(() => setMessage(""), []);
 
   React.useEffect(() => {
     Animated.timing(entry, {
@@ -49,19 +52,24 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
     }).start();
   }, [entry]);
 
-  const resetMessage = () => setMessage("");
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     resetMessage();
+
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
 
     if (isSignUp) {
       if (password !== confirmPassword) {
         setMessageType("error");
         setMessage("Passwords do not match.");
+        setIsSubmitting(false);
         return;
       }
 
-      const result = signUp({
+      const result = await signUp({
         name,
         username,
         email,
@@ -72,24 +80,28 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
       if (!result.ok) {
         setMessageType("error");
         setMessage(result.message);
+        setIsSubmitting(false);
         return;
       }
 
       setMessageType("success");
       setMessage(`Created ${result.user.role} account.`);
       onSignIn?.(result.user);
+      setIsSubmitting(false);
       return;
     }
 
-    const result = signIn(username, password);
+    const result = await signIn(username, password);
 
     if (!result.ok) {
       setMessageType("error");
       setMessage(result.message);
+      setIsSubmitting(false);
       return;
     }
 
     onSignIn?.(result.user);
+    setIsSubmitting(false);
   };
 
   const fillDemoAccount = (demo: ReturnType<typeof getDemoAccounts>[number]) => {
@@ -164,8 +176,8 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
             <Text style={styles.tagline}>
               {isSignUp
-                ? "Create a student or admin account for this prototype."
-                : "Sign in using a student or admin account."}
+                ? "Create visitor access with Gmail or MSU access with an institutional email."
+                : "Sign in using your visitor, student, faculty, employee, or admin account."}
             </Text>
 
             <Text style={styles.heading}>
@@ -286,7 +298,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                   </View>
 
                   <View style={styles.roleRow}>
-                    {(["student", "admin"] as const).map((item) => {
+                    {(["student", "faculty", "employee"] as const).map((item) => {
                       const selected = role === item;
 
                       return (
@@ -338,11 +350,16 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                     style={styles.buttonInner}
                     activeOpacity={0.88}
                     onPress={handleSubmit}
+                    disabled={isSubmitting}
                     onPressIn={() => animateCta(1)}
                     onPressOut={() => animateCta(0)}
                   >
                     <Text style={styles.buttonText}>
-                      {isSignUp ? "Sign up" : "Sign in"}
+                      {isSubmitting
+                        ? "Please wait..."
+                        : isSignUp
+                          ? "Sign up"
+                          : "Sign in"}
                     </Text>
                     <FontAwesome5
                       name="arrow-right"
@@ -352,6 +369,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                   </TouchableOpacity>
                 </LinearGradient>
               </Animated.View>
+
             </View>
 
             <View style={styles.footer}>
@@ -384,17 +402,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 24,
   },
   card: {
     width: "100%",
     maxWidth: Math.min(440, maxContentWidth),
-    minHeight: 590,
     borderRadius: radii.sm,
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 22,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 20,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.28)",
@@ -441,7 +458,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   tagline: {
-    marginTop: 28,
+    marginTop: 22,
     textAlign: "center",
     color: colors.maroonDark,
     fontSize: 14,
@@ -449,8 +466,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   heading: {
-    marginTop: 18,
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 18,
     textAlign: "center",
     color: colors.maroonDark,
     fontSize: 28,
@@ -594,7 +611,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   footer: {
-    marginTop: "auto",
+    marginTop: 22,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",

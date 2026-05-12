@@ -3,7 +3,9 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { EventEmitter as LocationEventEmitter } from "expo-location";
 import { Tabs } from "expo-router";
+import * as React from "react";
 import { Platform } from "react-native";
+import { startAppDataSync } from "../src/data/appStore";
 import { colors } from "../src/theme";
 
 if (Platform.OS === "web" && LocationEventEmitter) {
@@ -22,6 +24,8 @@ if (Platform.OS === "web" && LocationEventEmitter) {
 }
 
 export default function RootLayout() {
+  React.useEffect(() => startAppDataSync(), []);
+
   return (
     <Tabs
       screenOptions={{

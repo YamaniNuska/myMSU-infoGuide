@@ -20,6 +20,13 @@ import {
   prospectusRecords,
   users,
 } from "./mymsuDatabase";
+import {
+  apiDeleteRecord,
+  apiGetData,
+  apiSeedData,
+  apiUpsertRecord,
+  isBackendConfigured,
+} from "./apiClient";
 
 export type AppData = {
   users: UserRecord[];
@@ -33,7 +40,7 @@ export type AppData = {
   announcements: AnnouncementRecord[];
 };
 
-type CollectionKey = keyof AppData;
+export type CollectionKey = keyof AppData;
 type CollectionItem<K extends CollectionKey> = AppData[K][number];
 
 const cloneArray = <T,>(items: T[]) =>
@@ -52,6 +59,8 @@ let appData: AppData = {
 };
 
 const listeners = new Set<() => void>();
+let syncTimer: ReturnType<typeof setInterval> | null = null;
+let syncPromise: Promise<boolean> | null = null;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -75,6 +84,92 @@ export function useAppData() {
   );
 }
 
+function isEmptyData(data: AppData) {
+  const { users: _users, ...contentData } = data;
+
+  return Object.values(contentData).every((items) => items.length === 0);
+}
+
+function isMissingSeedContent(data: AppData) {
+  return (
+    data.handbookEntries.length === 0 ||
+    data.offices.length === 0 ||
+    data.campusLocations.length === 0 ||
+    data.coursePrograms.length === 0 ||
+    data.prospectusRecords.length === 0 ||
+    data.academicEvents.length === 0 ||
+    data.announcements.length === 0
+  );
+}
+
+function replaceAppData(data: AppData) {
+  appData = {
+    users: cloneArray(data.users),
+    handbookEntries: cloneArray(data.handbookEntries),
+    offices: cloneArray(data.offices),
+    campusLocations: cloneArray(data.campusLocations),
+    classSchedules: cloneArray(data.classSchedules),
+    coursePrograms: cloneArray(data.coursePrograms),
+    prospectusRecords: cloneArray(data.prospectusRecords),
+    academicEvents: cloneArray(data.academicEvents),
+    announcements: cloneArray(data.announcements),
+  };
+  emit();
+}
+
+export async function syncAppData() {
+  if (!isBackendConfigured()) {
+    return false;
+  }
+
+  if (syncPromise) {
+    return syncPromise;
+  }
+
+  syncPromise = (async () => {
+    try {
+      const remoteData = await apiGetData();
+
+      if (isEmptyData(remoteData) || isMissingSeedContent(remoteData)) {
+        const seededData = await apiSeedData(appData);
+        replaceAppData(seededData);
+        return true;
+      }
+
+      replaceAppData(remoteData);
+      return true;
+    } catch (error) {
+      console.warn("myMSU backend sync failed", error);
+      return false;
+    } finally {
+      syncPromise = null;
+    }
+  })();
+
+  return syncPromise;
+}
+
+export function startAppDataSync(intervalMs = 15000) {
+  void syncAppData();
+
+  if (!isBackendConfigured()) {
+    return () => undefined;
+  }
+
+  if (!syncTimer) {
+    syncTimer = setInterval(() => {
+      void syncAppData();
+    }, intervalMs);
+  }
+
+  return () => {
+    if (syncTimer) {
+      clearInterval(syncTimer);
+      syncTimer = null;
+    }
+  };
+}
+
 export function upsertRecord<K extends CollectionKey>(
   key: K,
   item: CollectionItem<K> & { id: string },
@@ -91,6 +186,12 @@ export function upsertRecord<K extends CollectionKey>(
     [key]: nextItems,
   };
   emit();
+
+  if (isBackendConfigured()) {
+    void apiUpsertRecord(key, item).catch((error) => {
+      console.warn(`Failed to persist ${String(key)} record`, error);
+    });
+  }
 }
 
 export function deleteRecord<K extends CollectionKey>(key: K, id: string) {
@@ -101,6 +202,55 @@ export function deleteRecord<K extends CollectionKey>(key: K, id: string) {
     [key]: items.filter((item) => item.id !== id),
   };
   emit();
+
+  if (isBackendConfigured()) {
+    void apiDeleteRecord(key, id).catch((error) => {
+      console.warn(`Failed to delete ${String(key)} record`, error);
+    });
+  }
+}
+
+export function getVisibleAnnouncements(
+  announcementList: AnnouncementRecord[],
+  role?: UserRecord["role"],
+) {
+  if (role === "admin") {
+    return announcementList;
+  }
+
+  return announcementList.filter((announcement) => {
+    const audience = announcement.audience.toLowerCase();
+
+    if (
+      audience.includes("all") ||
+      audience.includes("everyone") ||
+      audience.includes("msu community")
+    ) {
+      return true;
+    }
+
+    if (!role) {
+      return audience.includes("visitor") || audience.includes("guest");
+    }
+
+    if (role === "student") {
+      return audience.includes("student");
+    }
+
+    if (role === "faculty") {
+      return audience.includes("faculty") || audience.includes("facult");
+    }
+
+    if (role === "employee") {
+      return (
+        audience.includes("employee") ||
+        audience.includes("staff") ||
+        audience.includes("personnel")
+      );
+    }
+
+    return audience.includes("visitor") || audience.includes("guest");
+  });
 }
 
 const normalize = (value: string) => value.toLowerCase().trim();
