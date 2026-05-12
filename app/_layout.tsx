@@ -7,6 +7,7 @@ import * as React from "react";
 import { Platform } from "react-native";
 import { startAppDataSync } from "../src/data/appStore";
 import { colors } from "../src/theme";
+import { supabase } from "../utils/supabase";
 
 if (Platform.OS === "web" && LocationEventEmitter) {
   const emitter = LocationEventEmitter as unknown as Record<string, unknown>;
@@ -24,7 +25,21 @@ if (Platform.OS === "web" && LocationEventEmitter) {
 }
 
 export default function RootLayout() {
-  React.useEffect(() => startAppDataSync(), []);
+  React.useEffect(() => {
+    const stopAppDataSync = startAppDataSync();
+
+    void supabase
+      .from("todos")
+      .select()
+      .limit(10)
+      .then(({ error }) => {
+        if (error) {
+          console.warn("Supabase todos query failed", error.message);
+        }
+      });
+
+    return stopAppDataSync;
+  }, []);
 
   return (
     <Tabs
