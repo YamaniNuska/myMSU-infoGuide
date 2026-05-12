@@ -97,6 +97,47 @@ const getRemoteChatProvider = (): RemoteChatProvider | null => {
   return null;
 };
 
+const normalizePrompt = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getDirectAssistantReply = (rawText: string) => {
+  const text = normalizePrompt(rawText);
+
+  if (!text) {
+    return null;
+  }
+
+  if (
+    /^(hi|hello|hey|yo|kumusta|salam|assalamu alaikum|good morning|good afternoon|good evening)(\s+(po|there|sir|maam|ma'am|guide))*$/.test(
+      text,
+    )
+  ) {
+    return "Hi! I am here. Ask me about campus offices, the handbook, programs, schedules, announcements, or the map.";
+  }
+
+  if (
+    /^(thanks|thank you|ty|salamat|okay thanks|ok thanks)(\s+(po|sir|maam|ma'am))*$/.test(
+      text,
+    )
+  ) {
+    return "You are welcome. I am here if you need help finding an office, policy, program, or campus location.";
+  }
+
+  if (
+    /^(who are you|what are you|what can you do|help|help me|how can you help)$/.test(
+      text,
+    )
+  ) {
+    return "I am myMSU-Guide AI. I can help you search the handbook, find campus offices, explain app sections, look up programs, and guide you around the campus map.";
+  }
+
+  return null;
+};
+
 const getResponseErrorMessage = async (response: Response) => {
   const fallback = `Request failed with status ${response.status}.`;
 
@@ -164,6 +205,21 @@ export default function AI({ onBack }: AIScreenProps) {
     setInput("");
     setIsLoading(true);
     setErrorMessage(null);
+
+    const directReply = getDirectAssistantReply(content);
+
+    if (directReply) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-assistant-direct`,
+          role: "assistant",
+          content: directReply,
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
 
     if (!remoteProvider) {
       setMessages((current) => [

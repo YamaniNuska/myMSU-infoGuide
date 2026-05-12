@@ -18,7 +18,7 @@ import { MAP_ASPECT_RATIO, campusMapImage } from "./mapAssets";
 import { clamp, getLocationPoint, getMarkerLabel } from "./mapMath";
 import { categoryIcons, getLocationColor } from "./mapTheme";
 import TrackingCat, { type CatMood } from "./TrackingCat";
-import type { TrackingState, UserMarker } from "./types";
+import type { MapPoint, TrackingState, UserMarker } from "./types";
 
 type CampusMapCanvasProps = {
   visibleLocations: CampusLocation[];
@@ -28,6 +28,7 @@ type CampusMapCanvasProps = {
   mapZoom: number;
   mapRotation: number;
   resetSignal: number;
+  routePoints?: MapPoint[];
   userPulse: Animated.Value;
   catMotion: Animated.Value;
   catMood: CatMood;

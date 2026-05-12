@@ -377,15 +377,33 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const handleSelectLocation = React.useCallback(
     (id: string) => {
       const needsNewRoute = routeDestinationId !== id;
+      const destination = campusLocations.find((location) => location.id === id);
 
       setSelectedId(id);
-      setPathPromptId(needsNewRoute ? id : null);
       setHasArrived(false);
-      if (needsNewRoute) {
+
+      if (!needsNewRoute) {
+        setPathPromptId(null);
+        return;
+      }
+
+      if (trackingActive && destination) {
+        setPathPromptId(null);
+        setRouteDestinationId(destination.id);
+        setMapZoom((value) => Math.max(value, 1.24));
+        setMapRotation(0);
+        showTemporaryCatMessage(`Guide set to ${destination.name}.`);
+      } else {
+        setPathPromptId(id);
         setRouteDestinationId(null);
       }
     },
-    [routeDestinationId],
+    [
+      campusLocations,
+      routeDestinationId,
+      showTemporaryCatMessage,
+      trackingActive,
+    ],
   );
 
   const startTracking = async () => {
@@ -639,6 +657,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
             mapZoom={mapZoom}
             mapRotation={mapRotation}
             resetSignal={mapResetSignal}
+            routePoints={routePoints}
             userPulse={userPulse}
             catMotion={catMotion}
             catMood={catMood}

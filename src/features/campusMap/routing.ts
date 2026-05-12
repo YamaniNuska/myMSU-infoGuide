@@ -220,7 +220,10 @@ const getGuidancePoint = (from: MapPoint, routePoints: MapPoint[]) => {
   let distance = 0;
 
   for (const point of routePoints) {
-    distance += Math.hypot(point.mapX - previous.mapX, point.mapY - previous.mapY);
+    distance += Math.hypot(
+      point.mapX - previous.mapX,
+      point.mapY - previous.mapY,
+    );
 
     if (distance >= 3.2) {
       return point;
@@ -329,11 +332,24 @@ export const buildRoadRoutePoints = (
     .map((id) => virtualNodes.get(id) ?? nodesById.get(id))
     .filter(Boolean) as RoadNode[];
 
-  return route.flatMap((point, index) =>
+  const roadRoute = route.flatMap((point, index) =>
     index === route.length - 1
       ? [point]
       : interpolateSegment(point, route[index + 1]),
   );
+
+  const routeWithStart =
+    roadRoute[0] &&
+    Math.hypot(roadRoute[0].mapX - from.mapX, roadRoute[0].mapY - from.mapY) >
+      0.25
+      ? [from, ...roadRoute]
+      : roadRoute;
+  const lastPoint = routeWithStart[routeWithStart.length - 1];
+
+  return lastPoint &&
+    Math.hypot(lastPoint.mapX - to.mapX, lastPoint.mapY - to.mapY) > 0.25
+    ? [...routeWithStart, to]
+    : routeWithStart;
 };
 
 export const getRouteDistanceMeters = (
