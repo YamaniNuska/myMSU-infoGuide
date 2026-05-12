@@ -46,14 +46,6 @@ const dbPath =
 const schemaPath = join(rootDir, "database", "schema.sql");
 const port = Number(process.env.PORT ?? 8787);
 const sessionDays = 30;
-const hygraphAuthEndpoint = (process.env.HYGRAPH_AUTH_ENDPOINT ?? "").trim();
-const hygraphAuthToken = (process.env.HYGRAPH_AUTH_TOKEN ?? "").trim();
-const hygraphAuthCollection =
-  (process.env.HYGRAPH_AUTH_COLLECTION ?? "authUsers").trim();
-const hygraphAuthCreateMutation =
-  (process.env.HYGRAPH_AUTH_CREATE_MUTATION ?? "createAuthUser").trim();
-const hygraphAuthCreateInput =
-  (process.env.HYGRAPH_AUTH_CREATE_INPUT ?? "AuthUserCreateInput").trim();
 const msuEmailDomains = ["@s.msumain.edu.ph", "@msumain.edu.ph"];
 const demoAccounts = [
   {
@@ -364,178 +356,6 @@ const ensureDemoAccounts = () => {
       hashPassword(account.password),
     );
   }
-};
-
-const isHygraphAuthConfigured = () => hygraphAuthEndpoint.length > 0;
-
-const assertGraphQLName = (name, label) => {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-    throw new Error(`${label} must be a valid GraphQL name.`);
-  }
-
-  return name;
-};
-
-const hygraphRequest = async (query, variables = {}) => {
-  if (!isHygraphAuthConfigured()) {
-    throw new Error("Hygraph authentication is not configured.");
-  }
-
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  if (hygraphAuthToken) {
-    headers.Authorization = `Bearer ${hygraphAuthToken}`;
-  }
-
-  const response = await fetch(hygraphAuthEndpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ query, variables }),
-  });
-
-  const body = await response.json().catch(() => ({}));
-
-  if (!response.ok || body.errors?.length) {
-    throw new Error(
-      body.errors?.[0]?.message ??
-        `Hygraph request failed with status ${response.status}.`,
-    );
-  }
-
-  return body.data;
-};
-
-const normalizeHygraphRole = (role, email) => {
-  const cleanRole = normalize(role || "");
-
-  if (["student", "visitor", "faculty", "employee", "admin"].includes(cleanRole)) {
-    return cleanRole;
-  }
-
-  return roleForEmail(email, "student");
-};
-
-const hygraphUserToRecord = (record) => {
-  if (!record) {
-    return null;
-  }
-
-  return {
-    id: clean(record.id),
-    name: clean(record.name),
-    username: clean(record.username),
-    email: clean(record.email),
-    role: normalizeHygraphRole(record.role, record.email),
-    passwordHash: clean(record.passwordHash || record.password_hash),
-  };
-};
-
-const findHygraphAuthUser = async (identifier) => {
-  const collectionName = assertGraphQLName(
-    hygraphAuthCollection,
-    "HYGRAPH_AUTH_COLLECTION",
-  );
-  const query = `
-    query MymsuAuthUser($identifier: String!) {
-      ${collectionName}(
-        first: 1
-        where: {
-          OR: [
-            { username: $identifier }
-            { email: $identifier }
-          ]
-        }
-      ) {
-        id
-        name
-        username
-        email
-        role
-        passwordHash
-      }
-    }
-  `;
-  const data = await hygraphRequest(query, {
-    identifier: clean(identifier),
-  });
-
-  return hygraphUserToRecord(data?.[collectionName]?.[0]);
-};
-
-const passwordMatches = (storedHash, password) =>
-  storedHash === hashPassword(password) || storedHash === clean(password);
-
-const syncHygraphUserToLocal = (record) => {
-  const existing = getUserByEmail(record.email) ?? getUserByIdentifier(record.username);
-  const localId = existing?.id ?? `hygraph-${record.id}`;
-
-  return upsertUser(
-    {
-      id: localId,
-      name: record.name,
-      username: record.username,
-      email: record.email,
-      role: record.role,
-      passwordHash: record.passwordHash || `hygraph:${record.id}`,
-    },
-    { allowAdmin: record.role === "admin" },
-  );
-};
-
-const signInWithHygraph = async (identifier, password) => {
-  const record = await findHygraphAuthUser(identifier);
-
-  if (!record) {
-    return null;
-  }
-
-  if (!record.passwordHash || !passwordMatches(record.passwordHash, password)) {
-    throw new Error("Invalid account or password.");
-  }
-
-  return syncHygraphUserToLocal(record);
-};
-
-const createHygraphAuthUser = async (record) => {
-  const createMutation = assertGraphQLName(
-    hygraphAuthCreateMutation,
-    "HYGRAPH_AUTH_CREATE_MUTATION",
-  );
-  const createInput = assertGraphQLName(
-    hygraphAuthCreateInput,
-    "HYGRAPH_AUTH_CREATE_INPUT",
-  );
-  const mutation = `
-    mutation MymsuCreateAuthUser($data: ${createInput}!) {
-      ${createMutation}(data: $data) {
-        id
-        name
-        username
-        email
-        role
-        passwordHash
-      }
-    }
-  `;
-  const data = await hygraphRequest(mutation, {
-    data: {
-      name: clean(record.name),
-      username: clean(record.username),
-      email: clean(record.email),
-      role: clean(record.role),
-      passwordHash: hashPassword(record.password),
-    },
-  });
-
-  const created = hygraphUserToRecord(data?.[createMutation]);
-
-  if (!created) {
-    throw new Error("Hygraph did not return a created account.");
-  }
-
-  return syncHygraphUserToLocal(created);
 };
 
 const readAllData = () => ({
@@ -970,18 +790,6 @@ const handleRequest = async (request, response) => {
       const identifier = clean(body.identifier);
       const password = clean(body.password);
 
-      if (isHygraphAuthConfigured()) {
-        const hygraphUser = await signInWithHygraph(identifier, password);
-
-        if (hygraphUser) {
-          send(response, 200, {
-            user: hygraphUser,
-            token: createSession(hygraphUser.id),
-          });
-          return;
-        }
-      }
-
       const user = getUserByIdentifier(identifier);
 
       if (!user || user.password_hash !== hashPassword(password)) {
@@ -1001,22 +809,20 @@ const handleRequest = async (request, response) => {
       requireFields(body, ["name", "username", "email", "password"]);
 
       const role = roleForEmail(body.email, clean(body.role || "student"));
-      const user = isHygraphAuthConfigured()
-        ? await createHygraphAuthUser({ ...body, role })
-        : upsertUser(
-            {
-              id: `user-${role}-${createHash("sha1")
-                .update(`${body.email}-${Date.now()}`)
-                .digest("hex")
-                .slice(0, 12)}`,
-              name: body.name,
-              username: body.username,
-              email: body.email,
-              password: body.password,
-              role,
-            },
-            { allowAdmin: false },
-          );
+      const user = upsertUser(
+        {
+          id: `user-${role}-${createHash("sha1")
+            .update(`${body.email}-${Date.now()}`)
+            .digest("hex")
+            .slice(0, 12)}`,
+          name: body.name,
+          username: body.username,
+          email: body.email,
+          password: body.password,
+          role,
+        },
+        { allowAdmin: false },
+      );
 
       send(response, 201, {
         user,
@@ -1029,16 +835,14 @@ const handleRequest = async (request, response) => {
       requireAdmin(request);
       const body = await readJsonBody(request);
       const role = roleForEmail(body.email, clean(body.role || "student"));
-      const user = isHygraphAuthConfigured()
-        ? await createHygraphAuthUser({ ...body, role })
-        : upsertUser(
-            {
-              id: `user-${role}-${Date.now()}-${randomUUID().slice(0, 8)}`,
-              ...body,
-              role,
-            },
-            { allowAdmin: false },
-          );
+      const user = upsertUser(
+        {
+          id: `user-${role}-${Date.now()}-${randomUUID().slice(0, 8)}`,
+          ...body,
+          role,
+        },
+        { allowAdmin: false },
+      );
       send(response, 201, { user });
       return;
     }

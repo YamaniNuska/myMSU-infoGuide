@@ -26,8 +26,8 @@ export default function PathPrompt({
         <Text style={styles.promptTitle}>Find path?</Text>
         <Text style={styles.promptText}>
           {needsTracking
-            ? `Start live tracking and draw the road path to ${location.name}.`
-            : `Draw the road path to ${location.name}.`}
+            ? `Start live tracking and I will tell you which way to go to ${location.name}.`
+            : `I will tell you which way to go to ${location.name}.`}
         </Text>
       </View>
       <View style={styles.promptActions}>

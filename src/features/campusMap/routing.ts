@@ -1,4 +1,4 @@
-import { getDistanceMeters } from "./mapMath";
+import { formatDistance, getDistanceMeters } from "./mapMath";
 import {
   locationRoadAnchors,
   roadEdges,
@@ -183,6 +183,95 @@ const interpolateSegment = (from: MapPoint, to: MapPoint, spacing = 2.6) => {
       mapY: from.mapY + (to.mapY - from.mapY) * progress,
     };
   });
+};
+
+type RouteGuidance = {
+  direction: string;
+  message: string;
+  shortMessage: string;
+};
+
+const directionLabels = [
+  "east",
+  "southeast",
+  "south",
+  "southwest",
+  "west",
+  "northwest",
+  "north",
+  "northeast",
+] as const;
+
+const getDirectionLabel = (from: MapPoint, to: MapPoint) => {
+  const dx = to.mapX - from.mapX;
+  const dy = to.mapY - from.mapY;
+
+  if (Math.hypot(dx, dy) < 0.25) {
+    return "forward";
+  }
+
+  const degrees = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+
+  return directionLabels[Math.round(degrees / 45) % directionLabels.length];
+};
+
+const getGuidancePoint = (from: MapPoint, routePoints: MapPoint[]) => {
+  let previous = from;
+  let distance = 0;
+
+  for (const point of routePoints) {
+    distance += Math.hypot(point.mapX - previous.mapX, point.mapY - previous.mapY);
+
+    if (distance >= 3.2) {
+      return point;
+    }
+
+    previous = point;
+  }
+
+  return routePoints[routePoints.length - 1] ?? null;
+};
+
+export const getRouteGuidance = (
+  from: MapPoint,
+  routePoints: MapPoint[],
+  destinationName: string,
+  routeDistance: number,
+): RouteGuidance => {
+  if (routeDistance <= 25) {
+    return {
+      direction: "arrived",
+      message: `You have arrived at ${destinationName}.`,
+      shortMessage: "You have arrived.",
+    };
+  }
+
+  const guidancePoint = getGuidancePoint(from, routePoints);
+
+  if (!guidancePoint) {
+    return {
+      direction: "forward",
+      message: `Move toward ${destinationName}.`,
+      shortMessage: `Move toward ${destinationName}.`,
+    };
+  }
+
+  const direction = getDirectionLabel(from, guidancePoint);
+  const nextStepDistance = getDistanceMeters(from, guidancePoint);
+  const action =
+    direction === "forward" ? "Keep going forward" : `Head ${direction}`;
+  const remaining = formatDistance(routeDistance);
+
+  return {
+    direction,
+    message: `${action} on the map for about ${formatDistance(
+      nextStepDistance,
+    )}, then continue toward ${destinationName}. ${remaining} left.`,
+    shortMessage:
+      routeDistance <= 90
+        ? `${action}. Almost there.`
+        : `${action} on the map.`,
+  };
 };
 
 export const buildRoadRoutePoints = (

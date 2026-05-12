@@ -37,9 +37,8 @@ Set `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787` in `.env` so the Expo app
 syncs with the backend. On a physical phone, use your computer's LAN IP instead
 of `localhost`.
 
-For Hygraph-backed account authentication, set `HYGRAPH_AUTH_ENDPOINT` and a
-server-side `HYGRAPH_AUTH_TOKEN` in `.env`. The backend expects an auth model
-with `name`, `username`, `email`, `role`, and `passwordHash` fields by default.
+Authentication is handled by the local SQLite backend. No external auth project
+or external auth database is required.
 
 ## Verify
 

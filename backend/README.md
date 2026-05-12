@@ -24,9 +24,8 @@ phone.
 - MSU email signups can be `student`, `faculty`, or `employee`.
 - Admin signup is disabled. The seeded fixed admin account is `admin` /
   `admin123`, and only one admin row is allowed.
-- If `HYGRAPH_AUTH_ENDPOINT` is set, sign-in and sign-up use Hygraph first.
-  Keep `HYGRAPH_AUTH_TOKEN` on the backend only. The default Hygraph auth model
-  is expected to expose `name`, `username`, `email`, `role`, and `passwordHash`.
+- Sign-in, sign-up, and admin-managed student accounts are stored in SQLite.
+  No external auth provider setup is required.
 
 The first app launch against an empty or partially seeded backend fills missing
 SQLite collections from `src/data/mymsuDatabase.ts`.
