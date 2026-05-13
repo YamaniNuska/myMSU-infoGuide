@@ -1,21 +1,24 @@
-# myMSU-InfoGuide Database
+# myMSU-InfoGuide Supabase Database
 
-This folder contains the SQLite schema for the app data model.
+`schema.sql` is the Supabase/Postgres schema used by the app.
 
-The runtime seed data lives in `src/data/mymsuDatabase.ts` so the Expo app can
-work offline during prototype testing. When `EXPO_PUBLIC_API_BASE_URL` points to
-the backend in `backend/server.mjs`, the app syncs these same entities to SQLite:
+Run `database/schema.sql` in the Supabase SQL editor before opening the app.
+After the tables exist, the app will seed its built-in content from
+`src/data/mymsuDatabase.ts` into Supabase when it sees an empty database.
 
-- `users`
-- `handbook_entries`
-- `administrative_offices`
-- `campus_locations`
-- `class_schedules`
-- `notifications`
-- `sessions`
-- `course_offerings`
-- `prospectus_records`
-- `academic_calendar`
+The app uses:
 
-The backend creates `mymsu.sqlite` in this folder by default. Array fields are
-stored as JSON text in SQLite and returned to the app as arrays.
+- Supabase Auth for sign in and sign up
+- `profiles` for public user profile data
+- Supabase tables for handbook, offices, campus map, class schedules,
+  announcements, course offerings, prospectus records, and academic calendar
+- Structured class schedule columns for `schedule_date`, `start_time`,
+  `end_time`, `reminder_minutes`, `reminder_at`, and `notification_id`
+
+The policies in `schema.sql` are intentionally permissive for the capstone
+prototype so the Expo app can seed and edit data with the publishable key.
+Tighten these policies before using the project with real student data.
+
+Run the latest schema again after pulling schedule/alarm changes. It uses
+`ADD COLUMN IF NOT EXISTS`, so it can upgrade an existing Supabase project
+without dropping current data.

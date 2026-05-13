@@ -9,7 +9,14 @@ import type {
   Polyline,
 } from "leaflet";
 import React from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import type { CampusLocation } from "../../data/mymsuDatabase";
 import { colors, radii, shadow } from "../../theme";
 import { CAMPUS_BOUNDS, getMarkerLabel } from "./mapMath";
@@ -428,6 +435,7 @@ export default function CampusMapCanvas({
   onSelectLocation,
   onCatPress,
 }: CampusMapCanvasProps) {
+  const { width } = useWindowDimensions();
   const mapElementRef = React.useRef<HTMLDivElement | null>(null);
   const leafletRef = React.useRef<LeafletModule | null>(null);
   const mapRef = React.useRef<LeafletMap | null>(null);
@@ -449,6 +457,7 @@ export default function CampusMapCanvas({
   );
   const trackingActive = trackingState === "active" && !!userMarker;
   const findingUser = trackingState === "loading";
+  const compactMap = width < 760;
 
   React.useEffect(() => {
     latestBoundsRef.current = allBounds;
@@ -727,7 +736,7 @@ export default function CampusMapCanvas({
 
   return (
     <View style={styles.mapShell}>
-      <View style={styles.mapBoard}>
+      <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
         <View
           ref={(node) => {
             mapElementRef.current = node as unknown as HTMLDivElement | null;
@@ -789,6 +798,10 @@ const styles = StyleSheet.create({
     minHeight: 360,
     overflow: "hidden",
     backgroundColor: "#E8E4DE",
+  },
+  mapBoardCompact: {
+    height: 430,
+    minHeight: 360,
   },
   leafletMap: {
     width: "100%",

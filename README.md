@@ -5,26 +5,31 @@ and Interactive Mobile Student Guide for MSU Main Campus."
 
 ## What Is Included
 
-- Responsive dashboard for mobile and web/PC layouts
+- Responsive dashboard for mobile and web layouts
 - Digital student handbook with search
 - Administrative office directory
-- Campus map route
-- Class schedule module
-- Course/program offerings
-- Prospectus preview
-- Academic calendar
-- Notifications and reminders
-- AI chatbot with local database fallback
-- SQLite backend in `backend/server.mjs`
-- SQLite schema in `database/schema.sql`
+- Campus map with route guidance
+- Class schedule module with per-user schedule rows and local alarms
+- Course/program offerings and prospectus preview
+- Academic calendar, announcements, and reminders
+- AI chatbot with local knowledge-base fallback
+- Supabase Auth, public profiles, and Supabase data tables
 - Runtime seed data in `src/data/mymsuDatabase.ts`
 
 ## Run Locally
 
 ```bash
 npm install
-npm run backend
+cp .env.example .env.local
 npm run web
+```
+
+Fill these Supabase values in `.env.local` before signing in or syncing shared
+content:
+
+```text
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ```
 
 The current local web server uses:
@@ -33,51 +38,58 @@ The current local web server uses:
 http://localhost:8081
 ```
 
-Set `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787` in `.env` so the Expo app
-syncs with the backend. On a physical phone, use your computer's LAN IP instead
-of `localhost`.
+## Supabase Setup
 
-Authentication is handled by the local SQLite backend. No external auth project
-or external auth database is required.
+1. Create a Supabase project.
+2. Open the Supabase SQL editor and run `database/schema.sql`.
+3. Add the project URL and publishable key to `.env.local`.
+4. Start the app. On first sync, the app seeds bundled handbook, offices, map,
+   schedule samples, announcements, courses, prospectus, and calendar records.
+5. App sign-up accepts `@s.msumain.edu.ph` accounts and assigns student access
+   automatically. Faculty and student accounts share the same app access.
+6. Create at least one account in Supabase Auth, then promote it to admin:
+
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'your-admin-email@msumain.edu.ph';
+```
+
+The prototype policies in `database/schema.sql` are intentionally permissive so
+the Expo app can seed and edit data with the publishable key. Tighten RLS
+policies before using real student data.
+
+Class schedule reminders use `expo-notifications`. The schedule row is stored
+in Supabase; the alarm itself is a local device notification, so test reliable
+alarms in an Android/iOS development or production build rather than web
+preview.
 
 ## Verify
 
 ```bash
-npx tsc --noEmit
+npm run typecheck
 npm run lint
 ```
 
 ## Technology Stack
 
-- Language: TypeScript, TSX, JavaScript, JSON, SQL
-- Mobile/web framework: Expo SDK 54 with React Native
-- Web runtime: React Native Web
-- Routing/navigation: Expo Router, React Navigation bottom tabs
-- UI libraries: React, React Native components, Expo Vector Icons
-- Native Expo modules: Expo Location, Expo Splash Screen, Expo Status Bar, Expo Video, Expo Linking, Expo Linear Gradient
-- State/data layer: backend-aware app store in `src/data/appStore.ts`
-- Runtime data source: SQLite backend when configured, seed data fallback in `src/data/mymsuDatabase.ts`
-- Database reference: SQLite schema in `database/schema.sql`
-- Map assets: shared assets in `assets/campusMap`
-- Map routing logic: road graph data in `src/data/mymsuDatabase.ts`, routing helper in `src/features/campusMap/routing.ts`
-- Build tools: npm, Expo CLI, Metro Bundler, TypeScript, Expo ESLint
-- Mobile deployment tool: EAS Build using `eas.json`
-- Web deployment output: static export in `web-deploy`
+- Expo SDK 54, React Native, React Native Web, and Expo Router
+- Supabase Auth and Supabase Postgres
+- Shared app data store in `src/data/appStore.ts`
+- Seed/offline data in `src/data/mymsuDatabase.ts`
+- Map assets in `assets/campusMap`
+- Campus route graph in `src/data/mymsuDatabase.ts`
 
 ## Web Build
-
-The deployable static web export was generated with:
 
 ```bash
 npx expo export -p web --output-dir web-deploy
 ```
 
 Upload `web-deploy` to a static host such as Netlify, Vercel, Firebase Hosting,
-or a school web server. For a fresh export, run the same command again.
+or a school web server.
 
 ## Mobile Build
-
-This project is configured for Expo Go SDK 54 and EAS mobile builds.
 
 ```bash
 npm run start
@@ -87,15 +99,8 @@ npx eas-cli build --platform ios --profile production
 ```
 
 Preview Android builds generate an APK for testing. Production builds generate
-store-ready artifacts, but they require Expo account login and Android/iOS
-signing credentials.
-
-## Database
-
-The app can run offline from `src/data/mymsuDatabase.ts`, but when
-`EXPO_PUBLIC_API_BASE_URL` points to the backend it reads and writes through
-SQLite. Admin announcements and content edits are then shared across users
-through backend polling.
+store-ready artifacts, but they require Expo account login and signing
+credentials.
 
 ## Campus Location Images
 

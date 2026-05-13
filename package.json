@@ -7,7 +7,7 @@
     "android": "expo start --android --port 8081",
     "ios": "expo start --ios --port 8081",
     "web": "expo start --web --port 8081",
-    "backend": "node backend/server.mjs",
+    "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-location": "~19.0.8",
+    "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",

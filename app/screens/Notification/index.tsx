@@ -19,18 +19,17 @@ const priorityColor = {
 export default function NotificationScreen({ onBack }: NotificationScreenProps) {
   const { width } = useWindowDimensions();
   const session = useAuthSession();
-  const { announcements, classSchedules } = useAppData();
+  const { announcements } = useAppData();
   const visibleAnnouncements = React.useMemo(
     () => getVisibleAnnouncements(announcements, session?.role),
     [announcements, session?.role],
   );
-  const canViewClassReminders = session?.role !== "visitor";
   const columns = getColumnCount(width);
 
   return (
     <SecondaryScreenLayout
       title="Notifications"
-      description="Stay updated with announcements, class reminders, and important campus alerts."
+      description="Stay updated with announcements and important campus alerts."
       onBack={onBack}
     >
       <View style={styles.alertHero}>
@@ -40,7 +39,7 @@ export default function NotificationScreen({ onBack }: NotificationScreenProps) 
         <View style={styles.alertHeroText}>
           <Text style={styles.alertHeroTitle}>Campus updates</Text>
           <Text style={styles.alertHeroBody}>
-            Announcements are synced from the backend for every signed-in user.
+            Announcements are synced from Supabase for every signed-in user.
           </Text>
         </View>
       </View>
@@ -74,33 +73,6 @@ export default function NotificationScreen({ onBack }: NotificationScreenProps) 
         ))}
       </View>
 
-      {canViewClassReminders ? (
-        <>
-          <Text style={styles.sectionTitle}>Class Reminders</Text>
-          <View style={styles.reminderList}>
-            {classSchedules.map((schedule) => (
-              <View key={schedule.id} style={styles.reminderCard}>
-                <View style={styles.reminderIcon}>
-                  <Ionicons
-                    name="alarm-outline"
-                    size={20}
-                    color={colors.maroon}
-                  />
-                </View>
-                <View style={styles.reminderTextWrap}>
-                  <Text style={styles.reminderTitle}>
-                    {schedule.courseCode} - {schedule.courseTitle}
-                  </Text>
-                  <Text style={styles.reminderMeta}>
-                    {schedule.day}, {schedule.time} | {schedule.room}
-                  </Text>
-                  <Text style={styles.reminderBody}>{schedule.reminder}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      ) : null}
     </SecondaryScreenLayout>
   );
 }
@@ -195,48 +167,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase",
-  },
-  reminderList: {
-    gap: 12,
-  },
-  reminderCard: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 16,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  reminderIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.maroonSoft,
-  },
-  reminderTextWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  reminderTitle: {
-    color: colors.maroonDark,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "800",
-  },
-  reminderMeta: {
-    marginTop: 5,
-    color: colors.goldDark,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "800",
-  },
-  reminderBody: {
-    marginTop: 7,
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
   },
 });

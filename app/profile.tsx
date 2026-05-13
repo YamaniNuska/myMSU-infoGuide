@@ -150,8 +150,8 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Compatible Database</Text>
           <Text style={styles.cardText}>
-            The app syncs with the SQLite backend when configured and falls back
-            to the bundled seed data when offline.
+            The app syncs with Supabase Auth, profiles, and shared data tables,
+            then falls back to bundled seed data when Supabase is unavailable.
           </Text>
           <View style={styles.tableWrap}>
             {databaseTables.map((table) => (

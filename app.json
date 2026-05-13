@@ -33,6 +33,7 @@
           "locationWhenInUsePermission": "Allow myMSU-InfoGuide to show your position on the campus map."
         }
       ],
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

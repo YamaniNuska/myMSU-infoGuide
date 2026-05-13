@@ -14,18 +14,15 @@ import {
   View,
 } from "react-native";
 import {
-  getDemoAccounts,
   signIn,
   signUp,
 } from "../../auth/localAuth";
-import { UserRecord, UserRole } from "../../data/mymsuDatabase";
+import { UserRecord } from "../../data/mymsuDatabase";
 import { colors, maxContentWidth, radii } from "../../theme";
 
 type LoginScreenProps = {
   onSignIn?: (user: UserRecord) => void;
 };
-
-type SignupRole = Extract<UserRole, "student" | "faculty" | "employee">;
 
 export default function LoginScreen({ onSignIn }: LoginScreenProps) {
   const [name, setName] = useState("");
@@ -33,7 +30,6 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<SignupRole>("student");
   const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -74,7 +70,6 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
         username,
         email,
         password,
-        role,
       });
 
       if (!result.ok) {
@@ -102,14 +97,6 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
     onSignIn?.(result.user);
     setIsSubmitting(false);
-  };
-
-  const fillDemoAccount = (demo: ReturnType<typeof getDemoAccounts>[number]) => {
-    setIsSignUp(false);
-    setUsername(demo.username);
-    setPassword(demo.password);
-    setMessageType("success");
-    setMessage(`${demo.label} filled. Tap Sign in.`);
   };
 
   const switchMode = () => {
@@ -176,34 +163,13 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
             <Text style={styles.tagline}>
               {isSignUp
-                ? "Create visitor access with Gmail or MSU access with an institutional email."
-                : "Sign in using your visitor, student, faculty, employee, or admin account."}
+                ? "Create your account with your @s.msumain.edu.ph email."
+                : "Sign in using your MSU email, username, or admin account."}
             </Text>
 
             <Text style={styles.heading}>
               {isSignUp ? "Create Account" : "Sign In"}
             </Text>
-
-            {!isSignUp ? (
-              <View style={styles.demoPanel}>
-                <Text style={styles.demoTitle}>Demo Accounts</Text>
-                <View style={styles.demoRow}>
-                  {getDemoAccounts().map((demo) => (
-                    <TouchableOpacity
-                      key={demo.username}
-                      style={styles.demoChip}
-                      activeOpacity={0.82}
-                      onPress={() => fillDemoAccount(demo)}
-                    >
-                      <Text style={styles.demoChipRole}>{demo.role}</Text>
-                      <Text style={styles.demoChipText}>
-                        {demo.username} / {demo.password}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : null}
 
             <View style={styles.form}>
               {isSignUp ? (
@@ -251,7 +217,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                   />
                   <TextInput
                     style={styles.input}
-                    placeholder="Email"
+                    placeholder="MSU email (@s.msumain.edu.ph)"
                     placeholderTextColor="#8A6469"
                     value={email}
                     onChangeText={setEmail}
@@ -295,33 +261,6 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                     />
-                  </View>
-
-                  <View style={styles.roleRow}>
-                    {(["student", "faculty", "employee"] as const).map((item) => {
-                      const selected = role === item;
-
-                      return (
-                        <TouchableOpacity
-                          key={item}
-                          style={[
-                            styles.roleChip,
-                            selected && styles.roleChipSelected,
-                          ]}
-                          onPress={() => setRole(item)}
-                          activeOpacity={0.8}
-                        >
-                          <Text
-                            style={[
-                              styles.roleChipText,
-                              selected && styles.roleChipTextSelected,
-                            ]}
-                          >
-                            {item}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
                   </View>
                 </>
               ) : null}
@@ -473,47 +412,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
   },
-  demoPanel: {
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.line,
-    marginBottom: 18,
-  },
-  demoTitle: {
-    color: colors.maroonDark,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  demoRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 10,
-  },
-  demoChip: {
-    flexGrow: 1,
-    minWidth: 150,
-    padding: 10,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  demoChipRole: {
-    color: colors.goldDark,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  demoChipText: {
-    marginTop: 4,
-    color: colors.ink,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   form: {
     marginTop: 2,
   },
@@ -537,34 +435,6 @@ const styles = StyleSheet.create({
     color: "#341015",
     fontSize: 14,
     paddingVertical: 0,
-  },
-  roleRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  roleChip: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: radii.pill,
-    backgroundColor: "#F8F6F2",
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  roleChipSelected: {
-    backgroundColor: colors.maroon,
-    borderColor: colors.maroon,
-  },
-  roleChipText: {
-    color: colors.maroonDark,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  roleChipTextSelected: {
-    color: colors.surface,
   },
   message: {
     marginTop: 4,

@@ -21,12 +21,12 @@ import {
   users,
 } from "./mymsuDatabase";
 import {
-  apiDeleteRecord,
-  apiGetData,
-  apiSeedData,
-  apiUpsertRecord,
-  isBackendConfigured,
-} from "./apiClient";
+  isSupabaseConfigured,
+  supabaseDeleteRecord,
+  supabaseGetData,
+  supabaseSeedData,
+  supabaseUpsertRecord,
+} from "./supabaseData";
 
 export type AppData = {
   users: UserRecord[];
@@ -118,7 +118,7 @@ function replaceAppData(data: AppData) {
 }
 
 export async function syncAppData() {
-  if (!isBackendConfigured()) {
+  if (!isSupabaseConfigured()) {
     return false;
   }
 
@@ -128,10 +128,10 @@ export async function syncAppData() {
 
   syncPromise = (async () => {
     try {
-      const remoteData = await apiGetData();
+      const remoteData = await supabaseGetData();
 
       if (isEmptyData(remoteData) || isMissingSeedContent(remoteData)) {
-        const seededData = await apiSeedData(appData);
+        const seededData = await supabaseSeedData(appData);
         replaceAppData(seededData);
         return true;
       }
@@ -139,7 +139,7 @@ export async function syncAppData() {
       replaceAppData(remoteData);
       return true;
     } catch (error) {
-      console.warn("myMSU backend sync failed", error);
+      console.warn("myMSU Supabase sync failed", error);
       return false;
     } finally {
       syncPromise = null;
@@ -152,7 +152,7 @@ export async function syncAppData() {
 export function startAppDataSync(intervalMs = 15000) {
   void syncAppData();
 
-  if (!isBackendConfigured()) {
+  if (!isSupabaseConfigured()) {
     return () => undefined;
   }
 
@@ -170,10 +170,11 @@ export function startAppDataSync(intervalMs = 15000) {
   };
 }
 
-export function upsertRecord<K extends CollectionKey>(
+export async function upsertRecord<K extends CollectionKey>(
   key: K,
   item: CollectionItem<K> & { id: string },
 ) {
+  const previousData = appData;
   const items = appData[key] as (CollectionItem<K> & { id: string })[];
   const index = items.findIndex((record) => record.id === item.id);
   const nextItems =
@@ -187,14 +188,23 @@ export function upsertRecord<K extends CollectionKey>(
   };
   emit();
 
-  if (isBackendConfigured()) {
-    void apiUpsertRecord(key, item).catch((error) => {
-      console.warn(`Failed to persist ${String(key)} record`, error);
-    });
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+
+  try {
+    await supabaseUpsertRecord(key, item);
+    return true;
+  } catch (error) {
+    appData = previousData;
+    emit();
+    console.warn(`Failed to persist ${String(key)} record`, error);
+    return false;
   }
 }
 
-export function deleteRecord<K extends CollectionKey>(key: K, id: string) {
+export async function deleteRecord<K extends CollectionKey>(key: K, id: string) {
+  const previousData = appData;
   const items = appData[key] as (CollectionItem<K> & { id: string })[];
 
   appData = {
@@ -203,10 +213,18 @@ export function deleteRecord<K extends CollectionKey>(key: K, id: string) {
   };
   emit();
 
-  if (isBackendConfigured()) {
-    void apiDeleteRecord(key, id).catch((error) => {
-      console.warn(`Failed to delete ${String(key)} record`, error);
-    });
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+
+  try {
+    await supabaseDeleteRecord(key, id);
+    return true;
+  } catch (error) {
+    appData = previousData;
+    emit();
+    console.warn(`Failed to delete ${String(key)} record`, error);
+    return false;
   }
 }
 
@@ -399,8 +417,12 @@ export function searchLiveKnowledgeBase(rawQuery: string, limit = 8) {
         schedule.courseTitle,
         schedule.day,
         schedule.time,
+        schedule.scheduleDate ?? "",
+        schedule.startTime ?? "",
+        schedule.endTime ?? "",
         schedule.room,
         schedule.reminder,
+        schedule.reminderAt ?? "",
       ])
     ) {
       results.push({

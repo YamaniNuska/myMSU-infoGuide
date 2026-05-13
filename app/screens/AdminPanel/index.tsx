@@ -86,7 +86,7 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   ],
   calendar: [
     { key: "title", label: "Title" },
-    { key: "dateLabel", label: "Date label" },
+    { key: "eventDate", label: "Event date: YYYY-MM-DD" },
     { key: "type", label: "Type: enrollment/classes/event/deadline/exam" },
     { key: "audience", label: "Audience" },
     { key: "details", label: "Details", multiline: true },
@@ -117,9 +117,11 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   schedules: [
     { key: "courseCode", label: "Course code" },
     { key: "courseTitle", label: "Course title" },
-    { key: "day", label: "Day" },
-    { key: "time", label: "Time" },
+    { key: "scheduleDate", label: "Date: YYYY-MM-DD" },
+    { key: "startTime", label: "Start time: HH:MM" },
+    { key: "endTime", label: "End time: HH:MM" },
     { key: "room", label: "Room" },
+    { key: "reminderMinutes", label: "Alarm minutes before class" },
     { key: "reminder", label: "Reminder", multiline: true },
   ],
   courses: [
@@ -160,7 +162,7 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
   },
   calendar: {
     title: "",
-    dateLabel: "",
+    eventDate: "",
     type: "event",
     audience: "All users",
     details: "",
@@ -191,9 +193,11 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
   schedules: {
     courseCode: "",
     courseTitle: "",
-    day: "",
-    time: "",
+    scheduleDate: "",
+    startTime: "08:00",
+    endTime: "09:00",
     room: "",
+    reminderMinutes: "15",
     reminder: "",
   },
   courses: {
@@ -261,6 +265,67 @@ const toMapPercent = (value: string, fallback: number) => {
   return Math.min(Math.max(parsed, 0), 100);
 };
 
+const pad = (value: number) => String(value).padStart(2, "0");
+
+const formatTimeLabel = (time: string) => {
+  const [rawHour, rawMinute] = time.split(":").map(Number);
+
+  if (!Number.isFinite(rawHour) || !Number.isFinite(rawMinute)) {
+    return time;
+  }
+
+  const suffix = rawHour >= 12 ? "PM" : "AM";
+  const hour = rawHour % 12 || 12;
+
+  return `${hour}:${pad(rawMinute)} ${suffix}`;
+};
+
+const formatDateLabel = (dateKey: string) => {
+  const date = new Date(`${dateKey}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateKey;
+  }
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const isDateKey = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
+
+const getDayLabel = (dateKey: string) => {
+  const date = new Date(`${dateKey}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(undefined, { weekday: "long" });
+};
+
+const getReminderAt = (
+  scheduleDate: string,
+  startTime: string,
+  reminderMinutes: number,
+) => {
+  const startsAt = new Date(`${scheduleDate}T${startTime}:00`);
+
+  if (Number.isNaN(startsAt.getTime())) {
+    return undefined;
+  }
+
+  return new Date(startsAt.getTime() - reminderMinutes * 60 * 1000).toISOString();
+};
+
+const getReminderText = (minutes: number) =>
+  minutes === 0 ? "Alarm at class start." : `Alarm ${minutes} minutes before class.`;
+
 function recordToForm(tab: AdminTab, item: Record<string, unknown>) {
   const form = { ...defaultForm[tab] };
 
@@ -288,6 +353,7 @@ export default function AdminPanelScreen() {
   const [form, setForm] = React.useState(defaultForm.handbook);
   const [query, setQuery] = React.useState("");
   const [message, setMessage] = React.useState("");
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const setTab = (tab: AdminTab) => {
     setActiveTab(tab);
@@ -342,7 +408,7 @@ export default function AdminPanelScreen() {
                     mapItem(
                       item,
                       `${item.courseCode} - ${item.courseTitle}`,
-                      `${item.day}, ${item.time}`,
+                      `${item.scheduleDate ?? item.day}, ${item.time}`,
                       `${item.room}. ${item.reminder}`,
                     ),
                   )
@@ -423,13 +489,23 @@ export default function AdminPanelScreen() {
                     ? "prospectusRecords"
                     : "announcements";
 
-    deleteRecord(key, item.id);
-    setMessage("Record deleted.");
+    const synced = await deleteRecord(key, item.id);
+    setMessage(
+      synced
+        ? "Record deleted and synced."
+        : "Supabase did not delete this record. Check the schema and connection.",
+    );
     resetForm();
   };
 
   const saveForm = async () => {
+    if (isSaving) {
+      return;
+    }
+
     const id = editingId ?? makeId(activeTab);
+    setIsSaving(true);
+    setMessage("");
 
     if (activeTab === "students") {
       const payload = {
@@ -442,17 +518,26 @@ export default function AdminPanelScreen() {
         ? await updateStudentAccount(editingId, payload)
         : await createStudentAccount(payload);
 
-      setMessage(result.ok ? "Student account saved." : result.message);
+      setMessage(
+        result.ok
+          ? editingId && form.password.trim()
+            ? "Student profile saved. Password changes must be handled in Supabase Auth."
+            : "Student account saved."
+          : result.message,
+      );
 
       if (result.ok) {
         resetForm();
       }
 
+      setIsSaving(false);
       return;
     }
 
+    let synced = false;
+
     if (activeTab === "handbook") {
-      upsertRecord("handbookEntries", {
+      synced = await upsertRecord("handbookEntries", {
         id,
         chapter: form.chapter,
         title: form.title,
@@ -462,10 +547,12 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "calendar") {
-      upsertRecord("academicEvents", {
+      const eventDate = form.eventDate.trim();
+      synced = await upsertRecord("academicEvents", {
         id,
         title: form.title,
-        dateLabel: form.dateLabel,
+        eventDate: isDateKey(eventDate) ? eventDate : undefined,
+        dateLabel: isDateKey(eventDate) ? formatDateLabel(eventDate) : eventDate,
         type: form.type as AcademicEvent["type"],
         audience: form.audience,
         details: form.details,
@@ -473,7 +560,7 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "offices") {
-      upsertRecord("offices", {
+      synced = await upsertRecord("offices", {
         id,
         name: form.name,
         category: form.category,
@@ -487,7 +574,7 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "locations") {
-      upsertRecord("campusLocations", {
+      synced = await upsertRecord("campusLocations", {
         id,
         name: form.name,
         category: form.category,
@@ -504,19 +591,35 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "schedules") {
-      upsertRecord("classSchedules", {
+      const reminderMinutes = Number(form.reminderMinutes || 15);
+      const hasStructuredTime =
+        form.scheduleDate.trim() && form.startTime.trim() && form.endTime.trim();
+      synced = await upsertRecord("classSchedules", {
         id,
         courseCode: form.courseCode,
         courseTitle: form.courseTitle,
-        day: form.day,
-        time: form.time,
+        day: hasStructuredTime ? getDayLabel(form.scheduleDate) : "",
+        time: hasStructuredTime
+          ? `${formatTimeLabel(form.startTime)} - ${formatTimeLabel(form.endTime)}`
+          : "",
+        scheduleDate: form.scheduleDate.trim() || undefined,
+        startTime: form.startTime.trim() || undefined,
+        endTime: form.endTime.trim() || undefined,
         room: form.room,
-        reminder: form.reminder,
+        reminder: form.reminder.trim() || getReminderText(reminderMinutes),
+        reminderMinutes: Number.isFinite(reminderMinutes) ? reminderMinutes : 15,
+        reminderAt: hasStructuredTime
+          ? getReminderAt(
+              form.scheduleDate,
+              form.startTime,
+              Number.isFinite(reminderMinutes) ? reminderMinutes : 15,
+            )
+          : undefined,
       } satisfies ClassScheduleRecord);
     }
 
     if (activeTab === "courses") {
-      upsertRecord("coursePrograms", {
+      synced = await upsertRecord("coursePrograms", {
         id,
         college: form.college,
         program: form.program,
@@ -527,7 +630,7 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "prospectus") {
-      upsertRecord("prospectusRecords", {
+      synced = await upsertRecord("prospectusRecords", {
         id,
         programId: form.programId,
         program: form.program,
@@ -538,7 +641,7 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "announcements") {
-      upsertRecord("announcements", {
+      synced = await upsertRecord("announcements", {
         id,
         title: form.title,
         body: form.body,
@@ -548,8 +651,17 @@ export default function AdminPanelScreen() {
       } satisfies AnnouncementRecord);
     }
 
-    setMessage(editingId ? "Record updated." : "Record added.");
+    setMessage(
+      synced
+        ? editingId
+          ? "Record updated and synced."
+          : "Record added and synced."
+        : editingId
+          ? "Supabase did not update this record. Check the schema and connection."
+          : "Supabase did not add this record. Check the schema and connection.",
+    );
     resetForm();
+    setIsSaving(false);
   };
 
   if (session?.role !== "admin") {
@@ -672,10 +784,14 @@ export default function AdminPanelScreen() {
 
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
-          <Pressable style={styles.saveButton} onPress={saveForm}>
+          <Pressable
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            onPress={saveForm}
+            disabled={isSaving}
+          >
             <Ionicons name="save-outline" size={18} color={colors.surface} />
             <Text style={styles.saveButtonText}>
-              {editingId ? "Update" : "Add"}
+              {isSaving ? "Saving..." : editingId ? "Update" : "Add"}
             </Text>
           </Pressable>
         </View>
@@ -856,6 +972,9 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: radii.pill,
     backgroundColor: colors.maroon,
+  },
+  saveButtonDisabled: {
+    opacity: 0.58,
   },
   saveButtonText: {
     color: colors.surface,

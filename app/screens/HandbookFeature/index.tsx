@@ -103,8 +103,8 @@ export default function HandbookScreen() {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Digital handbook database</Text>
           <Text style={styles.summaryText}>
-            The handbook content is stored as searchable records that can be
-            synced later with Firebase or an offline SQLite table.
+            The handbook content is stored as searchable records and syncs with
+            the shared Supabase handbook table.
           </Text>
         </View>
 

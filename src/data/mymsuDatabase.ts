@@ -303,6 +303,7 @@ export type ProspectusRecord = {
 export type AcademicEvent = {
   id: string;
   title: string;
+  eventDate?: string;
   dateLabel: string;
   type: "enrollment" | "classes" | "event" | "deadline" | "exam";
   audience: string;
@@ -320,12 +321,19 @@ export type AnnouncementRecord = {
 
 export type ClassScheduleRecord = {
   id: string;
+  userId?: string;
   courseCode: string;
   courseTitle: string;
   day: string;
   time: string;
+  scheduleDate?: string;
+  startTime?: string;
+  endTime?: string;
   room: string;
   reminder: string;
+  reminderMinutes?: number;
+  reminderAt?: string;
+  notificationId?: string;
 };
 
 export type SearchResult = {
@@ -1222,8 +1230,11 @@ export const classSchedules: ClassScheduleRecord[] = [
     courseTitle: "Introduction to Computing",
     day: "Monday and Wednesday",
     time: "8:00 AM - 9:30 AM",
+    startTime: "08:00",
+    endTime: "09:30",
     room: "CICS Room 101",
     reminder: "Arrive 10 minutes early during the first week.",
+    reminderMinutes: 15,
   },
   {
     id: "sample-ge-1",
@@ -1231,14 +1242,17 @@ export const classSchedules: ClassScheduleRecord[] = [
     courseTitle: "Purposive Communication",
     day: "Tuesday and Thursday",
     time: "10:00 AM - 11:30 AM",
+    startTime: "10:00",
+    endTime: "11:30",
     room: "Assigned classroom",
     reminder: "Check the department board for room updates.",
+    reminderMinutes: 15,
   },
 ];
 
 export const databaseTables = [
-  "users",
-  "sessions",
+  "auth.users",
+  "profiles",
   "handbook_entries",
   "administrative_offices",
   "campus_locations",

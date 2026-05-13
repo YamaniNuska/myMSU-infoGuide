@@ -1,17 +1,9 @@
 import * as React from "react";
-import {
-  apiCreateUser,
-  apiDeleteUser,
-  apiSignIn,
-  apiSignUp,
-  apiUpdateUser,
-  isBackendConfigured,
-  setApiAuthToken,
-} from "../data/apiClient";
+import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
+import { supabase, isSupabaseConfigured } from "../../utils/supabase";
 import { deleteRecord, syncAppData, upsertRecord } from "../data/appStore";
-import { UserRecord, UserRole, users } from "../data/mymsuDatabase";
+import { UserRecord, UserRole } from "../data/mymsuDatabase";
 
-type AuthAccount = Required<Pick<UserRecord, "passwordHash">> & UserRecord;
 type PublicUserRole = Exclude<UserRole, "admin">;
 type SignupRole = Extract<UserRole, "student" | "faculty" | "employee">;
 
@@ -20,7 +12,6 @@ type SignUpInput = {
   username: string;
   email: string;
   password: string;
-  role: SignupRole;
 };
 
 type AuthResult =
@@ -33,91 +24,178 @@ type AuthResult =
       message: string;
     };
 
-const DEMO_PASSWORDS: Record<string, string> = {
-  student: "student123",
-  visitor: "visitor123",
-  admin: "admin123",
-};
+const MSU_STUDENT_DOMAIN = "@s.msumain.edu.ph";
 
-const GMAIL_DOMAIN = "@gmail.com";
-const MSU_ACADEMIC_DOMAINS = ["@s.msumain.edu.ph", "@msumain.edu.ph"];
-
-const hashPassword = (password: string) => `demo:${password}`;
-
-const normalize = (value: string) => value.trim().toLowerCase();
-const isMsuEmail = (email: string) =>
-  MSU_ACADEMIC_DOMAINS.some((domain) => email.endsWith(domain));
-
-const seedAccounts = users
-  .filter((user) => !!user.passwordHash)
-  .map<AuthAccount>((user) => ({
-    ...user,
-    passwordHash:
-      user.passwordHash ??
-      hashPassword(DEMO_PASSWORDS[user.username] ?? "password123"),
-  }));
-
-let accounts: AuthAccount[] = [...seedAccounts];
 let currentUser: UserRecord | null = null;
 const listeners = new Set<() => void>();
 
-function toPublicUser(account: AuthAccount): UserRecord {
-  const { passwordHash: _passwordHash, ...publicUser } = account;
-
-  return publicUser;
-}
+const normalize = (value: string) => value.trim().toLowerCase();
+const isSignupRole = (role: unknown): role is SignupRole =>
+  role === "student" || role === "faculty" || role === "employee";
+const isMsuStudentEmail = (email: string) =>
+  normalize(email).endsWith(MSU_STUDENT_DOMAIN);
 
 function emit() {
   listeners.forEach((listener) => listener());
 }
 
-function setSignedInUser(user: UserRecord, token?: string) {
-  currentUser = user;
-  setApiAuthToken(token ?? null);
-
-  if (!isBackendConfigured()) {
-    upsertRecord("users", user);
+function validateSupabase() {
+  if (!isSupabaseConfigured()) {
+    return "Supabase is not configured. Add the Supabase URL and publishable key to .env.local.";
   }
 
+  return null;
+}
+
+function toPublicUser(row: Record<string, unknown>): UserRecord {
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    role: (row.role as UserRole) ?? "visitor",
+    username: String(row.username ?? ""),
+    email: String(row.email ?? ""),
+  };
+}
+
+function profileFromAuthUser(authUser: SupabaseAuthUser): UserRecord | null {
+  const email = normalize(authUser.email ?? "");
+
+  if (!email) {
+    return null;
+  }
+
+  const metadata = authUser.user_metadata as Record<string, unknown>;
+  const metadataUsername =
+    typeof metadata.username === "string" ? metadata.username : "";
+  const metadataName =
+    typeof metadata.name === "string"
+      ? metadata.name
+      : typeof metadata.full_name === "string"
+        ? metadata.full_name
+        : "";
+  const requestedRole =
+    isSignupRole(metadata.role) && metadata.role !== "employee"
+      ? metadata.role
+      : "student";
+  const resolvedRole = resolveSignupRole(email, requestedRole);
+  const username = normalize(metadataUsername || email.split("@")[0]);
+
+  return {
+    id: authUser.id,
+    name: metadataName.trim() || username,
+    role: resolvedRole.ok ? resolvedRole.role : "visitor",
+    username,
+    email,
+  };
+}
+
+async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
+  const existingProfile = await getProfileById(authUser.id);
+
+  if (existingProfile) {
+    return existingProfile;
+  }
+
+  const fallbackProfile = profileFromAuthUser(authUser);
+
+  if (!fallbackProfile) {
+    return null;
+  }
+
+  await saveProfile(fallbackProfile);
+  return fallbackProfile;
+}
+
+async function findProfileByIdentifier(identifier: string) {
+  const cleanIdentifier = normalize(identifier);
+
+  if (cleanIdentifier.includes("@")) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", cleanIdentifier)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return data ? toPublicUser(data) : null;
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("username", cleanIdentifier)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? toPublicUser(data) : null;
+}
+
+async function getProfileById(id: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? toPublicUser(data) : null;
+}
+
+async function saveProfile(user: UserRecord) {
+  const { error } = await supabase.from("profiles").upsert(
+    {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      username: normalize(user.username),
+      email: normalize(user.email),
+    },
+    { onConflict: "id" },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+function setSignedInUser(user: UserRecord) {
+  currentUser = user;
+  void upsertRecord("users", user);
   emit();
 }
 
 function resolveSignupRole(
   email: string,
-  requestedRole: UserRole,
+  requestedRole: UserRole = "student",
 ): { ok: true; role: PublicUserRole } | { ok: false; message: string } {
   const cleanEmail = normalize(email);
 
   if (requestedRole === "admin") {
     return {
       ok: false,
-      message: "Admin account creation is disabled. Use the fixed admin account.",
+      message: "Admin account creation is disabled. Use an existing Supabase admin account.",
     };
   }
 
-  if (cleanEmail.endsWith(GMAIL_DOMAIN)) {
+  if (isMsuStudentEmail(cleanEmail)) {
     return {
       ok: true,
-      role: "visitor",
-    };
-  }
-
-  if (isMsuEmail(cleanEmail)) {
-    return {
-      ok: true,
-      role:
-        requestedRole === "student" ||
-        requestedRole === "faculty" ||
-        requestedRole === "employee"
-          ? requestedRole
-          : "student",
+      role: requestedRole === "faculty" ? "faculty" : "student",
     };
   }
 
   return {
     ok: false,
-    message:
-      "Use a Gmail address for visitor access or an MSU email address for student, faculty, or employee access.",
+    message: "Use your MSU student email ending in @s.msumain.edu.ph.",
   };
 }
 
@@ -147,33 +225,44 @@ export function useAuthSession() {
   );
 }
 
-export function getDemoAccounts() {
-  return [
-    {
-      role: "student" as const,
-      username: "student",
-      password: "student123",
-      label: "Student Account",
-    },
-    {
-      role: "visitor" as const,
-      username: "visitor",
-      password: "visitor123",
-      label: "Visitor Account",
-    },
-    {
-      role: "admin" as const,
-      username: "admin",
-      password: "admin123",
-      label: "Admin Account",
-    },
-  ];
+export async function restoreAuthSession() {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      return null;
+    }
+
+    const profile = await ensureProfileForAuthUser(data.user);
+
+    if (profile) {
+      setSignedInUser(profile);
+    }
+
+    return profile;
+  } catch (error) {
+    console.warn("Unable to restore Supabase session", error);
+    return null;
+  }
 }
 
 export async function signIn(
   identifier: string,
   password: string,
 ): Promise<AuthResult> {
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
   const cleanIdentifier = normalize(identifier);
   const cleanPassword = password.trim();
 
@@ -184,53 +273,73 @@ export async function signIn(
     };
   }
 
-  if (isBackendConfigured()) {
-    try {
-      await syncAppData();
-      const result = await apiSignIn(cleanIdentifier, cleanPassword);
-      setSignedInUser(result.user, result.token);
+  try {
+    await syncAppData();
 
-      return {
-        ok: true,
-        user: result.user,
-      };
-    } catch (error) {
+    const profile = await findProfileByIdentifier(cleanIdentifier);
+
+    if (!profile && !cleanIdentifier.includes("@")) {
       return {
         ok: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Unable to sign in through the backend.",
+          "Use your email address for the first sign-in. After the profile is restored, username sign-in will work.",
       };
     }
-  }
 
-  const account = accounts.find(
-    (item) =>
-      normalize(item.username) === cleanIdentifier ||
-      normalize(item.email) === cleanIdentifier,
-  );
+    const email = profile?.email ?? cleanIdentifier;
 
-  if (!account || account.passwordHash !== hashPassword(cleanPassword)) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: cleanPassword,
+    });
+
+    if (error || !data.user) {
+      return {
+        ok: false,
+        message: error?.message ?? "Invalid account or password.",
+      };
+    }
+
+    const signedInProfile = profile ?? (await ensureProfileForAuthUser(data.user));
+
+    if (!signedInProfile) {
+      return {
+        ok: false,
+        message:
+          "Signed in, but the app could not create a profile for this account. Check that the Auth user has an email address.",
+      };
+    }
+
+    setSignedInUser(signedInProfile);
+
+    return {
+      ok: true,
+      user: signedInProfile,
+    };
+  } catch (error) {
     return {
       ok: false,
-      message: "Invalid account or password.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to sign in through Supabase.",
     };
   }
-
-  currentUser = toPublicUser(account);
-  emit();
-
-  return {
-    ok: true,
-    user: currentUser,
-  };
 }
 
 export async function signUp(input: SignUpInput): Promise<AuthResult> {
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
   const name = input.name.trim();
   const username = input.username.trim();
-  const email = input.email.trim();
+  const email = normalize(input.email);
   const password = input.password.trim();
 
   if (!name || !username || !email || !password) {
@@ -249,76 +358,87 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
     };
   }
 
-  const resolvedRole = resolveSignupRole(email, input.role);
+  const resolvedRole = resolveSignupRole(email);
 
   if (!resolvedRole.ok) {
     return resolvedRole;
   }
 
-  if (isBackendConfigured()) {
-    try {
-      await syncAppData();
-      const result = await apiSignUp({
-        name,
-        username,
-        email,
-        password,
-        role: resolvedRole.role,
-      });
+  try {
+    const existingProfile = await findProfileByIdentifier(username);
 
-      setSignedInUser(result.user, result.token);
-
-      return {
-        ok: true,
-        user: result.user,
-      };
-    } catch (error) {
+    if (existingProfile) {
       return {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unable to create the account through the backend.",
+        message: "Username is already registered.",
       };
+    }
+
+    const existingEmail = await findProfileByIdentifier(email);
+
+    if (existingEmail) {
+      return {
+        ok: false,
+        message: "Email is already registered.",
+      };
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          username: normalize(username),
+          role: resolvedRole.role,
+        },
+      },
+    });
+
+    if (error || !data.user) {
+      return {
+        ok: false,
+        message: error?.message ?? "Unable to create the account.",
+      };
+    }
+
+    const user: UserRecord = {
+      id: data.user.id,
+      name,
+      role: resolvedRole.role,
+      username: normalize(username),
+      email,
+    };
+
+    await saveProfile(user);
+    setSignedInUser(user);
+
+    return {
+      ok: true,
+      user,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to create the account through Supabase.",
+    };
+  }
+}
+
+export async function signOut() {
+  currentUser = null;
+
+  if (isSupabaseConfigured()) {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.warn("Supabase sign out failed", error);
     }
   }
 
-  const duplicate = accounts.some(
-    (account) =>
-      normalize(account.username) === normalize(username) ||
-      normalize(account.email) === normalize(email),
-  );
-
-  if (duplicate) {
-    return {
-      ok: false,
-      message: "Username or email is already registered.",
-    };
-  }
-
-  const account: AuthAccount = {
-    id: `user-${resolvedRole.role}-${Date.now()}`,
-    name,
-    role: resolvedRole.role,
-    username,
-    email,
-    passwordHash: hashPassword(password),
-  };
-
-  accounts = [account, ...accounts];
-  currentUser = toPublicUser(account);
-  upsertRecord("users", currentUser);
-  emit();
-
-  return {
-    ok: true,
-    user: currentUser,
-  };
-}
-
-export function signOut() {
-  currentUser = null;
-  setApiAuthToken(null);
   emit();
 }
 
@@ -328,9 +448,18 @@ export async function createStudentAccount(input: {
   email: string;
   password: string;
 }): Promise<AuthResult> {
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
   const name = input.name.trim();
   const username = input.username.trim();
-  const email = input.email.trim();
+  const email = normalize(input.email);
   const password = input.password.trim();
 
   if (!name || !username || !email || !password) {
@@ -362,63 +491,76 @@ export async function createStudentAccount(input: {
     };
   }
 
-  const duplicate = accounts.some(
-    (account) =>
-      normalize(account.username) === normalize(username) ||
-      normalize(account.email) === normalize(email),
-  );
+  try {
+    const existingProfile = await findProfileByIdentifier(username);
 
-  if (duplicate) {
-    return {
-      ok: false,
-      message: "Username or email is already registered.",
-    };
-  }
-
-  if (isBackendConfigured()) {
-    try {
-      const result = await apiCreateUser({
-        name,
-        username,
-        email,
-        password,
-        role: "student",
-      });
-      upsertRecord("users", result.user);
-
-      return {
-        ok: true,
-        user: result.user,
-      };
-    } catch (error) {
+    if (existingProfile) {
       return {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unable to create the student account.",
+        message: "Username is already registered.",
       };
     }
+
+    const existingEmail = await findProfileByIdentifier(email);
+
+    if (existingEmail) {
+      return {
+        ok: false,
+        message: "Email is already registered.",
+      };
+    }
+
+    const { data: previousSession } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          username: normalize(username),
+          role: "student",
+        },
+      },
+    });
+
+    if (previousSession.session) {
+      await supabase.auth.setSession({
+        access_token: previousSession.session.access_token,
+        refresh_token: previousSession.session.refresh_token,
+      });
+    }
+
+    if (error || !data.user) {
+      return {
+        ok: false,
+        message: error?.message ?? "Unable to create the student account.",
+      };
+    }
+
+    const user: UserRecord = {
+      id: data.user.id,
+      name,
+      role: "student",
+      username: normalize(username),
+      email,
+    };
+
+    await saveProfile(user);
+    void upsertRecord("users", user);
+
+    return {
+      ok: true,
+      user,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to create the student account through Supabase.",
+    };
   }
-
-  const account: AuthAccount = {
-    id: `user-student-${Date.now()}`,
-    name,
-    role: "student",
-    username,
-    email,
-    passwordHash: hashPassword(password),
-  };
-
-  accounts = [account, ...accounts];
-  const publicUser = toPublicUser(account);
-  upsertRecord("users", publicUser);
-  emit();
-
-  return {
-    ok: true,
-    user: publicUser,
-  };
 }
 
 export async function updateStudentAccount(
@@ -430,8 +572,16 @@ export async function updateStudentAccount(
     password?: string;
   },
 ): Promise<AuthResult> {
-  const account = accounts.find((item) => item.id === id);
-  const nextEmail = patch.email.trim();
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
+  const nextEmail = normalize(patch.email);
   const resolvedRole = resolveSignupRole(nextEmail, "student");
 
   if (!resolvedRole.ok) {
@@ -445,139 +595,82 @@ export async function updateStudentAccount(
     };
   }
 
-  if (isBackendConfigured()) {
-    try {
-      const result = await apiUpdateUser(id, {
-        name: patch.name,
-        username: patch.username,
-        email: patch.email,
-        password: patch.password?.trim() || undefined,
-        role: "student",
-      });
-      upsertRecord("users", result.user);
-
-      if (currentUser?.id === id) {
-        currentUser = result.user;
-      }
-
-      emit();
-
-      return {
-        ok: true,
-        user: result.user,
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unable to update the student account.",
-      };
-    }
-  }
-
-  if (!account || account.role !== "student") {
-    return {
-      ok: false,
-      message: "Student account was not found.",
-    };
-  }
-
-  const duplicate = accounts.some(
-    (item) =>
-      item.id !== id &&
-      (normalize(item.username) === normalize(patch.username) ||
-        normalize(item.email) === normalize(patch.email)),
-  );
-
-  if (duplicate) {
-    return {
-      ok: false,
-      message: "Username or email is already registered.",
-    };
-  }
-
-  const nextAccount: AuthAccount = {
-    ...account,
+  const user: UserRecord = {
+    id,
     name: patch.name.trim(),
-    username: patch.username.trim(),
+    role: "student",
+    username: normalize(patch.username),
     email: nextEmail,
-    passwordHash: patch.password?.trim()
-      ? hashPassword(patch.password.trim())
-      : account.passwordHash,
   };
 
-  accounts = accounts.map((item) => (item.id === id ? nextAccount : item));
+  try {
+    await saveProfile(user);
+    void upsertRecord("users", user);
 
-  const publicUser = toPublicUser(nextAccount);
-  upsertRecord("users", publicUser);
+    if (currentUser?.id === id) {
+      currentUser = user;
+      emit();
+    }
 
-  if (currentUser?.id === id) {
-    currentUser = publicUser;
+    return {
+      ok: true,
+      user,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to update the student profile.",
+    };
   }
-
-  emit();
-
-  return {
-    ok: true,
-    user: publicUser,
-  };
 }
 
 export async function deleteStudentAccount(id: string): Promise<AuthResult> {
-  if (isBackendConfigured()) {
-    try {
-      await apiDeleteUser(id);
-      deleteRecord("users", id);
+  const configError = validateSupabase();
 
-      if (currentUser?.id === id) {
-        currentUser = null;
-      }
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
 
+  try {
+    const deletedUser = currentUser?.id === id ? currentUser : null;
+
+    const { error } = await supabase.from("profiles").delete().eq("id", id);
+
+    if (error) {
+      throw error;
+    }
+
+    await deleteRecord("users", id);
+
+    if (currentUser?.id === id) {
+      currentUser = null;
       emit();
+    }
 
-      return {
-        ok: true,
-        user: {
+    return {
+      ok: true,
+      user:
+        deletedUser ?? {
           id,
           name: "Deleted student",
           role: "student",
           username: id,
           email: "",
         },
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unable to delete the student account.",
-      };
-    }
-  }
-
-  const account = accounts.find((item) => item.id === id);
-
-  if (!account || account.role !== "student") {
+    };
+  } catch (error) {
     return {
       ok: false,
-      message: "Student account was not found.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to delete the student profile.",
     };
   }
-
-  accounts = accounts.filter((item) => item.id !== id);
-  deleteRecord("users", id);
-
-  if (currentUser?.id === id) {
-    currentUser = null;
-  }
-
-  emit();
-
-  return {
-    ok: true,
-    user: toPublicUser(account),
-  };
 }

@@ -5,9 +5,9 @@ import { EventEmitter as LocationEventEmitter } from "expo-location";
 import { Tabs } from "expo-router";
 import * as React from "react";
 import { Platform } from "react-native";
+import { restoreAuthSession } from "../src/auth/localAuth";
 import { startAppDataSync } from "../src/data/appStore";
 import { colors } from "../src/theme";
-import { supabase } from "../utils/supabase";
 
 if (Platform.OS === "web" && LocationEventEmitter) {
   const emitter = LocationEventEmitter as unknown as Record<string, unknown>;
@@ -28,15 +28,7 @@ export default function RootLayout() {
   React.useEffect(() => {
     const stopAppDataSync = startAppDataSync();
 
-    void supabase
-      .from("todos")
-      .select()
-      .limit(10)
-      .then(({ error }) => {
-        if (error) {
-          console.warn("Supabase todos query failed", error.message);
-        }
-      });
+    void restoreAuthSession();
 
     return stopAppDataSync;
   }, []);
@@ -55,7 +47,7 @@ export default function RootLayout() {
           marginTop: 2,
         },
         tabBarItemStyle: {
-          paddingVertical: 6,
+          paddingVertical: 9,
         },
         tabBarStyle: {
           position: "absolute",
