@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -499,6 +500,16 @@ export default function AdminPanelScreen() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const selectProspectusProgram = (programId: string) => {
+    const program = data.coursePrograms.find((item) => item.id === programId);
+
+    setForm((current) => ({
+      ...current,
+      programId,
+      program: program?.program ?? current.program,
+    }));
+  };
+
   const renderChoiceField = (key: string, options: readonly string[]) => (
     <View style={styles.choiceRow}>
       {options.map((option) => {
@@ -566,6 +577,58 @@ export default function AdminPanelScreen() {
 
     if (field.key === "reminderMinutes") {
       return renderChoiceField("reminderMinutes", reminderOptions);
+    }
+
+    if (activeTab === "prospectus" && field.key === "programId") {
+      if (data.coursePrograms.length === 0) {
+        return (
+          <Text style={styles.helperText}>
+            Add a course/program first, then select it here.
+          </Text>
+        );
+      }
+
+      return (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.programChoiceRow}
+        >
+          {data.coursePrograms.map((program) => {
+            const selected = form.programId === program.id;
+
+            return (
+              <Pressable
+                key={program.id}
+                style={[
+                  styles.programChoice,
+                  selected && styles.choiceChipActive,
+                ]}
+                onPress={() => selectProspectusProgram(program.id)}
+              >
+                <Text
+                  style={[
+                    styles.programChoiceTitle,
+                    selected && styles.choiceChipTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {program.degree || program.id}
+                </Text>
+                <Text
+                  style={[
+                    styles.programChoiceSubtitle,
+                    selected && styles.choiceChipTextActive,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {program.program}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      );
     }
 
     const numericField = ["mapX", "mapY", "latitude", "longitude"].includes(
@@ -1158,6 +1221,39 @@ const styles = StyleSheet.create({
   },
   choiceChipTextActive: {
     color: colors.surface,
+  },
+  programChoiceRow: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  programChoice: {
+    width: 190,
+    minHeight: 68,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.sm,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  programChoiceTitle: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  programChoiceSubtitle: {
+    marginTop: 4,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
+  },
+  helperText: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
   },
   datePicker: {
     padding: 10,

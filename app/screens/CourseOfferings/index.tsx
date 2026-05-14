@@ -28,6 +28,12 @@ export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
     [coursePrograms],
   );
 
+  React.useEffect(() => {
+    if (!colleges.includes(activeCollege)) {
+      setActiveCollege("All");
+    }
+  }, [activeCollege, colleges]);
+
   const filteredPrograms = coursePrograms.filter((program) => {
     const matchesCollege =
       activeCollege === "All" || program.college === activeCollege;

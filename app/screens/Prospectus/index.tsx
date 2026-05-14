@@ -1,6 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useAppData } from "../../../src/data/appStore";
 import { colors, getCardWidth, getColumnCount, radii, shadow } from "../../../src/theme";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
@@ -10,31 +17,57 @@ type ProspectusScreenProps = {
 };
 
 export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
-  const [activeProgramId, setActiveProgramId] = React.useState("bsit");
+  const [activeProgramId, setActiveProgramId] = React.useState("");
   const { coursePrograms, prospectusRecords } = useAppData();
   const { width } = useWindowDimensions();
   const columns = getColumnCount(width);
-  const availablePrograms = React.useMemo(
-    () =>
-      coursePrograms.filter((program) =>
-        prospectusRecords.some((record) => record.programId === program.id),
-      ),
+  const programOptions = React.useMemo(
+    () => {
+      const courseOptions = coursePrograms
+        .filter((program) =>
+          prospectusRecords.some((record) => record.programId === program.id),
+        )
+        .map((program) => ({
+          id: program.id,
+          title: program.program,
+          subtitle: program.overview,
+          label: program.degree || program.program,
+        }));
+      const knownIds = new Set(courseOptions.map((program) => program.id));
+      const prospectusOnlyOptions = Array.from(
+        new Map(
+          prospectusRecords
+            .filter((record) => !knownIds.has(record.programId))
+            .map((record) => [
+              record.programId,
+              {
+                id: record.programId,
+                title: record.program || record.programId,
+                subtitle: "Prospectus record added from the Admin Console.",
+                label: record.program || record.programId,
+              },
+            ]),
+        ).values(),
+      );
+
+      return [...courseOptions, ...prospectusOnlyOptions];
+    },
     [coursePrograms, prospectusRecords],
   );
 
   React.useEffect(() => {
     if (
-      availablePrograms.length > 0 &&
-      !availablePrograms.some((program) => program.id === activeProgramId)
+      programOptions.length > 0 &&
+      !programOptions.some((program) => program.id === activeProgramId)
     ) {
-      setActiveProgramId(availablePrograms[0].id);
+      setActiveProgramId(programOptions[0].id);
     }
-  }, [activeProgramId, availablePrograms]);
+  }, [activeProgramId, programOptions]);
 
   const visibleRecords = prospectusRecords.filter(
     (record) => record.programId === activeProgramId,
   );
-  const activeProgram = coursePrograms.find(
+  const activeProgram = programOptions.find(
     (program) => program.id === activeProgramId,
   );
 
@@ -44,9 +77,12 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
       description="Preview program flow, semester subjects, and curriculum checkpoints."
       onBack={onBack}
     >
-      <View style={styles.programPicker}>
-        {availablePrograms
-          .map((program) => {
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.programPicker}
+      >
+        {programOptions.map((program) => {
             const isActive = activeProgramId === program.id;
 
             return (
@@ -59,22 +95,27 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
                   style={[
                     styles.programChipText,
                     isActive && styles.programChipTextActive,
-                  ]}
-                >
-                  {program.degree}
-                </Text>
-              </Pressable>
-            );
-          })}
-      </View>
+                ]}
+              >
+                {program.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       <View style={styles.heroPanel}>
         <View style={styles.heroIcon}>
           <Ionicons name="school" size={24} color={colors.gold} />
         </View>
         <View style={styles.heroTextWrap}>
-          <Text style={styles.heroTitle}>{activeProgram?.program}</Text>
-          <Text style={styles.heroSubtitle}>{activeProgram?.overview}</Text>
+          <Text style={styles.heroTitle}>
+            {activeProgram?.title ?? "No prospectus records yet"}
+          </Text>
+          <Text style={styles.heroSubtitle}>
+            {activeProgram?.subtitle ??
+              "Add prospectus records from the Admin Console to show them here."}
+          </Text>
         </View>
       </View>
 
@@ -107,6 +148,16 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         ))}
       </View>
 
+      {prospectusRecords.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No prospectus records found</Text>
+          <Text style={styles.emptyText}>
+            Add a prospectus record in the Admin Console and it will appear here
+            after Supabase syncs.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Curriculum note</Text>
         <Text style={styles.noteText}>
@@ -122,8 +173,8 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
 const styles = StyleSheet.create({
   programPicker: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 10,
+    paddingRight: 18,
   },
   programChip: {
     minWidth: 74,
@@ -242,6 +293,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: colors.ink,
     fontSize: 13,
+    lineHeight: 20,
+  },
+  emptyState: {
+    alignItems: "center",
+    padding: 24,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  emptyTitle: {
+    color: colors.maroonDark,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  emptyText: {
+    marginTop: 8,
+    color: colors.muted,
+    textAlign: "center",
     lineHeight: 20,
   },
 });

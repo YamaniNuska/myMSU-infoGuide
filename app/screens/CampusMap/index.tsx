@@ -147,6 +147,12 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
     [campusLocations],
   );
 
+  React.useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory("All");
+    }
+  }, [activeCategory, categories]);
+
   const visibleLocations = React.useMemo(() => {
     const cleanQuery = normalize(query);
 
