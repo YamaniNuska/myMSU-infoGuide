@@ -14,7 +14,7 @@ import type {
 
 type DbRecord = Record<string, unknown>;
 
-const tableByCollection: Record<CollectionKey, string> = {
+export const tableByCollection: Record<CollectionKey, string> = {
   users: "profiles",
   handbookEntries: "handbook_entries",
   offices: "administrative_offices",
@@ -247,6 +247,77 @@ const fromAppRecord = (key: CollectionKey, item: AppData[CollectionKey][number])
   }
 };
 
+const isMissingColumnError = (error: unknown, column: string) =>
+  typeof error === "object" &&
+  error !== null &&
+  "message" in error &&
+  typeof (error as { message?: unknown }).message === "string" &&
+  (error as { message: string }).message.includes(`'${column}' column`);
+
+const omitKey = (record: DbRecord, key: string) => {
+  const { [key]: _removed, ...rest } = record;
+
+  return rest;
+};
+
+async function upsertRowWithSchemaFallback(
+  table: string,
+  record: DbRecord,
+  onConflict = "id",
+) {
+  const { error } = await supabase.from(table).upsert(record, { onConflict });
+
+  if (!error) {
+    return;
+  }
+
+  if (table === "academic_calendar" && isMissingColumnError(error, "event_date")) {
+    const retry = await supabase
+      .from(table)
+      .upsert(omitKey(record, "event_date"), { onConflict });
+
+    if (!retry.error) {
+      return;
+    }
+
+    throw retry.error;
+  }
+
+  throw error;
+}
+
+async function verifyPersistedRow(table: string, id: unknown) {
+  const { data, error } = await supabase
+    .from(table)
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error(`Supabase accepted the write, but ${table}.${String(id)} was not found afterward.`);
+  }
+}
+
+async function verifyDeletedRow(table: string, id: string) {
+  const { data, error } = await supabase
+    .from(table)
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (data) {
+    throw new Error(`Supabase accepted the delete, but ${table}.${id} still exists.`);
+  }
+}
+
 async function selectRows<T>(table: string, mapper: (row: DbRecord) => T) {
   const { data, error } = await supabase.from(table).select("*");
 
@@ -316,37 +387,83 @@ export async function supabaseUpsertRecords<K extends CollectionKey>(
     return;
   }
 
-  const { error } = await supabase
-    .from(tableByCollection[key])
-    .upsert(items.map((item) => fromAppRecord(key, item)) as DbRecord[], {
-      onConflict: "id",
-    });
+  const table = tableByCollection[key];
+  const records = items.map((item) => fromAppRecord(key, item)) as DbRecord[];
+  const { error } = await supabase.from(table).upsert(records, {
+    onConflict: "id",
+  });
 
-  if (error) {
-    throw error;
+  if (!error) {
+    return;
   }
+
+  if (key === "academicEvents" && isMissingColumnError(error, "event_date")) {
+    const retry = await supabase
+      .from(table)
+      .upsert(records.map((record) => omitKey(record, "event_date")), {
+        onConflict: "id",
+      });
+
+    if (!retry.error) {
+      return;
+    }
+
+    throw retry.error;
+  }
+
+  throw error;
 }
 
 export async function supabaseUpsertRecord<K extends CollectionKey>(
   key: K,
   item: AppData[K][number],
 ) {
-  const { error } = await supabase
-    .from(tableByCollection[key])
-    .upsert(fromAppRecord(key, item) as DbRecord, { onConflict: "id" });
+  const record = fromAppRecord(key, item) as DbRecord;
+  const table = tableByCollection[key];
 
-  if (error) {
-    throw error;
-  }
+  await upsertRowWithSchemaFallback(
+    table,
+    record,
+  );
+  await verifyPersistedRow(table, record.id);
 }
 
 export async function supabaseDeleteRecord(key: CollectionKey, id: string) {
+  const table = tableByCollection[key];
   const { error } = await supabase
-    .from(tableByCollection[key])
+    .from(table)
     .delete()
     .eq("id", id);
 
   if (error) {
     throw error;
   }
+
+  await verifyDeletedRow(table, id);
+}
+
+export function supabaseSubscribeToDataChanges(onChange: () => void) {
+  if (!isSupabaseConfigured()) {
+    return () => undefined;
+  }
+
+  const channel = supabase.channel("mymsu-app-data");
+
+  Object.values(tableByCollection).forEach((table) => {
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table,
+      },
+      onChange,
+    );
+  });
+
+  channel.subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }

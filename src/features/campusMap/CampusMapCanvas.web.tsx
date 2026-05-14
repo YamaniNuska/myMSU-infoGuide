@@ -340,12 +340,35 @@ const ensureLeafletStyles = () => {
       color: #fff;
     }
     .mymsu-leaflet-user {
+      position: relative;
       width: 34px;
       height: 34px;
       border-radius: 17px;
       border: 3px solid #fff;
       background: #0F766E;
       box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22);
+    }
+    .mymsu-leaflet-user::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 54px;
+      height: 54px;
+      margin: -27px 0 0 -27px;
+      border-radius: 27px;
+      background: rgba(15, 118, 110, 0.16);
+      animation: mymsu-user-pulse 1.7s ease-out infinite;
+    }
+    @keyframes mymsu-user-pulse {
+      from {
+        transform: scale(0.65);
+        opacity: 0.8;
+      }
+      to {
+        transform: scale(1.4);
+        opacity: 0;
+      }
     }
     .mymsu-leaflet-popup .leaflet-popup-content {
       margin: 12px 14px;
@@ -607,25 +630,27 @@ export default function CampusMapCanvas({
 
     const latLngs = routePoints.map(pointToLatLng);
 
-    routeLineRef.current = leaflet.polyline(latLngs, {
-      color: "#22C55E",
-      weight: 7,
+    routeHaloRef.current = leaflet.polyline(latLngs, {
+      color: "#FFFFFF",
+      weight: 11,
       opacity: 0.88,
       lineCap: "round",
       lineJoin: "round",
     }).addTo(map);
 
-    routeHaloRef.current = leaflet.polyline(latLngs, {
-      color: "#FFFFFF",
-      weight: 2,
-      opacity: 0.75,
+    routeLineRef.current = leaflet.polyline(latLngs, {
+      color: "#16A34A",
+      weight: 6,
+      opacity: 0.94,
       lineCap: "round",
       lineJoin: "round",
-      dashArray: "8 10",
     }).addTo(map);
 
-    map.fitBounds(latLngs, { padding: [42, 42], maxZoom: 18 });
-  }, [mapReady, routePoints]);
+    map.fitBounds(
+      userMarker ? [...latLngs, userToLatLng(userMarker)] : latLngs,
+      { padding: [42, 42], maxZoom: 18 },
+    );
+  }, [mapReady, routePoints, userMarker]);
 
   React.useEffect(() => {
     const map = mapRef.current;

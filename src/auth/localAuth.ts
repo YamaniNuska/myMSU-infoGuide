@@ -165,6 +165,20 @@ async function saveProfile(user: UserRecord) {
   if (error) {
     throw error;
   }
+
+  const { data, error: verifyError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (verifyError) {
+    throw verifyError;
+  }
+
+  if (!data) {
+    throw new Error("Supabase accepted the profile save, but the profile was not found afterward.");
+  }
 }
 
 function setSignedInUser(user: UserRecord) {
@@ -644,6 +658,20 @@ export async function deleteStudentAccount(id: string): Promise<AuthResult> {
 
     if (error) {
       throw error;
+    }
+
+    const { data: stillExists, error: verifyError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (verifyError) {
+      throw verifyError;
+    }
+
+    if (stillExists) {
+      throw new Error("Supabase accepted the profile delete, but the profile still exists.");
     }
 
     await deleteRecord("users", id);

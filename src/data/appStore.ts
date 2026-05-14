@@ -24,7 +24,7 @@ import {
   isSupabaseConfigured,
   supabaseDeleteRecord,
   supabaseGetData,
-  supabaseSeedData,
+  supabaseSubscribeToDataChanges,
   supabaseUpsertRecord,
 } from "./supabaseData";
 
@@ -46,7 +46,7 @@ type CollectionItem<K extends CollectionKey> = AppData[K][number];
 const cloneArray = <T,>(items: T[]) =>
   items.map((item) => ({ ...item })) as T[];
 
-let appData: AppData = {
+const seedData: AppData = {
   users: cloneArray(users),
   handbookEntries: cloneArray(handbookEntries),
   offices: cloneArray(offices),
@@ -58,9 +58,24 @@ let appData: AppData = {
   announcements: cloneArray(announcements),
 };
 
+const emptyData: AppData = {
+  users: [],
+  handbookEntries: [],
+  offices: [],
+  campusLocations: [],
+  classSchedules: [],
+  coursePrograms: [],
+  prospectusRecords: [],
+  academicEvents: [],
+  announcements: [],
+};
+
+let appData: AppData = isSupabaseConfigured() ? emptyData : seedData;
 const listeners = new Set<() => void>();
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 let syncPromise: Promise<boolean> | null = null;
+let realtimeUnsubscribe: (() => void) | null = null;
+let lastDataError = "";
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -76,29 +91,15 @@ export function getAppData() {
   return appData;
 }
 
+export function getLastAppDataError() {
+  return lastDataError;
+}
+
 export function useAppData() {
   return React.useSyncExternalStore(
     subscribeAppData,
     getAppData,
     getAppData,
-  );
-}
-
-function isEmptyData(data: AppData) {
-  const { users: _users, ...contentData } = data;
-
-  return Object.values(contentData).every((items) => items.length === 0);
-}
-
-function isMissingSeedContent(data: AppData) {
-  return (
-    data.handbookEntries.length === 0 ||
-    data.offices.length === 0 ||
-    data.campusLocations.length === 0 ||
-    data.coursePrograms.length === 0 ||
-    data.prospectusRecords.length === 0 ||
-    data.academicEvents.length === 0 ||
-    data.announcements.length === 0
   );
 }
 
@@ -119,6 +120,7 @@ function replaceAppData(data: AppData) {
 
 export async function syncAppData() {
   if (!isSupabaseConfigured()) {
+    replaceAppData(seedData);
     return false;
   }
 
@@ -129,13 +131,6 @@ export async function syncAppData() {
   syncPromise = (async () => {
     try {
       const remoteData = await supabaseGetData();
-
-      if (isEmptyData(remoteData) || isMissingSeedContent(remoteData)) {
-        const seededData = await supabaseSeedData(appData);
-        replaceAppData(seededData);
-        return true;
-      }
-
       replaceAppData(remoteData);
       return true;
     } catch (error) {
@@ -162,10 +157,21 @@ export function startAppDataSync(intervalMs = 15000) {
     }, intervalMs);
   }
 
+  if (!realtimeUnsubscribe) {
+    realtimeUnsubscribe = supabaseSubscribeToDataChanges(() => {
+      void syncAppData();
+    });
+  }
+
   return () => {
     if (syncTimer) {
       clearInterval(syncTimer);
       syncTimer = null;
+    }
+
+    if (realtimeUnsubscribe) {
+      realtimeUnsubscribe();
+      realtimeUnsubscribe = null;
     }
   };
 }
@@ -189,14 +195,25 @@ export async function upsertRecord<K extends CollectionKey>(
   emit();
 
   if (!isSupabaseConfigured()) {
+    appData = previousData;
+    lastDataError = "Supabase is not configured for this app build.";
+    emit();
     return false;
   }
 
   try {
     await supabaseUpsertRecord(key, item);
+    await syncAppData();
+    lastDataError = "";
     return true;
   } catch (error) {
     appData = previousData;
+    lastDataError =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message)
+          : `Failed to persist ${String(key)} record.`;
     emit();
     console.warn(`Failed to persist ${String(key)} record`, error);
     return false;
@@ -214,14 +231,25 @@ export async function deleteRecord<K extends CollectionKey>(key: K, id: string) 
   emit();
 
   if (!isSupabaseConfigured()) {
+    appData = previousData;
+    lastDataError = "Supabase is not configured for this app build.";
+    emit();
     return false;
   }
 
   try {
     await supabaseDeleteRecord(key, id);
+    await syncAppData();
+    lastDataError = "";
     return true;
   } catch (error) {
     appData = previousData;
+    lastDataError =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: unknown }).message)
+          : `Failed to delete ${String(key)} record.`;
     emit();
     console.warn(`Failed to delete ${String(key)} record`, error);
     return false;

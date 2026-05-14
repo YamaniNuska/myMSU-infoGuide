@@ -17,6 +17,7 @@ import {
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import {
   deleteRecord,
+  getLastAppDataError,
   upsertRecord,
   useAppData,
 } from "../../../src/data/appStore";
@@ -77,6 +78,36 @@ const announcementAudienceOptions = [
   "Employees",
 ] as const;
 
+const calendarTypeOptions: AcademicEvent["type"][] = [
+  "enrollment",
+  "classes",
+  "event",
+  "deadline",
+  "exam",
+];
+const announcementPriorityOptions: AnnouncementRecord["priority"][] = [
+  "high",
+  "normal",
+  "low",
+];
+const locationCategoryOptions = [
+  "College",
+  "Office",
+  "Student Service",
+  "Landmark",
+  "Gate",
+  "Facility",
+];
+const reminderOptions = ["0", "5", "10", "15", "30", "60"];
+
+const timeOptions = Array.from({ length: 29 }, (_, index) => {
+  const totalMinutes = 7 * 60 + index * 30;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+});
+
 const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   handbook: [
     { key: "chapter", label: "Chapter" },
@@ -86,8 +117,8 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   ],
   calendar: [
     { key: "title", label: "Title" },
-    { key: "eventDate", label: "Event date: YYYY-MM-DD" },
-    { key: "type", label: "Type: enrollment/classes/event/deadline/exam" },
+    { key: "eventDate", label: "Event date" },
+    { key: "type", label: "Type" },
     { key: "audience", label: "Audience" },
     { key: "details", label: "Details", multiline: true },
   ],
@@ -117,9 +148,9 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   schedules: [
     { key: "courseCode", label: "Course code" },
     { key: "courseTitle", label: "Course title" },
-    { key: "scheduleDate", label: "Date: YYYY-MM-DD" },
-    { key: "startTime", label: "Start time: HH:MM" },
-    { key: "endTime", label: "End time: HH:MM" },
+    { key: "scheduleDate", label: "Date" },
+    { key: "startTime", label: "Start time" },
+    { key: "endTime", label: "End time" },
     { key: "room", label: "Room" },
     { key: "reminderMinutes", label: "Alarm minutes before class" },
     { key: "reminder", label: "Reminder", multiline: true },
@@ -148,7 +179,7 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "title", label: "Title" },
     { key: "body", label: "Announcement body", multiline: true },
     { key: "dateLabel", label: "Date label" },
-    { key: "priority", label: "Priority: high/normal/low" },
+    { key: "priority", label: "Priority" },
     { key: "audience", label: "Audience" },
   ],
 };
@@ -326,6 +357,107 @@ const getReminderAt = (
 const getReminderText = (minutes: number) =>
   minutes === 0 ? "Alarm at class start." : `Alarm ${minutes} minutes before class.`;
 
+const getDateKey = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+function DateSelectField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedDate = isDateKey(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date();
+  const [visibleMonth, setVisibleMonth] = React.useState(
+    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+  );
+
+  React.useEffect(() => {
+    if (isDateKey(value)) {
+      const date = new Date(`${value}T00:00:00`);
+      setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
+  }, [value]);
+
+  const days = React.useMemo(() => {
+    const firstDay = visibleMonth.getDay();
+    const count = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth() + 1,
+      0,
+    ).getDate();
+
+    return [
+      ...Array.from({ length: firstDay }, () => null),
+      ...Array.from({ length: count }, (_, index) => index + 1),
+    ];
+  }, [visibleMonth]);
+
+  const changeMonth = (offset: number) => {
+    setVisibleMonth(
+      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    );
+  };
+
+  return (
+    <View style={styles.datePicker}>
+      <View style={styles.datePickerHeader}>
+        <Pressable style={styles.iconButton} onPress={() => changeMonth(-1)}>
+          <Ionicons name="chevron-back" size={18} color={colors.maroonDark} />
+        </Pressable>
+        <Text style={styles.datePickerTitle}>
+          {visibleMonth.toLocaleDateString(undefined, {
+            month: "long",
+            year: "numeric",
+          })}
+        </Text>
+        <Pressable style={styles.iconButton} onPress={() => changeMonth(1)}>
+          <Ionicons name="chevron-forward" size={18} color={colors.maroonDark} />
+        </Pressable>
+      </View>
+      <View style={styles.weekRow}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          <Text key={`${day}-${index}`} style={styles.weekDay}>
+            {day}
+          </Text>
+        ))}
+      </View>
+      <View style={styles.dayGrid}>
+        {days.map((day, index) => {
+          if (!day) {
+            return <View key={`blank-${index}`} style={styles.dayCell} />;
+          }
+
+          const date = new Date(
+            visibleMonth.getFullYear(),
+            visibleMonth.getMonth(),
+            day,
+          );
+          const dateKey = getDateKey(date);
+          const selected = value === dateKey;
+
+          return (
+            <Pressable
+              key={dateKey}
+              style={[styles.dayCell, selected && styles.dayCellActive]}
+              onPress={() => onChange(dateKey)}
+            >
+              <Text style={[styles.dayText, selected && styles.dayTextActive]}>
+                {day}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.selectedDateText}>
+        {isDateKey(value) ? formatDateLabel(value) : "Select a date"}
+      </Text>
+    </View>
+  );
+}
+
 function recordToForm(tab: AdminTab, item: Record<string, unknown>) {
   const form = { ...defaultForm[tab] };
 
@@ -365,6 +497,93 @@ export default function AdminPanelScreen() {
 
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const renderChoiceField = (key: string, options: readonly string[]) => (
+    <View style={styles.choiceRow}>
+      {options.map((option) => {
+        const selected = form[key] === option;
+
+        return (
+          <Pressable
+            key={option}
+            style={[styles.choiceChip, selected && styles.choiceChipActive]}
+            onPress={() => updateField(key, option)}
+          >
+            <Text
+              style={[
+                styles.choiceChipText,
+                selected && styles.choiceChipTextActive,
+              ]}
+            >
+              {option}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const renderFieldInput = (field: FieldConfig) => {
+    if (field.key === "eventDate" || field.key === "scheduleDate") {
+      return (
+        <DateSelectField
+          value={form[field.key] ?? ""}
+          onChange={(value) => updateField(field.key, value)}
+        />
+      );
+    }
+
+    if (field.key === "startTime" || field.key === "endTime") {
+      const options =
+        field.key === "endTime"
+          ? timeOptions.filter(
+              (time) =>
+                !form.startTime ||
+                Number(time.replace(":", "")) >
+                  Number(form.startTime.replace(":", "")),
+            )
+          : timeOptions;
+
+      return renderChoiceField(field.key, options);
+    }
+
+    if (activeTab === "calendar" && field.key === "type") {
+      return renderChoiceField("type", calendarTypeOptions);
+    }
+
+    if (field.key === "audience") {
+      return renderChoiceField("audience", announcementAudienceOptions);
+    }
+
+    if (activeTab === "announcements" && field.key === "priority") {
+      return renderChoiceField("priority", announcementPriorityOptions);
+    }
+
+    if (activeTab === "locations" && field.key === "category") {
+      return renderChoiceField("category", locationCategoryOptions);
+    }
+
+    if (field.key === "reminderMinutes") {
+      return renderChoiceField("reminderMinutes", reminderOptions);
+    }
+
+    const numericField = ["mapX", "mapY", "latitude", "longitude"].includes(
+      field.key,
+    );
+
+    return (
+      <TextInput
+        style={[styles.input, field.multiline && styles.inputMultiline]}
+        value={form[field.key] ?? ""}
+        onChangeText={(value) => updateField(field.key, value)}
+        multiline={field.multiline}
+        placeholder={field.label}
+        placeholderTextColor="#998B8B"
+        keyboardType={numericField ? "decimal-pad" : "default"}
+        inputMode={numericField ? "decimal" : undefined}
+      />
+    );
   };
 
   const listItems = React.useMemo<ListItem[]>(() => {
@@ -493,7 +712,9 @@ export default function AdminPanelScreen() {
     setMessage(
       synced
         ? "Record deleted and synced."
-        : "Supabase did not delete this record. Check the schema and connection.",
+        : `Supabase did not delete this record. ${
+            getLastAppDataError() || "Check the schema and connection."
+          }`,
     );
     resetForm();
   };
@@ -548,11 +769,18 @@ export default function AdminPanelScreen() {
 
     if (activeTab === "calendar") {
       const eventDate = form.eventDate.trim();
+
+      if (!isDateKey(eventDate)) {
+        setMessage("Select a valid event date.");
+        setIsSaving(false);
+        return;
+      }
+
       synced = await upsertRecord("academicEvents", {
         id,
         title: form.title,
-        eventDate: isDateKey(eventDate) ? eventDate : undefined,
-        dateLabel: isDateKey(eventDate) ? formatDateLabel(eventDate) : eventDate,
+        eventDate,
+        dateLabel: formatDateLabel(eventDate),
         type: form.type as AcademicEvent["type"],
         audience: form.audience,
         details: form.details,
@@ -593,7 +821,16 @@ export default function AdminPanelScreen() {
     if (activeTab === "schedules") {
       const reminderMinutes = Number(form.reminderMinutes || 15);
       const hasStructuredTime =
-        form.scheduleDate.trim() && form.startTime.trim() && form.endTime.trim();
+        isDateKey(form.scheduleDate.trim()) &&
+        form.startTime.trim() &&
+        form.endTime.trim();
+
+      if (!hasStructuredTime) {
+        setMessage("Select a valid class date, start time, and end time.");
+        setIsSaving(false);
+        return;
+      }
+
       synced = await upsertRecord("classSchedules", {
         id,
         courseCode: form.courseCode,
@@ -657,8 +894,12 @@ export default function AdminPanelScreen() {
           ? "Record updated and synced."
           : "Record added and synced."
         : editingId
-          ? "Supabase did not update this record. Check the schema and connection."
-          : "Supabase did not add this record. Check the schema and connection.",
+          ? `Supabase did not update this record. ${
+              getLastAppDataError() || "Check the schema and connection."
+            }`
+          : `Supabase did not add this record. ${
+              getLastAppDataError() || "Check the schema and connection."
+            }`,
     );
     resetForm();
     setIsSaving(false);
@@ -739,45 +980,7 @@ export default function AdminPanelScreen() {
                 ]}
               >
                 <Text style={styles.fieldLabel}>{field.label}</Text>
-                {activeTab === "announcements" && field.key === "audience" ? (
-                  <View style={styles.choiceRow}>
-                    {announcementAudienceOptions.map((audience) => {
-                      const selected = form.audience === audience;
-
-                      return (
-                        <Pressable
-                          key={audience}
-                          style={[
-                            styles.choiceChip,
-                            selected && styles.choiceChipActive,
-                          ]}
-                          onPress={() => updateField("audience", audience)}
-                        >
-                          <Text
-                            style={[
-                              styles.choiceChipText,
-                              selected && styles.choiceChipTextActive,
-                            ]}
-                          >
-                            {audience}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      field.multiline && styles.inputMultiline,
-                    ]}
-                    value={form[field.key] ?? ""}
-                    onChangeText={(value) => updateField(field.key, value)}
-                    multiline={field.multiline}
-                    placeholder={field.label}
-                    placeholderTextColor="#998B8B"
-                  />
-                )}
+                {renderFieldInput(field)}
               </View>
             ))}
           </View>
@@ -955,6 +1158,77 @@ const styles = StyleSheet.create({
   },
   choiceChipTextActive: {
     color: colors.surface,
+  },
+  datePicker: {
+    padding: 10,
+    borderRadius: radii.sm,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  datePickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  datePickerTitle: {
+    flex: 1,
+    color: colors.maroonDark,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  weekRow: {
+    flexDirection: "row",
+    marginTop: 10,
+  },
+  weekDay: {
+    width: "14.285%",
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  dayGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 6,
+  },
+  dayCell: {
+    width: "14.285%",
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.sm,
+  },
+  dayCellActive: {
+    backgroundColor: colors.maroon,
+  },
+  dayText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  dayTextActive: {
+    color: colors.surface,
+  },
+  selectedDateText: {
+    marginTop: 8,
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "center",
   },
   message: {
     marginTop: 12,

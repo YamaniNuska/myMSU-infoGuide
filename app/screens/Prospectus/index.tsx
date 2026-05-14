@@ -14,6 +14,22 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   const { coursePrograms, prospectusRecords } = useAppData();
   const { width } = useWindowDimensions();
   const columns = getColumnCount(width);
+  const availablePrograms = React.useMemo(
+    () =>
+      coursePrograms.filter((program) =>
+        prospectusRecords.some((record) => record.programId === program.id),
+      ),
+    [coursePrograms, prospectusRecords],
+  );
+
+  React.useEffect(() => {
+    if (
+      availablePrograms.length > 0 &&
+      !availablePrograms.some((program) => program.id === activeProgramId)
+    ) {
+      setActiveProgramId(availablePrograms[0].id);
+    }
+  }, [activeProgramId, availablePrograms]);
 
   const visibleRecords = prospectusRecords.filter(
     (record) => record.programId === activeProgramId,
@@ -29,8 +45,7 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
       onBack={onBack}
     >
       <View style={styles.programPicker}>
-        {coursePrograms
-          .filter((program) => ["bsit", "bscs", "bsis"].includes(program.id))
+        {availablePrograms
           .map((program) => {
             const isActive = activeProgramId === program.id;
 

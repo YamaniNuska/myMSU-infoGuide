@@ -34,6 +34,12 @@ export default function HandbookScreen() {
     handbookEntries[0]?.id ?? null,
   );
 
+  React.useEffect(() => {
+    if (!expandedId && handbookEntries[0]) {
+      setExpandedId(handbookEntries[0].id);
+    }
+  }, [expandedId, handbookEntries]);
+
   const filteredEntries = handbookEntries.filter((entry) => {
     const searchable = [
       entry.chapter,

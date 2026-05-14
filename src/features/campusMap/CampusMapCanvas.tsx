@@ -2,21 +2,17 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import {
   Animated,
-  Image,
-  PanResponder,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
-  type LayoutChangeEvent,
+  useWindowDimensions,
 } from "react-native";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { CampusLocation } from "../../data/mymsuDatabase";
 import { colors, radii, shadow } from "../../theme";
-import CampusMapSplash from "./CampusMapSplash";
-import { MAP_ASPECT_RATIO, campusMapImage } from "./mapAssets";
-import { clamp, getLocationPoint, getMarkerLabel } from "./mapMath";
-import { categoryIcons, getLocationColor } from "./mapTheme";
+import { CAMPUS_BOUNDS, getMarkerLabel } from "./mapMath";
+import { getLocationColor } from "./mapTheme";
 import TrackingCat, { type CatMood } from "./TrackingCat";
 import type { MapPoint, TrackingState, UserMarker } from "./types";
 
@@ -44,396 +40,295 @@ type CampusMapCanvasProps = {
   onZoomChange: (zoom: number) => void;
 };
 
+const campusCenter = [7.99705, 124.26045] as const;
+
+const pointToLatLng = (point: MapPoint) => [
+  CAMPUS_BOUNDS.north -
+    (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
+  CAMPUS_BOUNDS.west +
+    (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
+];
+
+const locationToLatLng = (location: CampusLocation) =>
+  typeof location.latitude === "number" && typeof location.longitude === "number"
+    ? [location.latitude, location.longitude]
+    : pointToLatLng(location);
+
+const userToLatLng = (marker: UserMarker) =>
+  marker.insideCampus &&
+  typeof marker.latitude === "number" &&
+  typeof marker.longitude === "number"
+    ? [marker.latitude, marker.longitude]
+    : pointToLatLng(marker);
+
+const mapHtml = `
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }
+      body { overflow: hidden; background: #d9e6cf; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .leaflet-container { background: #d9e6cf; touch-action: pan-x pan-y; }
+      .leaflet-control-zoom { border: 1px solid rgba(37, 29, 31, 0.1); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 18px rgba(29, 11, 11, 0.16); }
+      .leaflet-control-zoom a { width: 34px; height: 34px; line-height: 34px; color: #3A080D; font-weight: 900; }
+      .leaflet-control-attribution { padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); color: #5C5050; font-size: 10px; }
+      .mymsu-pin, .mymsu-user-icon { background: transparent; border: 0; }
+      .mymsu-marker {
+        position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        border-radius: 20px; border: 3px solid #fff; color: #fff; font-size: 16px; font-weight: 900;
+        box-shadow: 0 8px 18px rgba(29, 11, 11, 0.24);
+      }
+      .mymsu-marker:after {
+        content: ""; position: absolute; left: 50%; bottom: -8px; width: 13px; height: 13px; background: inherit;
+        border-right: 3px solid #fff; border-bottom: 3px solid #fff; transform: translateX(-50%) rotate(45deg);
+      }
+      .mymsu-marker.selected { width: 48px; height: 48px; border-radius: 24px; transform: translate(-4px, -4px); box-shadow: 0 12px 26px rgba(58, 8, 13, 0.32); }
+      .mymsu-label {
+        position: absolute; left: 50%; top: 47px; max-width: 96px; transform: translateX(-50%);
+        padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #3A080D;
+        border: 1px solid rgba(37, 29, 31, 0.1); font-size: 10px; font-weight: 900; line-height: 1.1;
+        text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .mymsu-marker.selected .mymsu-label { top: 55px; background: #3A080D; color: #fff; }
+      .mymsu-user {
+        width: 34px; height: 34px; border-radius: 17px; border: 3px solid #fff; background: #0F766E;
+        box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22);
+      }
+      .mymsu-user:after {
+        content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+        border-radius: 27px; background: rgba(15, 118, 110, 0.16); animation: pulse 1.7s ease-out infinite;
+      }
+      @keyframes pulse { from { transform: scale(.65); opacity: .8; } to { transform: scale(1.4); opacity: 0; } }
+      .mymsu-popup-title { color: #3A080D; font-weight: 900; font-size: 14px; }
+      .mymsu-popup-meta { margin-top: 3px; color: #936F18; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+      .mymsu-popup-body { margin-top: 7px; color: #5C5050; font-size: 12px; line-height: 1.35; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const campusCenter = [${campusCenter[0]}, ${campusCenter[1]}];
+      const map = L.map("map", { zoomControl: true, attributionControl: false, preferCanvas: true }).setView(campusCenter, 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+      L.control.attribution({ position: "bottomright" }).addAttribution("OpenStreetMap").addTo(map);
+      const markers = new Map();
+      let routeHalo = null;
+      let routeLine = null;
+      let userMarker = null;
+      let accuracyCircle = null;
+      let movementLine = null;
+      let trail = [];
+      let lastPayload = null;
+
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+      const makeIcon = (location, selected) => L.divIcon({
+        className: "mymsu-pin",
+        iconAnchor: selected ? [24, 54] : [20, 46],
+        iconSize: selected ? [48, 70] : [40, 64],
+        popupAnchor: [0, selected ? -54 : -46],
+        html: '<div class="mymsu-marker ' + (selected ? 'selected' : '') + '" style="background:' + location.color + '"><span>' + escapeHtml(location.categoryLetter) + '</span><span class="mymsu-label">' + escapeHtml(location.label) + '</span></div>',
+      });
+      const userIcon = L.divIcon({ className: "mymsu-user-icon", iconAnchor: [17, 17], iconSize: [34, 34], html: '<div class="mymsu-user"></div>' });
+      const fitLocations = (locations) => {
+        const points = locations.length ? locations.map((item) => item.latLng) : [[7.992, 124.2509], [8.0021, 124.2699]];
+        map.fitBounds(points, { padding: [26, 26], maxZoom: 17 });
+      };
+
+      window.updateMymsuMap = (payload) => {
+        lastPayload = payload;
+        const activeIds = new Set(payload.locations.map((item) => item.id));
+        markers.forEach((marker, id) => {
+          if (!activeIds.has(id)) {
+            marker.remove();
+            markers.delete(id);
+          }
+        });
+        payload.locations.forEach((location) => {
+          const selected = payload.selectedId === location.id;
+          const html = '<div class="mymsu-popup-title">' + escapeHtml(location.name) + '</div><div class="mymsu-popup-meta">' + escapeHtml(location.category) + '</div><div class="mymsu-popup-body">' + escapeHtml(location.description) + '</div>';
+          const existing = markers.get(location.id);
+          if (existing) {
+            existing.setLatLng(location.latLng).setIcon(makeIcon(location, selected)).bindPopup(html);
+            existing.setZIndexOffset(selected ? 1000 : 0);
+          } else {
+            const marker = L.marker(location.latLng, { icon: makeIcon(location, selected), title: location.name, zIndexOffset: selected ? 1000 : 0 })
+              .bindPopup(html)
+              .on("click", () => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "select", id: location.id })))
+              .addTo(map);
+            markers.set(location.id, marker);
+          }
+        });
+
+        if (routeHalo) routeHalo.remove();
+        if (routeLine) routeLine.remove();
+        routeHalo = null;
+        routeLine = null;
+        if (payload.routePoints.length > 1) {
+          routeHalo = L.polyline(payload.routePoints, { color: "#FFFFFF", weight: 11, opacity: 0.88, lineCap: "round", lineJoin: "round" }).addTo(map);
+          routeLine = L.polyline(payload.routePoints, { color: "#16A34A", weight: 6, opacity: 0.94, lineCap: "round", lineJoin: "round" }).addTo(map);
+        }
+
+        if (payload.user) {
+          if (!userMarker) userMarker = L.marker(payload.user.latLng, { icon: userIcon, title: "Your live location", zIndexOffset: 1800 }).addTo(map);
+          else userMarker.setLatLng(payload.user.latLng);
+          if (typeof payload.user.accuracy === "number") {
+            if (!accuracyCircle) accuracyCircle = L.circle(payload.user.latLng, { radius: Math.max(payload.user.accuracy, 8), color: "#0F766E", fillColor: "#0F766E", fillOpacity: 0.08, opacity: 0.25, weight: 1 }).addTo(map);
+            else accuracyCircle.setLatLng(payload.user.latLng).setRadius(Math.max(payload.user.accuracy, 8));
+          }
+          const last = trail[trail.length - 1];
+          if (!last || Math.abs(last[0] - payload.user.latLng[0]) > 0.000005 || Math.abs(last[1] - payload.user.latLng[1]) > 0.000005) trail = trail.concat([payload.user.latLng]).slice(-80);
+          if (movementLine) movementLine.remove();
+          movementLine = trail.length > 1 ? L.polyline(trail, { color: "#0F766E", weight: 4, opacity: 0.64, dashArray: "4 8" }).addTo(map) : null;
+        } else {
+          if (userMarker) userMarker.remove();
+          if (accuracyCircle) accuracyCircle.remove();
+          if (movementLine) movementLine.remove();
+          userMarker = null;
+          accuracyCircle = null;
+          movementLine = null;
+          trail = [];
+        }
+
+        const selectedMarker = payload.selectedId ? markers.get(payload.selectedId) : null;
+        if (selectedMarker) selectedMarker.openPopup();
+        if (payload.followUser && payload.user) map.panTo(payload.user.latLng, { animate: true, duration: 0.45 });
+        else if (payload.routePoints.length > 1) map.fitBounds(payload.routePoints.concat(payload.user ? [payload.user.latLng] : []), { padding: [38, 38], maxZoom: 18 });
+        else if (payload.fit) fitLocations(payload.locations);
+      };
+
+      document.addEventListener("message", (event) => window.updateMymsuMap(JSON.parse(event.data)));
+      window.addEventListener("message", (event) => window.updateMymsuMap(JSON.parse(event.data)));
+      setTimeout(() => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "ready" })), 80);
+    </script>
+  </body>
+</html>
+`;
+
 export default function CampusMapCanvas({
   visibleLocations,
   selectedLocation,
   userMarker,
   trackingState,
-  mapZoom,
-  mapRotation,
   resetSignal,
-  userPulse,
+  routePoints = [],
   catMotion,
   catMood,
   catMessage,
-  isWide,
   onSelectLocation,
   onCatPress,
-  onZoomIn,
-  onZoomOut,
-  onRotateLeft,
-  onRotateRight,
-  onResetMapView,
-  onZoomChange,
 }: CampusMapCanvasProps) {
-  const [mapSize, setMapSize] = React.useState({ width: 0, height: 0 });
-  const [panOffset, setPanOffset] = React.useState({ x: 0, y: 0 });
-  const [showMapSplash, setShowMapSplash] = React.useState(true);
-  const panOffsetRef = React.useRef({ x: 0, y: 0 });
-  const panStartRef = React.useRef({ x: 0, y: 0 });
-  const pinchStartRef = React.useRef<{
-    distance: number;
-    zoom: number;
-  } | null>(null);
+  const { width } = useWindowDimensions();
+  const webViewRef = React.useRef<WebView>(null);
+  const [mapReady, setMapReady] = React.useState(false);
+  const [fitVersion, setFitVersion] = React.useState(0);
+  const compactMap = width < 760;
   const trackingActive = trackingState === "active" && !!userMarker;
   const findingUser = trackingState === "loading";
-  const activeMapZoom = trackingActive ? Math.max(mapZoom, 1.24) : mapZoom;
-  const normalizedRotation = ((mapRotation % 360) + 360) % 360;
+  const routeActive = routePoints.length > 1;
 
-  // Scale markers inversely with zoom to prevent them from getting too large
-  const markerScaleFactor = isWide
-    ? Math.max(0.48, 1 / Math.sqrt(activeMapZoom))
-    : Math.max(0.72, 1 / Math.sqrt(activeMapZoom));
-
-  const clampPanOffset = React.useCallback(
-    (offset: { x: number; y: number }) => {
-      const maxX = Math.max(
-        0,
-        (mapSize.width * activeMapZoom - mapSize.width) / 2,
-      );
-      const maxY = Math.max(
-        0,
-        (mapSize.height * activeMapZoom - mapSize.height) / 2,
-      );
-
-      return {
-        x: clamp(offset.x, -maxX, maxX),
-        y: clamp(offset.y, -maxY, maxY),
-      };
-    },
-    [activeMapZoom, mapSize.height, mapSize.width],
-  );
-
-  const setClampedPanOffset = React.useCallback(
-    (offset: { x: number; y: number }) => {
-      const nextOffset = clampPanOffset(offset);
-      panOffsetRef.current = nextOffset;
-      setPanOffset(nextOffset);
-    },
-    [clampPanOffset],
+  const payload = React.useMemo(
+    () => ({
+      fit: fitVersion,
+      followUser: trackingActive,
+      selectedId: selectedLocation?.id ?? null,
+      locations: visibleLocations.map((location) => ({
+        id: location.id,
+        name: location.name,
+        category: location.category,
+        categoryLetter: location.category.slice(0, 1).toUpperCase(),
+        description: location.description,
+        label: getMarkerLabel(location),
+        color: getLocationColor(location),
+        latLng: locationToLatLng(location),
+      })),
+      routePoints: routePoints.map(pointToLatLng),
+      user: userMarker
+        ? {
+            latLng: userToLatLng(userMarker),
+            accuracy: userMarker.accuracy,
+          }
+        : null,
+    }),
+    [fitVersion, routePoints, selectedLocation?.id, trackingActive, userMarker, visibleLocations],
   );
 
   React.useEffect(() => {
-    setClampedPanOffset(panOffsetRef.current);
-  }, [activeMapZoom, mapSize.height, mapSize.width, setClampedPanOffset]);
-
-  React.useEffect(() => {
-    setClampedPanOffset({ x: 0, y: 0 });
-    pinchStartRef.current = null;
-  }, [resetSignal, setClampedPanOffset]);
-
-  const getTouchDistance = React.useCallback((touches: ArrayLike<any>) => {
-    if (touches.length < 2) {
-      return 0;
+    if (!mapReady) {
+      return;
     }
 
-    const first = touches[0];
-    const second = touches[1];
-    const dx = first.pageX - second.pageX;
-    const dy = first.pageY - second.pageY;
-
-    return Math.sqrt(dx * dx + dy * dy);
-  }, []);
-
-  const panResponder = React.useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: (event) =>
-          (event.nativeEvent.touches ?? []).length >= 2,
-        onMoveShouldSetPanResponder: (event, gesture) =>
-          (event.nativeEvent.touches ?? []).length >= 2 ||
-          Math.abs(gesture.dx) > 4 ||
-          Math.abs(gesture.dy) > 4,
-        onPanResponderGrant: (event) => {
-          panStartRef.current = panOffsetRef.current;
-          const distance = getTouchDistance(event.nativeEvent.touches ?? []);
-
-          pinchStartRef.current =
-            distance > 0 ? { distance, zoom: activeMapZoom } : null;
-        },
-        onPanResponderMove: (event, gesture) => {
-          const touches = event.nativeEvent.touches ?? [];
-
-          if (touches.length >= 2) {
-            const distance = getTouchDistance(touches);
-            const pinchStart = pinchStartRef.current;
-
-            if (distance > 0 && pinchStart) {
-              onZoomChange(
-                clamp(
-                  pinchStart.zoom * (distance / pinchStart.distance),
-                  0.85,
-                  2.4,
-                ),
-              );
-            }
-
-            return;
-          }
-
-          if (activeMapZoom <= 1.01) {
-            return;
-          }
-
-          setClampedPanOffset({
-            x: panStartRef.current.x + gesture.dx,
-            y: panStartRef.current.y + gesture.dy,
-          });
-        },
-        onPanResponderRelease: () => {
-          panStartRef.current = panOffsetRef.current;
-          pinchStartRef.current = null;
-        },
-        onPanResponderTerminate: () => {
-          panStartRef.current = panOffsetRef.current;
-          pinchStartRef.current = null;
-        },
-        onPanResponderTerminationRequest: () => true,
-      }),
-    [activeMapZoom, getTouchDistance, onZoomChange, setClampedPanOffset],
-  );
-
-  const followTranslate = React.useMemo(() => {
-    if (!trackingActive || !userMarker || mapSize.width <= 0) {
-      return { x: 0, y: 0 };
-    }
-
-    const centerX = mapSize.width / 2;
-    const centerY = mapSize.height / 2;
-    const markerX = (userMarker.mapX / 100) * mapSize.width;
-    const markerY = (userMarker.mapY / 100) * mapSize.height;
-
-    return {
-      x: clamp(
-        (centerX - markerX) * activeMapZoom,
-        -mapSize.width * 0.34,
-        mapSize.width * 0.34,
-      ),
-      y: clamp(
-        (centerY - markerY) * activeMapZoom,
-        -mapSize.height * 0.34,
-        mapSize.height * 0.34,
-      ),
-    };
-  }, [activeMapZoom, mapSize.height, mapSize.width, trackingActive, userMarker]);
-
-  const userPulseScale = userPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.75, 2.25],
-  });
-  const userPulseOpacity = userPulse.interpolate({
-    inputRange: [0, 0.72, 1],
-    outputRange: [0.48, 0.12, 0],
-  });
-  const markerLift = catMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, -4, 0],
-  });
-  const markerScale = catMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.08, 1],
-  });
-  const selectedMarkerScale = catMotion.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1.08, 1.22, 1.08],
-  });
-  const markerHaloScale = catMotion.interpolate({
-    inputRange: [0, 0.55, 1],
-    outputRange: [0.72, 1.35, 0.72],
-  });
-  const markerHaloOpacity = catMotion.interpolate({
-    inputRange: [0, 0.55, 1],
-    outputRange: [0.28, 0.06, 0.28],
-  });
-
-  const handleMapLayout = React.useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-
-    setMapSize((currentSize) =>
-      Math.abs(currentSize.width - width) < 1 &&
-      Math.abs(currentSize.height - height) < 1
-        ? currentSize
-        : { width, height },
+    webViewRef.current?.injectJavaScript(
+      `window.updateMymsuMap(${JSON.stringify(payload)}); true;`,
     );
-  }, []);
+  }, [mapReady, payload]);
 
-  const metricLabel = trackingActive
-    ? "Following"
-    : findingUser
-      ? "Finding"
-      : `${Math.round(activeMapZoom * 100)}%`;
+  React.useEffect(() => {
+    setFitVersion((value) => value + 1);
+  }, [resetSignal]);
+
+  const handleMessage = (event: WebViewMessageEvent) => {
+    try {
+      const message = JSON.parse(event.nativeEvent.data) as {
+        type?: string;
+        id?: string;
+      };
+
+      if (message.type === "ready") {
+        setMapReady(true);
+      }
+
+      if (message.type === "select" && message.id) {
+        onSelectLocation(message.id);
+      }
+    } catch {
+      // Ignore malformed WebView messages.
+    }
+  };
+
+  const resetView = () => setFitVersion((value) => value + 1);
 
   return (
     <View style={styles.mapShell}>
-      <View
-        style={[
-          styles.mapBoard,
-          isWide ? styles.mapBoardWide : styles.mapBoardMobile,
-        ]}
-        onLayout={handleMapLayout}
-        {...panResponder.panHandlers}
-      >
-        <Animated.View
-          style={[
-            styles.mapFollowLayer,
-            {
-              transform: [
-                { translateX: followTranslate.x + panOffset.x },
-                { translateY: followTranslate.y + panOffset.y },
-              ],
-            },
-          ]}
-        >
-          <Animated.View
-            style={[
-              styles.mapContent,
-              {
-                transform: [
-                  { scale: activeMapZoom },
-                  { rotate: `${mapRotation}deg` },
-                ],
-              },
-            ]}
+      <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
+        <WebView
+          ref={webViewRef}
+          originWhitelist={["*"]}
+          source={{ html: mapHtml }}
+          javaScriptEnabled
+          domStorageEnabled
+          onMessage={handleMessage}
+          scrollEnabled={false}
+          style={[styles.leafletMap, findingUser && styles.leafletMapLoading]}
+        />
+        <View style={styles.mapMetric} pointerEvents="none">
+          <Text style={styles.mapMetricText}>
+            {trackingActive ? "Live tracking" : findingUser ? "Finding you" : "Leaflet map"}
+          </Text>
+          <Text style={styles.mapMetricSubtext}>
+            {visibleLocations.length} location(s) visible
+            {routeActive ? " / route active" : ""}
+          </Text>
+        </View>
+        <View style={styles.mapActions}>
+          <Pressable style={styles.mapActionButton} onPress={resetView}>
+            <Ionicons name="locate" size={18} color={colors.maroonDark} />
+          </Pressable>
+          <Pressable
+            style={styles.mapActionButton}
+            onPress={() => webViewRef.current?.injectJavaScript("map.zoomIn(); true;")}
           >
-            <Image
-              source={campusMapImage}
-              resizeMode="stretch"
-              blurRadius={findingUser ? 5 : 0}
-              style={[
-                styles.mapBackground,
-                findingUser && styles.mapBackgroundFinding,
-              ]}
-            />
-            <View style={styles.mapTint} />
-
-            {visibleLocations.map((location) => {
-              const selected = selectedLocation?.id === location.id;
-              const markerColor = getLocationColor(location);
-              const Icon = categoryIcons[location.category] ?? "location-outline";
-              const point = getLocationPoint(location);
-
-              return (
-                <Pressable
-                  key={location.id}
-                  style={[
-                    styles.marker,
-                    {
-                      left: `${point.mapX}%`,
-                      top: `${point.mapY}%`,
-                      borderColor: markerColor,
-                      zIndex: selected ? 15 : 8,
-                      transform: [{ scale: markerScaleFactor }],
-                    },
-                    selected && styles.markerSelected,
-                  ]}
-                  onPress={() => onSelectLocation(location.id)}
-                >
-                  <Animated.View
-                    style={[
-                      styles.markerMotion,
-                      {
-                        transform: [
-                          { translateY: markerLift },
-                          { scale: selected ? selectedMarkerScale : markerScale },
-                        ],
-                      },
-                    ]}
-                  >
-                    <Animated.View
-                      style={[
-                        styles.markerHalo,
-                        {
-                          backgroundColor: markerColor,
-                          opacity: markerHaloOpacity,
-                          transform: [{ scale: markerHaloScale }],
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.markerIcon,
-                        { backgroundColor: markerColor },
-                        selected && styles.markerIconSelected,
-                      ]}
-                    >
-                      <Ionicons
-                        name={Icon}
-                        size={selected ? 16 : 15}
-                        color={colors.surface}
-                      />
-                    </View>
-                  </Animated.View>
-                  <Animated.Text
-                    style={[
-                      styles.markerText,
-                      { color: markerColor },
-                      selected && styles.markerTextSelected,
-                      selected && {
-                        transform: [{ translateY: markerLift }],
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {getMarkerLabel(location)}
-                  </Animated.Text>
-                </Pressable>
-              );
-            })}
-
-            {userMarker ? (
-              <View
-                style={[
-                  styles.userMarker,
-                  {
-                    left: `${userMarker.mapX}%`,
-                    top: `${userMarker.mapY}%`,
-                    transform: [{ scale: markerScaleFactor }],
-                  },
-                ]}
-              >
-                <Animated.View
-                  style={[
-                    styles.userPulse,
-                    {
-                      opacity: userPulseOpacity,
-                      transform: [{ scale: userPulseScale }],
-                    },
-                  ]}
-                />
-                <View style={styles.userMarkerCore}>
-                  <Ionicons name="person" size={16} color={colors.surface} />
-                </View>
-              </View>
-            ) : null}
-
-          </Animated.View>
-        </Animated.View>
-
-        <View style={styles.mapVignette} />
-        <View style={styles.mapControls}>
-          <Pressable style={styles.mapControlButton} onPress={onZoomIn}>
             <Ionicons name="add" size={18} color={colors.maroonDark} />
           </Pressable>
-          <Pressable style={styles.mapControlButton} onPress={onZoomOut}>
+          <Pressable
+            style={styles.mapActionButton}
+            onPress={() => webViewRef.current?.injectJavaScript("map.zoomOut(); true;")}
+          >
             <Ionicons name="remove" size={18} color={colors.maroonDark} />
           </Pressable>
-          <Pressable style={styles.mapControlButton} onPress={onRotateLeft}>
-            <Ionicons name="return-up-back" size={17} color={colors.maroonDark} />
-          </Pressable>
-          <Pressable style={styles.mapControlButton} onPress={onRotateRight}>
-            <Ionicons
-              name="return-up-forward"
-              size={17}
-              color={colors.maroonDark}
-            />
-          </Pressable>
-          <Pressable style={styles.mapControlButton} onPress={onResetMapView}>
-            <Ionicons name="locate" size={17} color={colors.maroonDark} />
-          </Pressable>
         </View>
-        <Text style={styles.mapMetric}>
-          {metricLabel} / {normalizedRotation} deg
-        </Text>
         <View style={styles.catDock}>
           <TrackingCat
             motion={catMotion}
@@ -442,10 +337,6 @@ export default function CampusMapCanvas({
             onPress={onCatPress}
           />
         </View>
-        <Text style={styles.mapAttribution}>Mapcarta / Mapbox view</Text>
-        {showMapSplash ? (
-          <CampusMapSplash onFinish={() => setShowMapSplash(false)} />
-        ) : null}
       </View>
     </View>
   );
@@ -463,50 +354,53 @@ const styles = StyleSheet.create({
   mapBoard: {
     position: "relative",
     width: "100%",
-    aspectRatio: MAP_ASPECT_RATIO,
+    height: 520,
+    minHeight: 360,
     overflow: "hidden",
     backgroundColor: "#E8E4DE",
   },
-  mapBoardWide: {
-    aspectRatio: MAP_ASPECT_RATIO,
+  mapBoardCompact: {
+    height: 430,
+    minHeight: 360,
   },
-  mapBoardMobile: {
-    aspectRatio: 1.16,
-    minHeight: 300,
-  },
-  mapFollowLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mapContent: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mapBackground: {
-    ...StyleSheet.absoluteFillObject,
+  leafletMap: {
     width: "100%",
     height: "100%",
+    backgroundColor: "transparent",
   },
-  mapBackgroundFinding: {
-    opacity: 0.76,
+  leafletMapLoading: {
+    opacity: 0.72,
   },
-  mapTint: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: "none",
-    backgroundColor: "rgba(255, 252, 244, 0.08)",
-  },
-  mapVignette: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: "none",
+  mapMetric: {
+    position: "absolute",
+    left: 10,
+    top: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
     borderWidth: 1,
-    borderColor: "rgba(37, 29, 31, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "rgba(37, 29, 31, 0.09)",
+    ...shadow,
   },
-  mapControls: {
+  mapMetricText: {
+    color: colors.maroonDark,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  mapMetricSubtext: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  mapActions: {
     position: "absolute",
     right: 12,
     top: 12,
     gap: 8,
   },
-  mapControlButton: {
+  mapActionButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -517,128 +411,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(37, 29, 31, 0.1)",
     ...shadow,
   },
-  mapMetric: {
-    position: "absolute",
-    left: 10,
-    top: 10,
-    overflow: "hidden",
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    color: colors.maroonDark,
-    fontSize: 10,
-    fontWeight: "900",
-  },
   catDock: {
     position: "absolute",
     left: 12,
     bottom: 12,
     zIndex: 35,
-  },
-  mapAttribution: {
-    position: "absolute",
-    right: 9,
-    bottom: 8,
-    overflow: "hidden",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.88)",
-    color: colors.muted,
-    fontSize: 9,
-    fontWeight: "800",
-  },
-  marker: {
-    position: "absolute",
-    width: 68,
-    minHeight: 52,
-    alignItems: "center",
-    marginLeft: -34,
-    marginTop: -28,
-  },
-  markerSelected: {
-    zIndex: 18,
-  },
-  markerMotion: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  markerHalo: {
-    position: "absolute",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    zIndex: 1,
-  },
-  markerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: colors.surface,
-    zIndex: 2,
-    ...shadow,
-  },
-  markerIconSelected: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  markerText: {
-    maxWidth: 68,
-    marginTop: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    overflow: "hidden",
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    color: colors.maroonDark,
-    fontFamily: Platform.select({
-      android: "sans-serif-medium",
-      ios: "Avenir Next",
-      default: "Segoe UI",
-    }),
-    fontSize: 10,
-    fontWeight: "900",
-    textAlign: "center",
-    borderWidth: 1,
-    borderColor: "rgba(37, 29, 31, 0.08)",
-  },
-  markerTextSelected: {
-    backgroundColor: colors.maroonDark,
-    color: colors.surface,
-    borderColor: "rgba(255, 255, 255, 0.45)",
-  },
-  userMarker: {
-    position: "absolute",
-    width: 46,
-    height: 46,
-    marginLeft: -23,
-    marginTop: -23,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  userPulse: {
-    position: "absolute",
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "rgba(15, 118, 110, 0.28)",
-  },
-  userMarkerCore: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.teal,
-    borderWidth: 3,
-    borderColor: colors.surface,
   },
 });
