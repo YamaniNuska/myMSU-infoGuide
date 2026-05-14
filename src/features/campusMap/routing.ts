@@ -1,4 +1,9 @@
-import { formatDistance, getDistanceMeters } from "./mapMath";
+import {
+  coordinateToMapPoint,
+  formatDistance,
+  getDistanceMeters,
+  mapPointToCoordinate,
+} from "./mapMath";
 import {
   locationRoadAnchors,
   roadEdges,
@@ -10,6 +15,133 @@ import type { MapPoint } from "./types";
 const nodesById = new Map(roadNodes.map((node) => [node.id, node]));
 const START_NODE_ID = "__route_start__";
 const GOAL_NODE_ID = "__route_goal__";
+const ORS_DIRECTIONS_ENDPOINT =
+  "https://api.openrouteservice.org/v2/directions/foot-walking/geojson";
+const ORS_API_KEY = process.env.EXPO_PUBLIC_ORS_API_KEY?.trim() ?? "";
+
+export type RouteSource = "local" | "ors";
+
+export type RouteResult = {
+  points: MapPoint[];
+  distance: number;
+  duration?: number;
+  source: RouteSource;
+};
+
+type OrsRouteResponse = {
+  features?: {
+    geometry?: {
+      coordinates?: unknown;
+    };
+    properties?: {
+      summary?: {
+        distance?: number;
+        duration?: number;
+      };
+    };
+  }[];
+  error?: {
+    message?: string;
+  };
+};
+
+const isCoordinatePair = (value: unknown): value is [number, number] =>
+  Array.isArray(value) &&
+  typeof value[0] === "number" &&
+  typeof value[1] === "number";
+
+export const hasOrsApiKey = () => ORS_API_KEY.length > 0;
+
+export const getRouteDistanceFromPoints = (points: MapPoint[]) =>
+  points.slice(1).reduce((total, point, index) => {
+    const previous = points[index];
+
+    return total + getDistanceMeters(previous, point);
+  }, 0);
+
+export const isOrsRoutePlausible = (
+  route: RouteResult | null,
+  fallbackRoute: RouteResult | null,
+) => {
+  if (!route || route.points.length <= 1 || route.distance <= 0) {
+    return false;
+  }
+
+  if (!fallbackRoute || fallbackRoute.distance <= 0) {
+    return true;
+  }
+
+  const maxReasonableDistance = Math.max(
+    fallbackRoute.distance * 3,
+    fallbackRoute.distance + 350,
+  );
+
+  return route.distance <= maxReasonableDistance;
+};
+
+export const fetchOrsWalkingRoute = async (
+  from: MapPoint,
+  to: MapPoint,
+  signal?: AbortSignal,
+): Promise<RouteResult | null> => {
+  if (!hasOrsApiKey()) {
+    return null;
+  }
+
+  const start = mapPointToCoordinate(from);
+  const destination = mapPointToCoordinate(to);
+  const response = await fetch(ORS_DIRECTIONS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Accept: "application/geo+json, application/json",
+      Authorization: ORS_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      coordinates: [
+        [start.longitude, start.latitude],
+        [destination.longitude, destination.latitude],
+      ],
+      instructions: false,
+      units: "m",
+    }),
+    signal,
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | OrsRouteResponse
+    | null;
+
+  if (!response.ok) {
+    const message = payload?.error?.message ?? response.statusText;
+    throw new Error(`ORS routing failed: ${message}`);
+  }
+
+  const feature = payload?.features?.[0];
+  const coordinates = feature?.geometry?.coordinates;
+
+  if (!Array.isArray(coordinates)) {
+    return null;
+  }
+
+  const points = coordinates
+    .filter(isCoordinatePair)
+    .map(([longitude, latitude]) => coordinateToMapPoint(latitude, longitude));
+
+  if (points.length <= 1) {
+    return null;
+  }
+
+  return {
+    points,
+    distance:
+      typeof feature?.properties?.summary?.distance === "number"
+        ? feature.properties.summary.distance
+        : getRouteDistanceFromPoints(points),
+    duration: feature?.properties?.summary?.duration,
+    source: "ors",
+  };
+};
 
 const graph = roadEdges.reduce<Record<string, { id: string; cost: number }[]>>(
   (accumulator, [from, to]) => {
@@ -352,16 +484,22 @@ export const buildRoadRoutePoints = (
     : routeWithStart;
 };
 
+export const buildLocalRouteResult = (
+  from: MapPoint,
+  to: MapPoint,
+  destinationId?: string,
+): RouteResult => {
+  const points = buildRoadRoutePoints(from, to, destinationId);
+
+  return {
+    points,
+    distance: getRouteDistanceFromPoints(points),
+    source: "local",
+  };
+};
+
 export const getRouteDistanceMeters = (
   from: MapPoint,
   to: MapPoint,
   destinationId?: string,
-) => {
-  const points = buildRoadRoutePoints(from, to, destinationId);
-
-  return points.slice(1).reduce((total, point, index) => {
-    const previous = points[index];
-
-    return total + getDistanceMeters(previous, point);
-  }, 0);
-};
+) => buildLocalRouteResult(from, to, destinationId).distance;

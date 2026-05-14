@@ -13,10 +13,10 @@ export const clamp = (value: number, min: number, max: number) =>
 
 export const normalize = (value: string) => value.toLowerCase().trim();
 
-export const projectDeviceCoordinate = (
+export const coordinateToMapPoint = (
   latitude: number,
   longitude: number,
-): UserMarker => {
+): MapPoint => {
   const rawX =
     ((longitude - CAMPUS_BOUNDS.west) /
       (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west)) *
@@ -31,6 +31,28 @@ export const projectDeviceCoordinate = (
     mapY: clamp(rawY, 0, 100),
     latitude,
     longitude,
+  };
+};
+
+export const mapPointToCoordinate = (point: MapPoint) => ({
+  latitude:
+    typeof point.latitude === "number"
+      ? point.latitude
+      : CAMPUS_BOUNDS.north -
+        (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
+  longitude:
+    typeof point.longitude === "number"
+      ? point.longitude
+      : CAMPUS_BOUNDS.west +
+        (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
+});
+
+export const projectDeviceCoordinate = (
+  latitude: number,
+  longitude: number,
+): UserMarker => {
+  return {
+    ...coordinateToMapPoint(latitude, longitude),
     insideCampus:
       latitude <= CAMPUS_BOUNDS.north &&
       latitude >= CAMPUS_BOUNDS.south &&

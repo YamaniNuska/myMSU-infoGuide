@@ -42,12 +42,15 @@ type CampusMapCanvasProps = {
 
 const campusCenter = [7.99705, 124.26045] as const;
 
-const pointToLatLng = (point: MapPoint) => [
-  CAMPUS_BOUNDS.north -
-    (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
-  CAMPUS_BOUNDS.west +
-    (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
-];
+const pointToLatLng = (point: MapPoint) =>
+  typeof point.latitude === "number" && typeof point.longitude === "number"
+    ? [point.latitude, point.longitude]
+    : [
+        CAMPUS_BOUNDS.north -
+          (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
+        CAMPUS_BOUNDS.west +
+          (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
+      ];
 
 const locationToLatLng = (location: CampusLocation) =>
   typeof location.latitude === "number" && typeof location.longitude === "number"
@@ -122,8 +125,11 @@ const mapHtml = `
       let movementLine = null;
       let trail = [];
       let lastPayload = null;
+      let openedSelectedId = null;
+      let fittedRouteDestination = null;
 
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+      const latLngKey = (latLng) => latLng ? latLng[0].toFixed(6) + "," + latLng[1].toFixed(6) : null;
       const makeIcon = (location, selected) => L.divIcon({
         className: "mymsu-pin",
         iconAnchor: selected ? [24, 54] : [20, 46],
@@ -151,11 +157,11 @@ const mapHtml = `
           const html = '<div class="mymsu-popup-title">' + escapeHtml(location.name) + '</div><div class="mymsu-popup-meta">' + escapeHtml(location.category) + '</div><div class="mymsu-popup-body">' + escapeHtml(location.description) + '</div>';
           const existing = markers.get(location.id);
           if (existing) {
-            existing.setLatLng(location.latLng).setIcon(makeIcon(location, selected)).bindPopup(html);
+            existing.setLatLng(location.latLng).setIcon(makeIcon(location, selected)).bindPopup(html, { autoPan: false });
             existing.setZIndexOffset(selected ? 1000 : 0);
           } else {
             const marker = L.marker(location.latLng, { icon: makeIcon(location, selected), title: location.name, zIndexOffset: selected ? 1000 : 0 })
-              .bindPopup(html)
+              .bindPopup(html, { autoPan: false })
               .on("click", () => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "select", id: location.id })))
               .addTo(map);
             markers.set(location.id, marker);
@@ -166,6 +172,8 @@ const mapHtml = `
         if (routeLine) routeLine.remove();
         routeHalo = null;
         routeLine = null;
+        const routeDestinationKey = payload.routePoints.length > 1 ? latLngKey(payload.routePoints[payload.routePoints.length - 1]) : null;
+        if (!routeDestinationKey) fittedRouteDestination = null;
         if (payload.routePoints.length > 1) {
           routeHalo = L.polyline(payload.routePoints, { color: "#FFFFFF", weight: 11, opacity: 0.88, lineCap: "round", lineJoin: "round" }).addTo(map);
           routeLine = L.polyline(payload.routePoints, { color: "#16A34A", weight: 6, opacity: 0.94, lineCap: "round", lineJoin: "round" }).addTo(map);
@@ -193,9 +201,17 @@ const mapHtml = `
         }
 
         const selectedMarker = payload.selectedId ? markers.get(payload.selectedId) : null;
-        if (selectedMarker) selectedMarker.openPopup();
+        if (selectedMarker && openedSelectedId !== payload.selectedId) {
+          selectedMarker.openPopup();
+          openedSelectedId = payload.selectedId;
+        } else if (!payload.selectedId) {
+          openedSelectedId = null;
+        }
         if (payload.followUser && payload.user) map.panTo(payload.user.latLng, { animate: true, duration: 0.45 });
-        else if (payload.routePoints.length > 1) map.fitBounds(payload.routePoints.concat(payload.user ? [payload.user.latLng] : []), { padding: [38, 38], maxZoom: 18 });
+        else if (payload.routePoints.length > 1 && fittedRouteDestination !== routeDestinationKey) {
+          map.fitBounds(payload.routePoints.concat(payload.user ? [payload.user.latLng] : []), { padding: [38, 38], maxZoom: 18 });
+          fittedRouteDestination = routeDestinationKey;
+        }
         else if (payload.fit) fitLocations(payload.locations);
       };
 

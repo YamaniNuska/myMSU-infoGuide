@@ -30,7 +30,12 @@ content:
 ```text
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+EXPO_PUBLIC_ORS_API_KEY=
 ```
+
+`EXPO_PUBLIC_ORS_API_KEY` is optional. When it is present, the campus map asks
+OpenRouteService for a walking route and falls back to the bundled campus route
+graph if ORS is unavailable.
 
 The current local web server uses:
 
