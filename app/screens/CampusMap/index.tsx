@@ -27,9 +27,11 @@ import {
   projectDeviceCoordinate,
 } from "../../../src/features/campusMap/mapMath";
 import {
-  buildRoadRoutePoints,
+  buildLocalRouteResult,
+  fetchOrsWalkingRoute,
   getRouteGuidance,
-  getRouteDistanceMeters,
+  isOrsRoutePlausible,
+  type RouteResult,
 } from "../../../src/features/campusMap/routing";
 import type {
   TrackingState,
@@ -62,6 +64,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const locationSubscription = React.useRef<Location.LocationSubscription | null>(
     null,
   );
+  const lastOrsDestination = React.useRef<string | null>(null);
   const catMessageTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -87,6 +90,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const [trackingState, setTrackingState] =
     React.useState<TrackingState>("idle");
   const [userMarker, setUserMarker] = React.useState<UserMarker | null>(null);
+  const [orsRoute, setOrsRoute] = React.useState<RouteResult | null>(null);
   const [mapZoom, setMapZoom] = React.useState(1);
   const [mapRotation, setMapRotation] = React.useState(0);
   const [mapResetSignal, setMapResetSignal] = React.useState(0);
@@ -189,32 +193,13 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
     [routeDestinationLocation],
   );
   const trackingActive = trackingState === "active" && !!userMarker;
-  const routePoints = React.useMemo(
+  const fallbackRoute = React.useMemo(
     () =>
       trackingActive &&
       userMarker &&
       routeDestinationPoint &&
       routeDestinationLocation
-        ? buildRoadRoutePoints(
-            userMarker,
-            routeDestinationPoint,
-            routeDestinationLocation.id,
-          )
-        : [],
-    [
-      routeDestinationLocation,
-      routeDestinationPoint,
-      trackingActive,
-      userMarker,
-    ],
-  );
-  const routeDistance = React.useMemo(
-    () =>
-      trackingActive &&
-      userMarker &&
-      routeDestinationPoint &&
-      routeDestinationLocation
-        ? getRouteDistanceMeters(
+        ? buildLocalRouteResult(
             userMarker,
             routeDestinationPoint,
             routeDestinationLocation.id,
@@ -227,6 +212,71 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       userMarker,
     ],
   );
+  const routeResult = orsRoute ?? fallbackRoute;
+  const routePoints = React.useMemo(
+    () => routeResult?.points ?? [],
+    [routeResult],
+  );
+  const routeDistance = routeResult?.distance ?? null;
+
+  React.useEffect(() => {
+    const destinationId = routeDestinationLocation?.id ?? null;
+
+    if (
+      !trackingActive ||
+      !userMarker ||
+      !userMarker.insideCampus ||
+      !routeDestinationPoint ||
+      !routeDestinationLocation
+    ) {
+      lastOrsDestination.current = destinationId;
+      setOrsRoute(null);
+      return;
+    }
+
+    if (lastOrsDestination.current !== destinationId) {
+      lastOrsDestination.current = destinationId;
+      setOrsRoute(null);
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    fetchOrsWalkingRoute(userMarker, routeDestinationPoint, controller.signal)
+      .then((route) => {
+        if (!cancelled) {
+          setOrsRoute(
+            isOrsRoutePlausible(route, fallbackRoute) ? route : null,
+          );
+        }
+      })
+      .catch((error) => {
+        const isAbortError =
+          typeof error === "object" &&
+          error !== null &&
+          "name" in error &&
+          error.name === "AbortError";
+
+        if (!cancelled && isAbortError) {
+          return;
+        }
+
+        if (!cancelled) {
+          setOrsRoute(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    fallbackRoute,
+    routeDestinationLocation,
+    routeDestinationPoint,
+    trackingActive,
+    userMarker,
+  ]);
   const collegeCount = React.useMemo(
     () =>
       campusLocations.filter((location) => location.category === "College")

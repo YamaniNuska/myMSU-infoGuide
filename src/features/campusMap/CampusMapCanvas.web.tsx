@@ -61,12 +61,15 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 
-const pointToLatLng = (point: MapPoint): LatLngTuple => [
-  CAMPUS_BOUNDS.north -
-    (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
-  CAMPUS_BOUNDS.west +
-    (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
-];
+const pointToLatLng = (point: MapPoint): LatLngTuple =>
+  typeof point.latitude === "number" && typeof point.longitude === "number"
+    ? [point.latitude, point.longitude]
+    : [
+        CAMPUS_BOUNDS.north -
+          (point.mapY / 100) * (CAMPUS_BOUNDS.north - CAMPUS_BOUNDS.south),
+        CAMPUS_BOUNDS.west +
+          (point.mapX / 100) * (CAMPUS_BOUNDS.east - CAMPUS_BOUNDS.west),
+      ];
 
 const locationToLatLng = (location: CampusLocation): LatLngTuple =>
   typeof location.latitude === "number" && typeof location.longitude === "number"
@@ -87,6 +90,9 @@ const getAllLocationBounds = (locations: CampusLocation[]) =>
         [CAMPUS_BOUNDS.south, CAMPUS_BOUNDS.west],
         [CAMPUS_BOUNDS.north, CAMPUS_BOUNDS.east],
       ] as LatLngBoundsExpression);
+
+const getLatLngKey = ([latitude, longitude]: LatLngTuple) =>
+  `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 
 const ensureLeafletStyles = () => {
   if (typeof document === "undefined" || document.getElementById(styleElementId)) {
@@ -465,6 +471,7 @@ export default function CampusMapCanvas({
   const markersRef = React.useRef<Map<string, Marker>>(new Map());
   const routeLineRef = React.useRef<Polyline | null>(null);
   const routeHaloRef = React.useRef<Polyline | null>(null);
+  const fittedRouteDestinationRef = React.useRef<string | null>(null);
   const userMarkerRef = React.useRef<Marker | null>(null);
   const accuracyCircleRef = React.useRef<Circle | null>(null);
   const movementTrailRef = React.useRef<LatLngTuple[]>([]);
@@ -478,6 +485,7 @@ export default function CampusMapCanvas({
     () => getAllLocationBounds(visibleLocations),
     [visibleLocations],
   );
+  const selectedLocationId = selectedLocation?.id;
   const trackingActive = trackingState === "active" && !!userMarker;
   const findingUser = trackingState === "loading";
   const compactMap = width < 760;
@@ -579,7 +587,7 @@ export default function CampusMapCanvas({
     markersRef.current.clear();
 
     visibleLocations.forEach((location) => {
-      const selected = selectedLocation?.id === location.id;
+      const selected = selectedLocationId === location.id;
       const marker = leaflet.marker(locationToLatLng(location), {
         icon: createLocationIcon(leaflet, location, selected),
         title: location.name,
@@ -587,6 +595,7 @@ export default function CampusMapCanvas({
         zIndexOffset: selected ? 1000 : 0,
       })
         .bindPopup(createPopupHtml(location), {
+          autoPan: false,
           className: "mymsu-leaflet-popup",
         })
         .on("click", () => onSelectLocation(location.id))
@@ -594,22 +603,22 @@ export default function CampusMapCanvas({
 
       markersRef.current.set(location.id, marker);
     });
-  }, [mapReady, onSelectLocation, selectedLocation?.id, visibleLocations]);
+  }, [mapReady, onSelectLocation, selectedLocationId, visibleLocations]);
 
   React.useEffect(() => {
     const map = mapRef.current;
 
-    if (!map || !mapReady || !selectedLocation) {
+    if (!map || !mapReady || !selectedLocationId) {
       return;
     }
 
-    const marker = markersRef.current.get(selectedLocation.id);
+    const marker = markersRef.current.get(selectedLocationId);
 
     if (marker) {
       marker.openPopup();
       map.panTo(marker.getLatLng(), { animate: true, duration: 0.45 });
     }
-  }, [mapReady, selectedLocation]);
+  }, [mapReady, selectedLocationId]);
 
   React.useEffect(() => {
     const map = mapRef.current;
@@ -625,10 +634,12 @@ export default function CampusMapCanvas({
     routeHaloRef.current = null;
 
     if (routePoints.length <= 1) {
+      fittedRouteDestinationRef.current = null;
       return;
     }
 
     const latLngs = routePoints.map(pointToLatLng);
+    const destinationKey = getLatLngKey(latLngs[latLngs.length - 1]);
 
     routeHaloRef.current = leaflet.polyline(latLngs, {
       color: "#FFFFFF",
@@ -646,10 +657,13 @@ export default function CampusMapCanvas({
       lineJoin: "round",
     }).addTo(map);
 
-    map.fitBounds(
-      userMarker ? [...latLngs, userToLatLng(userMarker)] : latLngs,
-      { padding: [42, 42], maxZoom: 18 },
-    );
+    if (fittedRouteDestinationRef.current !== destinationKey) {
+      map.fitBounds(
+        userMarker ? [...latLngs, userToLatLng(userMarker)] : latLngs,
+        { padding: [42, 42], maxZoom: 18 },
+      );
+      fittedRouteDestinationRef.current = destinationKey;
+    }
   }, [mapReady, routePoints, userMarker]);
 
   React.useEffect(() => {
