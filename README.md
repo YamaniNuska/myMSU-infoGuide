@@ -94,6 +94,21 @@ npx expo export -p web --output-dir web-deploy
 Upload `web-deploy` to a static host such as Netlify, Vercel, Firebase Hosting,
 or a school web server.
 
+## Render Deploy
+
+Deploy this project on Render as a Static Site, not as a Node web service.
+
+Use these settings:
+
+```text
+Build Command: npm ci && npm run build
+Publish Directory: dist
+```
+
+Add the `EXPO_PUBLIC_*` environment variables in Render before deploying. The
+included `render.yaml` also configures Render to publish `dist` and rewrite
+client-side routes to `/index.html`.
+
 ## Mobile Build
 
 ```bash
