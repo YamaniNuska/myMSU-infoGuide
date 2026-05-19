@@ -4,6 +4,7 @@ const path = require("path");
 
 const port = Number(process.env.PORT || 3000);
 const distDir = path.join(__dirname, "dist");
+const indexFile = path.join(distDir, "index.html");
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -27,8 +28,9 @@ const contentTypes = {
 function sendFile(response, filePath) {
   fs.readFile(filePath, (error, data) => {
     if (error) {
+      console.error(`Failed to read ${filePath}:`, error);
       response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end("Internal Server Error");
+      response.end(`Internal Server Error: failed to read ${path.basename(filePath)}`);
       return;
     }
 
@@ -57,9 +59,14 @@ const server = http.createServer((request, response) => {
       return;
     }
 
-    sendFile(response, path.join(distDir, "index.html"));
+    sendFile(response, indexFile);
   });
 });
+
+if (!fs.existsSync(indexFile)) {
+  console.error(`Missing ${indexFile}. Run "npm run build" before "npm run serve".`);
+  process.exit(1);
+}
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Serving dist on port ${port}`);

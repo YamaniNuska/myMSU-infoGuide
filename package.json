@@ -9,6 +9,7 @@
     "web": "expo start --web --port 8081",
     "build": "expo export -p web --output-dir dist",
     "serve": "node server.cjs",
+    "render-start": "npm run build && npm run serve",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
