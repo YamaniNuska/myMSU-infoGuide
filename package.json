@@ -7,9 +7,9 @@
     "android": "expo start --android --port 8081",
     "ios": "expo start --ios --port 8081",
     "web": "expo start --web --port 8081",
+    "build": "expo export -p web --output-dir dist",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
-    "build": "expo export --platform web"
+    "lint": "expo lint"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

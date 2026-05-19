@@ -97,13 +97,32 @@ or a school web server.
 ## Render Deploy
 
 Deploy this project on Render as a Static Site, not as a Node web service.
+If you already created a Render Web Service, create a new Static Site instead;
+changing only the Build Command on the Web Service will still make Render run a
+Node Start Command such as `node .`, which fails on Expo Router's
+`expo-router/entry` entrypoint.
 
 Use these settings:
 
 ```text
-Build Command: npm ci && npm run build
+Build Command: npm run build
 Publish Directory: dist
 ```
+
+Only run the build command in a terminal:
+
+```bash
+npm run build
+```
+
+`Publish Directory: dist` is not a terminal command. Enter `dist` in Render's
+Publish Directory field.
+
+The Publish Directory is the relative path of the directory containing the built
+assets that Render should publish. For this Expo web build, that directory is
+`dist`.
+
+Leave Start Command empty. Static Sites do not use one.
 
 Add the `EXPO_PUBLIC_*` environment variables in Render before deploying. The
 included `render.yaml` also configures Render to publish `dist` and rewrite
