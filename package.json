@@ -8,6 +8,7 @@
     "ios": "expo start --ios --port 8081",
     "web": "expo start --web --port 8081",
     "build": "expo export -p web --output-dir dist",
+    "serve": "node server.cjs",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },

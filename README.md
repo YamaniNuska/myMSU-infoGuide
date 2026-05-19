@@ -96,11 +96,7 @@ or a school web server.
 
 ## Render Deploy
 
-Deploy this project on Render as a Static Site, not as a Node web service.
-If you already created a Render Web Service, create a new Static Site instead;
-changing only the Build Command on the Web Service will still make Render run a
-Node Start Command such as `node .`, which fails on Expo Router's
-`expo-router/entry` entrypoint.
+The simplest Render option is a Static Site:
 
 Use these settings:
 
@@ -127,6 +123,19 @@ Leave Start Command empty. Static Sites do not use one.
 Add the `EXPO_PUBLIC_*` environment variables in Render before deploying. The
 included `render.yaml` also configures Render to publish `dist` and rewrite
 client-side routes to `/index.html`.
+
+If you deploy as a Render Web Service instead, use these settings:
+
+```text
+Build Command: npm run build
+Start Command: npm run serve
+```
+
+Do not leave the Web Service Start Command empty. Render may otherwise run
+`node .`, which reads `main: "expo-router/entry"` from `package.json` and fails
+because Expo Router's entrypoint is not a production Node server. The
+`npm run serve` command starts `server.cjs`, binds to Render's `PORT`, and serves
+the exported `dist` folder.
 
 ## Mobile Build
 
