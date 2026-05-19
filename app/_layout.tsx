@@ -51,15 +51,19 @@ export default function RootLayout() {
         },
         tabBarStyle: {
           position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: Platform.OS === "ios" ? 18 : 14,
-          height: Platform.OS === "ios" ? 72 : 66,
+          left: Platform.OS === "web" ? 16 : 0,
+          right: Platform.OS === "web" ? 16 : 0,
+          bottom: 0,
+          height: Platform.OS === "ios" ? 84 : Platform.OS === "web" ? 66 : 74,
           backgroundColor: colors.surface,
           borderTopWidth: 0,
           borderWidth: 1,
           borderColor: colors.line,
-          borderRadius: 22,
+          borderRadius: Platform.OS === "web" ? 22 : 0,
+          borderTopLeftRadius: Platform.OS === "web" ? 22 : 22,
+          borderTopRightRadius: Platform.OS === "web" ? 22 : 22,
+          borderBottomLeftRadius: 0,
+          borderBottomRightRadius: 0,
           ...(Platform.OS === "web"
             ? { boxShadow: "0px 8px 22px rgba(29, 11, 11, 0.14)" }
             : {
@@ -101,7 +105,7 @@ export default function RootLayout() {
       />
       <Tabs.Screen
         name="screens"
-        options={{ href: null, tabBarStyle: { display: "none" } }}
+        options={{ href: null }}
       />
     </Tabs>
   );

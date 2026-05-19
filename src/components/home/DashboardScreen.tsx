@@ -21,10 +21,7 @@ import {
   useWindowDimensions,
   type DimensionValue,
 } from "react-native";
-import {
-  databaseTables,
-  UserRecord,
-} from "../../data/mymsuDatabase";
+import { UserRecord } from "../../data/mymsuDatabase";
 import {
   getVisibleAnnouncements,
   searchLiveKnowledgeBase,
@@ -482,27 +479,6 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
           </Animated.View>
         </TouchableOpacity>
 
-        {user?.role === "admin" ? (
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{databaseTables.length}</Text>
-              <Text style={styles.statLabel}>Data Tables</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{data.offices.length}</Text>
-              <Text style={styles.statLabel}>Offices</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{visibleAnnouncements.length}</Text>
-              <Text style={styles.statLabel}>Alerts</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>Admin</Text>
-              <Text style={styles.statLabel}>Access</Text>
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.grid}>
           {visibleGridItems.map((item, index) => (
             <AnimatedGridCard
@@ -756,33 +732,6 @@ const styles = StyleSheet.create({
   },
   handbookIcon: {
     backgroundColor: colors.gold,
-  },
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: "46%",
-    minHeight: 74,
-    justifyContent: "center",
-    padding: 14,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  statValue: {
-    color: colors.maroon,
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  statLabel: {
-    marginTop: 3,
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
   },
   grid: {
     flexDirection: "row",

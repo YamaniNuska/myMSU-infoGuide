@@ -5,7 +5,6 @@ import React from "react";
 import {
   Animated,
   Easing,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, maxContentWidth, radii } from "../theme";
 
 type SecondaryScreenLayoutProps = {
@@ -20,6 +20,7 @@ type SecondaryScreenLayoutProps = {
   description: string;
   onBack?: () => void;
   children?: React.ReactNode;
+  scrollEnabled?: boolean;
 };
 
 export default function SecondaryScreenLayout({
@@ -27,6 +28,7 @@ export default function SecondaryScreenLayout({
   description,
   onBack,
   children,
+  scrollEnabled = true,
 }: SecondaryScreenLayoutProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -51,73 +53,80 @@ export default function SecondaryScreenLayout({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View
-        style={[
-          styles.headerMotion,
-          {
-            opacity: entry,
-            transform: [
-              {
-                translateY: entry.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-16, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[colors.maroonDark, colors.maroon]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-back" size={20} color="#ffffff" />
-              <Text style={styles.backText}>Back</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.description}>{description}</Text>
-          </View>
-        </LinearGradient>
-      </Animated.View>
-
-      <ScrollView
-        contentContainerStyle={[styles.content, isWide && styles.contentWide]}
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.container}>
         <Animated.View
           style={[
-            styles.contentAnimator,
+            styles.headerMotion,
             {
               opacity: entry,
               transform: [
                 {
                   translateY: entry.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [18, 0],
+                    outputRange: [-16, 0],
                   }),
                 },
               ],
             },
           ]}
         >
-          {children}
+          <LinearGradient
+            colors={[colors.maroonDark, colors.maroon]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                <Text style={styles.backText}>Back</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.description}>{description}</Text>
+            </View>
+          </LinearGradient>
         </Animated.View>
-      </ScrollView>
+
+        <ScrollView
+          scrollEnabled={scrollEnabled}
+          contentContainerStyle={[styles.content, isWide && styles.contentWide]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={[
+              styles.contentAnimator,
+              {
+                opacity: entry,
+                transform: [
+                  {
+                    translateY: entry.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [18, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {children}
+          </Animated.View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.maroonDark,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -127,7 +136,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 6,
     paddingBottom: 14,
     borderBottomLeftRadius: radii.sm,
     borderBottomRightRadius: radii.sm,

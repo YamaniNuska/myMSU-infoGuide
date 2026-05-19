@@ -38,6 +38,8 @@ type CampusMapCanvasProps = {
   onRotateRight: () => void;
   onResetMapView: () => void;
   onZoomChange: (zoom: number) => void;
+  onMapGestureStart?: () => void;
+  onMapGestureEnd?: () => void;
 };
 
 const campusCenter = [7.99705, 124.26045] as const;
@@ -73,7 +75,7 @@ const mapHtml = `
     <style>
       html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }
       body { overflow: hidden; background: #d9e6cf; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .leaflet-container { background: #d9e6cf; touch-action: pan-x pan-y; }
+      .leaflet-container { background: #d9e6cf; touch-action: none; overscroll-behavior: contain; }
       .leaflet-control-zoom { border: 1px solid rgba(37, 29, 31, 0.1); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 18px rgba(29, 11, 11, 0.16); }
       .leaflet-control-zoom a { width: 34px; height: 34px; line-height: 34px; color: #3A080D; font-weight: 900; }
       .leaflet-control-attribution { padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); color: #5C5050; font-size: 10px; }
@@ -127,6 +129,7 @@ const mapHtml = `
       let lastPayload = null;
       let openedSelectedId = null;
       let fittedRouteDestination = null;
+      let handledFitVersion = null;
 
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
       const latLngKey = (latLng) => latLng ? latLng[0].toFixed(6) + "," + latLng[1].toFixed(6) : null;
@@ -212,7 +215,10 @@ const mapHtml = `
           map.fitBounds(payload.routePoints.concat(payload.user ? [payload.user.latLng] : []), { padding: [38, 38], maxZoom: 18 });
           fittedRouteDestination = routeDestinationKey;
         }
-        else if (payload.fit) fitLocations(payload.locations);
+        else if (payload.fitVersion !== handledFitVersion) {
+          fitLocations(payload.locations);
+          handledFitVersion = payload.fitVersion;
+        }
       };
 
       document.addEventListener("message", (event) => window.updateMymsuMap(JSON.parse(event.data)));
@@ -235,6 +241,8 @@ export default function CampusMapCanvas({
   catMessage,
   onSelectLocation,
   onCatPress,
+  onMapGestureStart,
+  onMapGestureEnd,
 }: CampusMapCanvasProps) {
   const { width } = useWindowDimensions();
   const webViewRef = React.useRef<WebView>(null);
@@ -247,7 +255,7 @@ export default function CampusMapCanvas({
 
   const payload = React.useMemo(
     () => ({
-      fit: fitVersion,
+      fitVersion,
       followUser: trackingActive,
       selectedId: selectedLocation?.id ?? null,
       locations: visibleLocations.map((location) => ({
@@ -307,7 +315,12 @@ export default function CampusMapCanvas({
   const resetView = () => setFitVersion((value) => value + 1);
 
   return (
-    <View style={styles.mapShell}>
+    <View
+      style={styles.mapShell}
+      onTouchStart={onMapGestureStart}
+      onTouchEnd={onMapGestureEnd}
+      onTouchCancel={onMapGestureEnd}
+    >
       <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
         <WebView
           ref={webViewRef}

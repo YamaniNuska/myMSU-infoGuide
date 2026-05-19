@@ -2,7 +2,8 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { ClassScheduleRecord } from "../data/mymsuDatabase";
 
-const CHANNEL_ID = "class-reminders";
+const CHANNEL_ID = "class-reminders-custom";
+const CLASS_REMINDER_SOUND = "class-reminder.mp3";
 
 type ReminderScheduleResult =
   | {
@@ -69,7 +70,7 @@ async function ensureNotificationPermissions(): Promise<NotificationPermissionRe
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: "Class reminders",
       importance: Notifications.AndroidImportance.HIGH,
-      sound: "default",
+      sound: CLASS_REMINDER_SOUND,
       vibrationPattern: [0, 250, 250, 250],
     });
   }
@@ -132,7 +133,7 @@ export async function scheduleClassReminder(
   const content = {
     title: `Class reminder: ${schedule.courseCode}`,
     body: `${schedule.courseTitle} starts at ${schedule.time} in ${schedule.room}.`,
-    sound: true,
+    sound: CLASS_REMINDER_SOUND,
     data: {
       scheduleId: schedule.id,
       courseCode: schedule.courseCode,

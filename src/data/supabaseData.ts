@@ -330,6 +330,239 @@ async function selectRows<T>(table: string, mapper: (row: DbRecord) => T) {
 
 export { isSupabaseConfigured };
 
+export type AdminContactMessageInput = {
+  officeId: string;
+  officeName: string;
+  officeEmail?: string;
+  senderName: string;
+  senderEmail: string;
+  subject: string;
+  message: string;
+  attachmentName?: string;
+  attachmentPath?: string;
+  attachmentMimeType?: string;
+  attachmentSizeBytes?: number;
+};
+
+export type AdminContactAttachmentInput = {
+  name: string;
+  uri: string;
+  size?: number | null;
+  mimeType?: string | null;
+};
+
+export type AdminContactMessageRecord = {
+  id: string;
+  officeId?: string;
+  officeName: string;
+  officeEmail?: string;
+  senderName: string;
+  senderEmail: string;
+  subject: string;
+  message: string;
+  attachmentName?: string;
+  attachmentPath?: string;
+  attachmentMimeType?: string;
+  attachmentSizeBytes?: number;
+  status: string;
+  createdAt?: string;
+};
+
+export type AdminContactEmailInput = AdminContactMessageInput & {
+  messageId: string;
+};
+
+const ADMIN_CONTACT_ATTACHMENT_BUCKET = "admin-contact-files";
+const MAX_ADMIN_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+
+const sanitizeFileName = (value: string) =>
+  value.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+export function getAdminAttachmentLimitBytes() {
+  return MAX_ADMIN_ATTACHMENT_BYTES;
+}
+
+export function formatBytes(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export async function supabaseUploadAdminContactAttachment(
+  attachment: AdminContactAttachmentInput,
+) {
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured. Add the Supabase URL and publishable key to upload an attachment.",
+    );
+  }
+
+  if (attachment.size && attachment.size > MAX_ADMIN_ATTACHMENT_BYTES) {
+    throw new Error(
+      `Attachment must be smaller than ${formatBytes(MAX_ADMIN_ATTACHMENT_BYTES)}.`,
+    );
+  }
+
+  const response = await fetch(attachment.uri);
+  const blob = await response.blob();
+
+  if (blob.size > MAX_ADMIN_ATTACHMENT_BYTES) {
+    throw new Error(
+      `Attachment must be smaller than ${formatBytes(MAX_ADMIN_ATTACHMENT_BYTES)}.`,
+    );
+  }
+
+  const path = `office-messages/${Date.now()}-${sanitizeFileName(
+    attachment.name || "attachment",
+  )}`;
+  const { error } = await supabase.storage
+    .from(ADMIN_CONTACT_ATTACHMENT_BUCKET)
+    .upload(path, blob, {
+      contentType: attachment.mimeType ?? blob.type ?? "application/octet-stream",
+      upsert: false,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    path,
+    name: attachment.name,
+    mimeType: attachment.mimeType ?? blob.type ?? "application/octet-stream",
+    sizeBytes: attachment.size ?? blob.size,
+  };
+}
+
+export async function supabaseCreateAdminContactMessage(
+  input: AdminContactMessageInput,
+) {
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured. Add the Supabase URL and publishable key to send in-app office messages.",
+    );
+  }
+
+  const id = `admin-message-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  const { error } = await supabase.from("admin_contact_messages").insert({
+    id,
+    office_id: input.officeId,
+    office_name: input.officeName,
+    office_email: input.officeEmail ?? null,
+    sender_name: input.senderName,
+    sender_email: input.senderEmail,
+    subject: input.subject,
+    message: input.message,
+    attachment_name: input.attachmentName ?? null,
+    attachment_path: input.attachmentPath ?? null,
+    attachment_mime_type: input.attachmentMimeType ?? null,
+    attachment_size_bytes: input.attachmentSizeBytes ?? null,
+    status: "new",
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  await verifyPersistedRow("admin_contact_messages", id);
+
+  return id;
+}
+
+export async function supabaseSendAdminContactEmail(
+  input: AdminContactEmailInput,
+) {
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured. Add the Supabase URL and publishable key to send real office emails.",
+    );
+  }
+
+  if (!input.officeEmail) {
+    throw new Error(
+      "This office does not have an email address in its contact details.",
+    );
+  }
+
+  const { data, error } = await supabase.functions.invoke("send-office-email", {
+    body: input,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
+    throw new Error(data.error);
+  }
+
+  return data;
+}
+
+export async function supabaseGetAdminContactMessages(input: {
+  officeId: string;
+  senderEmail?: string;
+  limit?: number;
+}) {
+  if (!isSupabaseConfigured()) {
+    return [] as AdminContactMessageRecord[];
+  }
+
+  let query = supabase
+    .from("admin_contact_messages")
+    .select("*")
+    .eq("office_id", input.officeId)
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 8);
+
+  if (input.senderEmail?.trim()) {
+    query = query.eq("sender_email", input.senderEmail.trim().toLowerCase());
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map(
+    (row) =>
+      ({
+        id: String(row.id),
+        officeId: optionalString(row.office_id),
+        officeName: String(row.office_name ?? ""),
+        officeEmail: optionalString(row.office_email),
+        senderName: String(row.sender_name ?? ""),
+        senderEmail: String(row.sender_email ?? ""),
+        subject: String(row.subject ?? ""),
+        message: String(row.message ?? ""),
+        attachmentName: optionalString(row.attachment_name),
+        attachmentPath: optionalString(row.attachment_path),
+        attachmentMimeType: optionalString(row.attachment_mime_type),
+        attachmentSizeBytes:
+          row.attachment_size_bytes === null ||
+          row.attachment_size_bytes === undefined
+            ? undefined
+            : Number(row.attachment_size_bytes),
+        status: String(row.status ?? "new"),
+        createdAt: optionalString(row.created_at),
+      }) satisfies AdminContactMessageRecord,
+  );
+}
+
 export async function supabaseGetData(): Promise<AppData> {
   const [
     users,

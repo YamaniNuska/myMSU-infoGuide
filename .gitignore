@@ -5,6 +5,7 @@ node_modules/
 
 # Expo
 .expo/
+.expo-test-android/
 dist/
 web-build/
 web-deploy/
@@ -31,6 +32,7 @@ yarn-error.*
 .expo-web.log
 .expo-web.err
 .expo-web.err.log
+.expo-mobile.log
 .backend.log
 .backend.err
 

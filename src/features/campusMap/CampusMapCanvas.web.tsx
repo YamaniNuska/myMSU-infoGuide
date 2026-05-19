@@ -48,6 +48,8 @@ type CampusMapCanvasProps = {
   onRotateRight: () => void;
   onResetMapView: () => void;
   onZoomChange: (zoom: number) => void;
+  onMapGestureStart?: () => void;
+  onMapGestureEnd?: () => void;
 };
 
 const campusCenter: LatLngTuple = [7.99705, 124.26045];
@@ -107,7 +109,8 @@ const ensureLeafletStyles = () => {
       overflow: hidden;
       background: #d9e6cf;
       outline: 0;
-      touch-action: pan-x pan-y;
+      touch-action: none;
+      overscroll-behavior: contain;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .leaflet-pane,
@@ -463,6 +466,8 @@ export default function CampusMapCanvas({
   catMessage,
   onSelectLocation,
   onCatPress,
+  onMapGestureStart,
+  onMapGestureEnd,
 }: CampusMapCanvasProps) {
   const { width } = useWindowDimensions();
   const mapElementRef = React.useRef<HTMLDivElement | null>(null);
@@ -530,6 +535,7 @@ export default function CampusMapCanvas({
           zoomControl: true,
           attributionControl: false,
           scrollWheelZoom: true,
+          bounceAtZoomLimits: false,
           preferCanvas: true,
         })
         .setView(campusCenter, 16);
@@ -774,7 +780,12 @@ export default function CampusMapCanvas({
   const routeActive = routePoints.length > 1;
 
   return (
-    <View style={styles.mapShell}>
+    <View
+      style={styles.mapShell}
+      onTouchStart={onMapGestureStart}
+      onTouchEnd={onMapGestureEnd}
+      onTouchCancel={onMapGestureEnd}
+    >
       <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
         <View
           ref={(node) => {

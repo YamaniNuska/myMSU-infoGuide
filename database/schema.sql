@@ -1,6 +1,5 @@
 -- Supabase/Postgres schema for myMSU-InfoGuide.
 -- Run this file in the Supabase SQL editor for the project.
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$

@@ -1,26 +1,19 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { useAppData } from "../../../src/data/appStore";
-import { colors, getCardWidth, getColumnCount, radii, shadow } from "../../../src/theme";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
+import { useAppData } from "../../../src/data/appStore";
+import { colors, radii, shadow } from "../../../src/theme";
 
 type AdminInfoScreenProps = {
   onBack?: () => void;
 };
 
 export default function AdminInfoScreen({ onBack }: AdminInfoScreenProps) {
+  const router = useRouter();
   const [query, setQuery] = React.useState("");
   const { offices } = useAppData();
-  const { width } = useWindowDimensions();
-  const columns = getColumnCount(width);
 
   const filteredOffices = offices.filter((office) => {
     const searchable = [
@@ -42,14 +35,14 @@ export default function AdminInfoScreen({ onBack }: AdminInfoScreenProps) {
   return (
     <SecondaryScreenLayout
       title="Administrative Information"
-      description="Quick access to registrar, student affairs, admissions, health, ICT, and university offices."
+      description="Choose an office to send a formal in-app email request."
       onBack={onBack}
     >
       <View style={styles.searchBox}>
         <Ionicons name="search" size={20} color={colors.maroon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search offices, services, contacts..."
+          placeholder="Search offices, services, or concerns..."
           placeholderTextColor="#8B7D7D"
           value={query}
           onChangeText={setQuery}
@@ -61,64 +54,51 @@ export default function AdminInfoScreen({ onBack }: AdminInfoScreenProps) {
         ) : null}
       </View>
 
-      <View style={styles.summaryStrip}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{offices.length}</Text>
-          <Text style={styles.summaryLabel}>Offices</Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>8-5</Text>
-          <Text style={styles.summaryLabel}>Common Hours</Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>DSA</Text>
-          <Text style={styles.summaryLabel}>Admin Owner</Text>
-        </View>
-      </View>
-
-      <View style={styles.grid}>
+      <View style={styles.list}>
         {filteredOffices.map((office) => (
-          <View
+          <Pressable
             key={office.id}
-            style={[
-              styles.card,
-              { width: getCardWidth(columns) },
-              columns === 2 && styles.cardMobile,
-            ]}
+            style={styles.listItem}
+            onPress={() => router.push(`/screens/AdminInfo/${office.id}`)}
           >
-            <View style={styles.cardTop}>
-              <View style={styles.iconShell}>
-                <Ionicons name="business" size={20} color={colors.maroon} />
+            <View style={styles.iconShell}>
+              <Ionicons name="mail-open-outline" size={18} color={colors.maroon} />
+            </View>
+
+            <View style={styles.listBody}>
+              <View style={styles.listTopRow}>
+                <Text style={styles.officeName}>{office.name}</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.goldDark}
+                />
               </View>
+
               <Text style={styles.category}>{office.category}</Text>
-            </View>
+              <Text numberOfLines={2} style={styles.summary}>
+                {office.summary}
+              </Text>
 
-            <Text style={styles.officeName}>{office.name}</Text>
-            <Text style={styles.summary}>{office.summary}</Text>
-
-            <View style={styles.serviceWrap}>
-              {office.services.slice(0, 3).map((service) => (
-                <Text key={service} style={styles.serviceChip}>
-                  {service}
+              <View style={styles.metaRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={14}
+                  color={colors.goldDark}
+                />
+                <Text numberOfLines={1} style={styles.metaText}>
+                  {office.location}
                 </Text>
-              ))}
-            </View>
+              </View>
 
-            <View style={styles.detailBlock}>
-              <View style={styles.detailRow}>
-                <Ionicons name="location-outline" size={16} color={colors.goldDark} />
-                <Text style={styles.detailText}>{office.location}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="call-outline" size={16} color={colors.goldDark} />
-                <Text style={styles.detailText}>{office.contact}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Ionicons name="time-outline" size={16} color={colors.goldDark} />
-                <Text style={styles.detailText}>{office.hours}</Text>
+              <View style={styles.metaRow}>
+                <Ionicons name="attach-outline" size={14} color={colors.goldDark} />
+                <Text style={styles.metaText}>
+                  Optional file attachment
+                </Text>
               </View>
             </View>
-          </View>
+          </Pressable>
         ))}
       </View>
 
@@ -152,112 +132,67 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 14,
   },
-  summaryStrip: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  summaryItem: {
-    flex: 1,
-    minHeight: 78,
-    justifyContent: "center",
-    padding: 14,
-    borderRadius: radii.sm,
-    backgroundColor: colors.maroon,
-  },
-  summaryValue: {
-    color: colors.gold,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  summaryLabel: {
-    marginTop: 3,
-    color: "rgba(255,255,255,0.86)",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  list: {
     gap: 12,
   },
-  card: {
-    minHeight: 320,
-    padding: 16,
+  listItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 14,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     ...shadow,
   },
-  cardMobile: {
-    width: "100%",
-  },
-  cardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 14,
-  },
   iconShell: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     borderRadius: radii.sm,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.maroonSoft,
   },
-  category: {
+  listBody: {
     flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  listTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  officeName: {
+    flex: 1,
+    color: colors.maroonDark,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "800",
+  },
+  category: {
     color: colors.goldDark,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase",
   },
-  officeName: {
-    color: colors.maroonDark,
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: "800",
-  },
   summary: {
-    marginTop: 8,
     color: colors.muted,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
   },
-  serviceWrap: {
+  metaRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 14,
+    alignItems: "center",
+    gap: 7,
   },
-  serviceChip: {
-    overflow: "hidden",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: radii.pill,
-    backgroundColor: "#F9F0DA",
-    color: colors.maroonDark,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  detailBlock: {
-    gap: 9,
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  detailText: {
+  metaText: {
     flex: 1,
     minWidth: 0,
     color: colors.ink,
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   emptyState: {
     alignItems: "center",

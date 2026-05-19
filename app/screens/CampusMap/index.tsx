@@ -94,6 +94,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
   const [mapZoom, setMapZoom] = React.useState(1);
   const [mapRotation, setMapRotation] = React.useState(0);
   const [mapResetSignal, setMapResetSignal] = React.useState(0);
+  const [mapInteractionActive, setMapInteractionActive] = React.useState(false);
 
   React.useEffect(() => {
     Animated.timing(entry, {
@@ -578,6 +579,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       title="Campus Map"
       description="Explore MSU Main Campus colleges, offices, student services, and landmarks."
       onBack={handleBack}
+      scrollEnabled={!mapInteractionActive}
     >
         <Animated.View
           style={[
@@ -727,6 +729,8 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
             onRotateRight={rotateRight}
             onResetMapView={resetMapView}
             onZoomChange={setMapZoom}
+            onMapGestureStart={() => setMapInteractionActive(true)}
+            onMapGestureEnd={() => setMapInteractionActive(false)}
           />
 
           {pathPromptLocation ? (

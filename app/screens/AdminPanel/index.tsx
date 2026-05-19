@@ -22,6 +22,7 @@ import {
   upsertRecord,
   useAppData,
 } from "../../../src/data/appStore";
+import AdminLocationMapPicker from "../../../src/features/campusMap/AdminLocationMapPicker";
 import {
   AcademicEvent,
   AnnouncementRecord,
@@ -57,6 +58,17 @@ type ListItem = {
   subtitle: string;
   body: string;
   raw: Record<string, unknown>;
+};
+
+type ProspectusSubjectDraft = {
+  code: string;
+  title: string;
+  units: string;
+  lec: string;
+  lab: string;
+  prereq: string;
+  coreq: string;
+  importance: string;
 };
 
 const tabs: { key: AdminTab; label: string }[] = [
@@ -100,6 +112,23 @@ const locationCategoryOptions = [
   "Facility",
 ];
 const reminderOptions = ["0", "5", "10", "15", "30", "60"];
+const prospectusYearOptions = [
+  "First Year",
+  "Second Year",
+  "Third Year",
+  "Fourth Year",
+] as const;
+const prospectusSemesterOptions = [
+  "First Semester",
+  "Second Semester",
+  "Summer",
+] as const;
+const prospectusImportanceOptions = [
+  "standard",
+  "dependent",
+  "gateway",
+  "foundation",
+] as const;
 
 const timeOptions = Array.from({ length: 29 }, (_, index) => {
   const totalMinutes = 7 * 60 + index * 30;
@@ -269,6 +298,29 @@ const splitList = (value: string) =>
 
 const joinList = (value: unknown) =>
   Array.isArray(value) ? value.join(", ") : "";
+
+const defaultProspectusSubjectDraft: ProspectusSubjectDraft = {
+  code: "",
+  title: "",
+  units: "3",
+  lec: "3",
+  lab: "0",
+  prereq: "None",
+  coreq: "None",
+  importance: "standard",
+};
+
+const formatProspectusSubject = (draft: ProspectusSubjectDraft) =>
+  [
+    draft.code.trim(),
+    draft.title.trim(),
+    `Units: ${draft.units.trim() || "0"}`,
+    `Lec: ${draft.lec.trim() || "0"}`,
+    `Lab: ${draft.lab.trim() || "0"}`,
+    `Prereq: ${draft.prereq.trim() || "None"}`,
+    `Coreq: ${draft.coreq.trim() || "None"}`,
+    `Importance: ${draft.importance.trim() || "standard"}`,
+  ].join(" | ");
 
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
@@ -487,11 +539,31 @@ export default function AdminPanelScreen() {
   const [query, setQuery] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
+  const [prospectusSubjectDraft, setProspectusSubjectDraft] = React.useState("");
+  const [prospectusStructuredDraft, setProspectusStructuredDraft] =
+    React.useState<ProspectusSubjectDraft>(defaultProspectusSubjectDraft);
+  const [prospectusSubjects, setProspectusSubjects] = React.useState<string[]>([]);
+  const [courseTagDraft, setCourseTagDraft] = React.useState("");
+  const [courseTags, setCourseTags] = React.useState<string[]>([]);
+  const [scrollEnabled, setScrollEnabled] = React.useState(true);
+
+  const courseCollegeOptions = React.useMemo(
+    () =>
+      Array.from(new Set(data.coursePrograms.map((item) => item.college))).filter(
+        Boolean,
+      ),
+    [data.coursePrograms],
+  );
 
   const setTab = (tab: AdminTab) => {
     setActiveTab(tab);
     setEditingId(null);
     setForm(defaultForm[tab]);
+    setProspectusSubjectDraft("");
+    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
+    setProspectusSubjects([]);
+    setCourseTagDraft("");
+    setCourseTags([]);
     setQuery("");
     setMessage("");
   };
@@ -499,6 +571,29 @@ export default function AdminPanelScreen() {
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
+
+  const updateProspectusSubjectDraft = (
+    key: keyof ProspectusSubjectDraft,
+    value: string,
+  ) => {
+    setProspectusStructuredDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  React.useEffect(() => {
+    if (activeTab !== "prospectus") {
+      return;
+    }
+
+    setProspectusSubjects(splitList(form.subjects));
+  }, [activeTab, form.subjects]);
+
+  React.useEffect(() => {
+    if (activeTab !== "courses") {
+      return;
+    }
+
+    setCourseTags(splitList(form.tags));
+  }, [activeTab, form.tags]);
 
   const selectProspectusProgram = (programId: string) => {
     const program = data.coursePrograms.find((item) => item.id === programId);
@@ -508,6 +603,51 @@ export default function AdminPanelScreen() {
       programId,
       program: program?.program ?? current.program,
     }));
+  };
+
+  const addProspectusSubject = () => {
+    const subject =
+      prospectusSubjectDraft.trim() ||
+      formatProspectusSubject(prospectusStructuredDraft);
+
+    if (
+      !prospectusSubjectDraft.trim() &&
+      (!prospectusStructuredDraft.code.trim() ||
+        !prospectusStructuredDraft.title.trim())
+    ) {
+      return;
+    }
+
+    const nextSubjects = [...prospectusSubjects, subject];
+    setProspectusSubjects(nextSubjects);
+    updateField("subjects", nextSubjects.join(", "));
+    setProspectusSubjectDraft("");
+    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
+  };
+
+  const removeProspectusSubject = (subject: string) => {
+    const nextSubjects = prospectusSubjects.filter((item) => item !== subject);
+    setProspectusSubjects(nextSubjects);
+    updateField("subjects", nextSubjects.join(", "));
+  };
+
+  const addCourseTag = () => {
+    const tag = courseTagDraft.trim();
+
+    if (!tag) {
+      return;
+    }
+
+    const nextTags = [...courseTags, tag];
+    setCourseTags(nextTags);
+    updateField("tags", nextTags.join(", "));
+    setCourseTagDraft("");
+  };
+
+  const removeCourseTag = (tag: string) => {
+    const nextTags = courseTags.filter((item) => item !== tag);
+    setCourseTags(nextTags);
+    updateField("tags", nextTags.join(", "));
   };
 
   const renderChoiceField = (key: string, options: readonly string[]) => (
@@ -579,6 +719,37 @@ export default function AdminPanelScreen() {
       return renderChoiceField("reminderMinutes", reminderOptions);
     }
 
+    if (activeTab === "courses" && field.key === "college") {
+      return courseCollegeOptions.length > 0 ? (
+        <View style={styles.choiceStack}>
+          {renderChoiceField("college", courseCollegeOptions)}
+          <TextInput
+            style={styles.input}
+            value={form.college ?? ""}
+            onChangeText={(value) => updateField("college", value)}
+            placeholder="Or type a new college name"
+            placeholderTextColor="#998B8B"
+          />
+        </View>
+      ) : (
+        <TextInput
+          style={styles.input}
+          value={form.college ?? ""}
+          onChangeText={(value) => updateField("college", value)}
+          placeholder="College"
+          placeholderTextColor="#998B8B"
+        />
+      );
+    }
+
+    if (activeTab === "prospectus" && field.key === "yearLevel") {
+      return renderChoiceField("yearLevel", prospectusYearOptions);
+    }
+
+    if (activeTab === "prospectus" && field.key === "semester") {
+      return renderChoiceField("semester", prospectusSemesterOptions);
+    }
+
     if (activeTab === "prospectus" && field.key === "programId") {
       if (data.coursePrograms.length === 0) {
         return (
@@ -628,6 +799,234 @@ export default function AdminPanelScreen() {
             );
           })}
         </ScrollView>
+      );
+    }
+
+    if (activeTab === "prospectus" && field.key === "program") {
+      return (
+        <View style={styles.readonlyField}>
+          <Text style={styles.readonlyFieldText}>
+            {form.program || "Choose a program above."}
+          </Text>
+        </View>
+      );
+    }
+
+    if (activeTab === "prospectus" && field.key === "subjects") {
+      return (
+        <View style={styles.subjectBuilder}>
+          <View style={styles.prospectusSubjectForm}>
+            <View style={styles.inlineFieldRow}>
+              <View style={styles.inlineFieldWide}>
+                <Text style={styles.inlineFieldLabel}>Subject code</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.code}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("code", value)
+                  }
+                  placeholder="ITE183"
+                  placeholderTextColor="#998B8B"
+                  autoCapitalize="characters"
+                />
+              </View>
+              <View style={styles.inlineFieldWide}>
+                <Text style={styles.inlineFieldLabel}>Title</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.title}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("title", value)
+                  }
+                  placeholder="Web Systems and Technologies"
+                  placeholderTextColor="#998B8B"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inlineFieldRow}>
+              <View style={styles.inlineField}>
+                <Text style={styles.inlineFieldLabel}>Units</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.units}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("units", value)
+                  }
+                  placeholder="3"
+                  placeholderTextColor="#998B8B"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.inlineField}>
+                <Text style={styles.inlineFieldLabel}>Lec</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.lec}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("lec", value)
+                  }
+                  placeholder="3"
+                  placeholderTextColor="#998B8B"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.inlineField}>
+                <Text style={styles.inlineFieldLabel}>Lab</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.lab}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("lab", value)
+                  }
+                  placeholder="0"
+                  placeholderTextColor="#998B8B"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inlineFieldRow}>
+              <View style={styles.inlineFieldWide}>
+                <Text style={styles.inlineFieldLabel}>Prerequisite</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.prereq}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("prereq", value)
+                  }
+                  placeholder="CCC181 or None"
+                  placeholderTextColor="#998B8B"
+                />
+              </View>
+              <View style={styles.inlineFieldWide}>
+                <Text style={styles.inlineFieldLabel}>Co-requisite</Text>
+                <TextInput
+                  style={styles.input}
+                  value={prospectusStructuredDraft.coreq}
+                  onChangeText={(value) =>
+                    updateProspectusSubjectDraft("coreq", value)
+                  }
+                  placeholder="STT071.1 or None"
+                  placeholderTextColor="#998B8B"
+                />
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.inlineFieldLabel}>Importance</Text>
+              <View style={styles.choiceRow}>
+                {prospectusImportanceOptions.map((option) => {
+                  const selected = prospectusStructuredDraft.importance === option;
+
+                  return (
+                    <Pressable
+                      key={option}
+                      style={[
+                        styles.choiceChip,
+                        selected && styles.choiceChipActive,
+                      ]}
+                      onPress={() =>
+                        updateProspectusSubjectDraft("importance", option)
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.choiceChipText,
+                          selected && styles.choiceChipTextActive,
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <TextInput
+              style={[styles.input, styles.subjectComposerInput]}
+              value={prospectusSubjectDraft}
+              onChangeText={setProspectusSubjectDraft}
+              placeholder="Optional: paste a complete subject line instead"
+              placeholderTextColor="#998B8B"
+              multiline
+            />
+
+            <Text style={styles.helperText}>
+              Saved format: Code | Title | Units | Lec | Lab | Prereq | Coreq |
+              Importance.
+            </Text>
+
+            <Pressable style={styles.inlineAddButton} onPress={addProspectusSubject}>
+              <Ionicons name="add" size={18} color={colors.surface} />
+              <Text style={styles.inlineAddButtonText}>Add Subject</Text>
+            </Pressable>
+          </View>
+
+          {prospectusSubjects.length > 0 ? (
+            <View style={styles.subjectList}>
+              {prospectusSubjects.map((subject, index) => (
+                <View key={`${subject}-${index}`} style={styles.subjectItem}>
+                  <Text style={styles.subjectItemIndex}>{index + 1}</Text>
+                  <Text style={styles.subjectItemText}>{subject}</Text>
+                  <Pressable onPress={() => removeProspectusSubject(subject)}>
+                    <Ionicons
+                      name="close-circle"
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.helperText}>
+              Add each prospectus subject as its own line.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    if (activeTab === "courses" && field.key === "tags") {
+      return (
+        <View style={styles.subjectBuilder}>
+          <View style={styles.subjectComposer}>
+            <TextInput
+              style={styles.input}
+              value={courseTagDraft}
+              onChangeText={setCourseTagDraft}
+              placeholder="Add one tag at a time"
+              placeholderTextColor="#998B8B"
+            />
+            <Pressable style={styles.inlineAddButton} onPress={addCourseTag}>
+              <Ionicons name="add" size={18} color={colors.surface} />
+              <Text style={styles.inlineAddButtonText}>Add Tag</Text>
+            </Pressable>
+          </View>
+
+          {courseTags.length > 0 ? (
+            <View style={styles.tagList}>
+              {courseTags.map((tag) => (
+                <View key={tag} style={styles.tagItem}>
+                  <Text style={styles.tagItemText}>{tag}</Text>
+                  <Pressable onPress={() => removeCourseTag(tag)}>
+                    <Ionicons
+                      name="close-circle"
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.helperText}>
+              Add tags that make the program easier to search.
+            </Text>
+          )}
+        </View>
       );
     }
 
@@ -739,12 +1138,43 @@ export default function AdminPanelScreen() {
   const resetForm = () => {
     setEditingId(null);
     setForm(defaultForm[activeTab]);
+    setProspectusSubjectDraft("");
+    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
+    setProspectusSubjects([]);
+    setCourseTagDraft("");
+    setCourseTags([]);
   };
 
   const editItem = (item: ListItem) => {
     setEditingId(item.id);
-    setForm(recordToForm(activeTab, item.raw));
+    const nextForm = recordToForm(activeTab, item.raw);
+    setForm(nextForm);
+    if (activeTab === "prospectus") {
+      setProspectusSubjectDraft("");
+      setProspectusStructuredDraft(defaultProspectusSubjectDraft);
+      setProspectusSubjects(splitList(nextForm.subjects));
+    }
+    if (activeTab === "courses") {
+      setCourseTagDraft("");
+      setCourseTags(splitList(nextForm.tags));
+    }
     setMessage(`Editing ${item.title}`);
+  };
+
+  const editCampusLocationById = (id: string) => {
+    const location = data.campusLocations.find((item) => item.id === id);
+
+    if (!location) {
+      return;
+    }
+
+    editItem({
+      id: location.id,
+      title: location.name,
+      subtitle: location.category,
+      body: location.description,
+      raw: location,
+    });
   };
 
   const deleteItem = async (item: ListItem) => {
@@ -919,24 +1349,48 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "courses") {
+      if (!form.college.trim() || !form.program.trim() || !form.degree.trim()) {
+        setMessage("Complete the college, program, and degree first.");
+        setIsSaving(false);
+        return;
+      }
+
       synced = await upsertRecord("coursePrograms", {
         id,
         college: form.college,
         program: form.program,
         degree: form.degree,
         overview: form.overview,
-        tags: splitList(form.tags),
+        tags: courseTags,
       } satisfies CourseProgram);
     }
 
     if (activeTab === "prospectus") {
+      if (!form.programId.trim() || !form.program.trim()) {
+        setMessage("Choose a program before saving the prospectus.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (!form.yearLevel.trim() || !form.semester.trim()) {
+        setMessage("Choose the year level and semester.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (prospectusSubjects.length === 0) {
+        setMessage("Add at least one subject line for the prospectus.");
+        setIsSaving(false);
+        return;
+      }
+
       synced = await upsertRecord("prospectusRecords", {
         id,
         programId: form.programId,
         program: form.program,
         yearLevel: form.yearLevel,
         semester: form.semester,
-        subjects: splitList(form.subjects),
+        subjects: prospectusSubjects,
       } satisfies ProspectusRecord);
     }
 
@@ -973,6 +1427,7 @@ export default function AdminPanelScreen() {
       <SecondaryScreenLayout
         title="Admin Console"
         description="Only an admin account can manage app content."
+        scrollEnabled={scrollEnabled}
       >
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Admin access required</Text>
@@ -989,6 +1444,7 @@ export default function AdminPanelScreen() {
     <SecondaryScreenLayout
       title="Admin Console"
       description="Add, update, delete, and search app content from one place."
+      scrollEnabled={scrollEnabled}
     >
       <View style={[styles.shell, isWide && styles.shellWide]}>
         <View style={styles.tabRow}>
@@ -1031,6 +1487,31 @@ export default function AdminPanelScreen() {
               </Pressable>
             ) : null}
           </View>
+
+          {activeTab === "locations" ? (
+            <View style={styles.mapEditorBlock}>
+              <AdminLocationMapPicker
+                locations={data.campusLocations.filter(
+                  (location) => location.id !== editingId,
+                )}
+                draftLocation={{
+                  id: editingId || form.name.trim() || "draft-location",
+                  name: form.name,
+                  category: form.category,
+                  mapX: toMapPercent(form.mapX, 50),
+                  mapY: toMapPercent(form.mapY, 50),
+                }}
+                onDraftMove={(position) => {
+                  updateField("mapX", position.mapX.toFixed(1));
+                  updateField("mapY", position.mapY.toFixed(1));
+                  updateField("latitude", position.latitude.toFixed(6));
+                  updateField("longitude", position.longitude.toFixed(6));
+                }}
+                onSelectExistingLocation={editCampusLocationById}
+                onInteractionChange={(active) => setScrollEnabled(!active)}
+              />
+            </View>
+          ) : null}
 
           <View style={styles.fieldGrid}>
             {fieldConfigs[activeTab].map((field) => (
@@ -1161,6 +1642,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  mapEditorBlock: {
+    marginTop: 14,
+  },
   fieldGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1201,6 +1685,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  choiceStack: {
+    gap: 10,
   },
   choiceChip: {
     paddingHorizontal: 13,
@@ -1247,6 +1734,121 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     lineHeight: 15,
+    fontWeight: "700",
+  },
+  readonlyField: {
+    minHeight: 46,
+    justifyContent: "center",
+    borderRadius: radii.sm,
+    paddingHorizontal: 12,
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  readonlyFieldText: {
+    color: colors.maroonDark,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  subjectBuilder: {
+    gap: 10,
+  },
+  prospectusSubjectForm: {
+    gap: 12,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  inlineFieldRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  inlineField: {
+    flex: 1,
+    minWidth: 84,
+  },
+  inlineFieldWide: {
+    flex: 1,
+    minWidth: 180,
+  },
+  inlineFieldLabel: {
+    marginBottom: 6,
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  subjectComposer: {
+    gap: 10,
+  },
+  subjectComposerInput: {
+    minHeight: 78,
+    paddingTop: 12,
+    textAlignVertical: "top",
+  },
+  inlineAddButton: {
+    minHeight: 42,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    backgroundColor: colors.teal,
+  },
+  inlineAddButtonText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  subjectList: {
+    gap: 8,
+  },
+  tagList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  tagItemText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  subjectItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 11,
+    borderRadius: radii.sm,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  subjectItemIndex: {
+    width: 18,
+    color: colors.goldDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  subjectItemText: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: "700",
   },
   helperText: {
