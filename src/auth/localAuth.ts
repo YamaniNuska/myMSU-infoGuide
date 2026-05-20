@@ -14,6 +14,19 @@ type SignUpInput = {
   password: string;
 };
 
+export type ProfileDetailsInput = {
+  name: string;
+  idNumber?: string;
+  avatarUrl?: string;
+  college?: string;
+  program?: string;
+  yearLevel?: string;
+  section?: string;
+  phone?: string;
+  address?: string;
+  bio?: string;
+};
+
 type AuthResult =
   | {
       ok: true;
@@ -25,6 +38,7 @@ type AuthResult =
     };
 
 const MSU_STUDENT_DOMAIN = "@s.msumain.edu.ph";
+const PROFILE_AVATAR_BUCKET = "profile-avatars";
 
 let currentUser: UserRecord | null = null;
 const listeners = new Set<() => void>();
@@ -34,6 +48,8 @@ const isSignupRole = (role: unknown): role is SignupRole =>
   role === "student" || role === "faculty" || role === "employee";
 const isMsuStudentEmail = (email: string) =>
   normalize(email).endsWith(MSU_STUDENT_DOMAIN);
+const optionalString = (value: unknown) =>
+  value === null || value === undefined ? undefined : String(value);
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -54,6 +70,15 @@ function toPublicUser(row: Record<string, unknown>): UserRecord {
     role: (row.role as UserRole) ?? "visitor",
     username: String(row.username ?? ""),
     email: String(row.email ?? ""),
+    idNumber: optionalString(row.id_number) ?? optionalString(row.student_id),
+    avatarUrl: optionalString(row.avatar_url),
+    college: optionalString(row.college),
+    program: optionalString(row.program),
+    yearLevel: optionalString(row.year_level),
+    section: optionalString(row.section),
+    phone: optionalString(row.phone),
+    address: optionalString(row.address),
+    bio: optionalString(row.bio),
   };
 }
 
@@ -158,6 +183,16 @@ async function saveProfile(user: UserRecord) {
       role: user.role,
       username: normalize(user.username),
       email: normalize(user.email),
+      id_number: user.idNumber ?? null,
+      student_id: user.idNumber ?? null,
+      avatar_url: user.avatarUrl ?? null,
+      college: user.college ?? null,
+      program: user.program ?? null,
+      year_level: user.yearLevel ?? null,
+      section: user.section ?? null,
+      phone: user.phone ?? null,
+      address: user.address ?? null,
+      bio: user.bio ?? null,
     },
     { onConflict: "id" },
   );
@@ -178,6 +213,140 @@ async function saveProfile(user: UserRecord) {
 
   if (!data) {
     throw new Error("Supabase accepted the profile save, but the profile was not found afterward.");
+  }
+}
+
+const cleanOptional = (value?: string) => {
+  const clean = value?.trim() ?? "";
+
+  return clean || undefined;
+};
+
+export async function updateProfileDetails(
+  patch: ProfileDetailsInput,
+): Promise<AuthResult> {
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
+  if (!currentUser) {
+    return {
+      ok: false,
+      message: "Sign in before updating your profile.",
+    };
+  }
+
+  const name = patch.name.trim();
+
+  if (!name) {
+    return {
+      ok: false,
+      message: "Enter your display name.",
+    };
+  }
+
+  const nextUser: UserRecord = {
+    ...currentUser,
+    name,
+    idNumber: cleanOptional(patch.idNumber),
+    avatarUrl: cleanOptional(patch.avatarUrl),
+    college: cleanOptional(patch.college),
+    program: cleanOptional(patch.program),
+    yearLevel: cleanOptional(patch.yearLevel),
+    section: cleanOptional(patch.section),
+    phone: cleanOptional(patch.phone),
+    address: cleanOptional(patch.address),
+    bio: cleanOptional(patch.bio),
+  };
+
+  try {
+    await saveProfile(nextUser);
+    setSignedInUser(nextUser);
+
+    return {
+      ok: true,
+      user: nextUser,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to update your profile details.",
+    };
+  }
+}
+
+export async function uploadProfileAvatar(input: {
+  uri: string;
+  name?: string;
+  mimeType?: string | null;
+}): Promise<AuthResult> {
+  const configError = validateSupabase();
+
+  if (configError) {
+    return {
+      ok: false,
+      message: configError,
+    };
+  }
+
+  if (!currentUser) {
+    return {
+      ok: false,
+      message: "Sign in before setting a profile picture.",
+    };
+  }
+
+  try {
+    const response = await fetch(input.uri);
+    const blob = await response.blob();
+    const extension =
+      input.name?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ||
+      input.mimeType?.split("/").pop()?.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ||
+      "jpg";
+    const path = `${currentUser.id}/avatar-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .upload(path, blob, {
+        contentType: input.mimeType ?? blob.type ?? "image/jpeg",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .getPublicUrl(path);
+    const avatarUrl = data.publicUrl;
+    const nextUser = {
+      ...currentUser,
+      avatarUrl,
+    };
+
+    await saveProfile(nextUser);
+    setSignedInUser(nextUser);
+
+    return {
+      ok: true,
+      user: nextUser,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to upload your profile picture.",
+    };
   }
 }
 

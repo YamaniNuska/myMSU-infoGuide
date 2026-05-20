@@ -36,6 +36,15 @@ const toUser = (row: DbRecord): UserRecord => ({
   role: (row.role as UserRecord["role"]) ?? "visitor",
   username: String(row.username ?? ""),
   email: String(row.email ?? ""),
+  idNumber: optionalString(row.id_number) ?? optionalString(row.student_id),
+  avatarUrl: optionalString(row.avatar_url),
+  college: optionalString(row.college),
+  program: optionalString(row.program),
+  yearLevel: optionalString(row.year_level),
+  section: optionalString(row.section),
+  phone: optionalString(row.phone),
+  address: optionalString(row.address),
+  bio: optionalString(row.bio),
 });
 
 const toHandbookEntry = (row: DbRecord): HandbookEntry => ({
@@ -137,6 +146,16 @@ const fromAppRecord = (key: CollectionKey, item: AppData[CollectionKey][number])
         role: user.role,
         username: user.username,
         email: user.email,
+        id_number: user.idNumber ?? null,
+        student_id: user.idNumber ?? null,
+        avatar_url: user.avatarUrl ?? null,
+        college: user.college ?? null,
+        program: user.program ?? null,
+        year_level: user.yearLevel ?? null,
+        section: user.section ?? null,
+        phone: user.phone ?? null,
+        address: user.address ?? null,
+        bio: user.bio ?? null,
       };
     }
     case "handbookEntries": {

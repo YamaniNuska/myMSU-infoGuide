@@ -33,6 +33,36 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS id_number TEXT,
+  ADD COLUMN IF NOT EXISTS student_id TEXT,
+  ADD COLUMN IF NOT EXISTS college TEXT,
+  ADD COLUMN IF NOT EXISTS program TEXT,
+  ADD COLUMN IF NOT EXISTS year_level TEXT,
+  ADD COLUMN IF NOT EXISTS section TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS bio TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('profile-avatars', 'profile-avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public read profile avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated upload own profile avatar" ON storage.objects;
+CREATE POLICY "Public read profile avatars" ON storage.objects
+  FOR SELECT USING (bucket_id = 'profile-avatars');
+CREATE POLICY "Authenticated upload own profile avatar" ON storage.objects
+  FOR ALL USING (
+    bucket_id = 'profile-avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  )
+  WITH CHECK (
+    bucket_id = 'profile-avatars'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
 CREATE TABLE IF NOT EXISTS public.handbook_entries (
   id TEXT PRIMARY KEY,
   chapter TEXT NOT NULL,

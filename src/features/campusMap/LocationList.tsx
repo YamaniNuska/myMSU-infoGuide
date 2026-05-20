@@ -3,7 +3,7 @@ import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import type { CampusLocation } from "../../data/mymsuDatabase";
 import { colors, radii } from "../../theme";
-import { categoryColors, categoryIcons } from "./mapTheme";
+import { categoryIcons, getLocationColor } from "./mapTheme";
 
 type LocationListProps = {
   locations: CampusLocation[];
@@ -32,8 +32,7 @@ export default function LocationList({
             style={[
               styles.rowIcon,
               {
-                backgroundColor:
-                  categoryColors[location.category] ?? colors.maroon,
+                backgroundColor: getLocationColor(location),
               },
             ]}
           >

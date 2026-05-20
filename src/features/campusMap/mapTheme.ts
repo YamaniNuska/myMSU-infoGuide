@@ -3,6 +3,7 @@ import type { CampusLocation } from "../../data/mymsuDatabase";
 import { colors } from "../../theme";
 
 export const locationColors: Record<string, string> = {
+  "college-agriculture": "#84CC16",
   "college-cics": "#0EA5E9",
   "international-convention-center": "#0284C7",
   "ict-office": "#0284C7",
@@ -12,12 +13,14 @@ export const locationColors: Record<string, string> = {
   "college-king-faisal": "#7C3AED",
   "college-medicine": "#10B981",
   infirmary: "#059669",
-  "college-business": "#B45309",
+  "college-business": "#A16207",
   "college-education": "#9333EA",
   "college-engineering": "#475569",
+  "college-law": "#7E22CE",
   "college-cnsm": "#4F46E5",
   "college-social-sciences-humanities": "#7E22CE",
   "college-public-affairs": "#C2410C",
+  "college-spear": "#EA580C",
   "university-library": "#4F46E5",
   "aga-khan-museum": "#DC2626",
   "administration-building": "#0F766E",

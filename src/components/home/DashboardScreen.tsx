@@ -297,7 +297,10 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
   const visibleGridItems = React.useMemo(
     () =>
       user?.role === "admin"
-        ? [ADMIN_GRID_ITEM, ...GRID_ITEMS]
+        ? [
+            ADMIN_GRID_ITEM,
+            ...GRID_ITEMS.filter((item) => item.key !== "schedule"),
+          ]
         : user?.role === "visitor"
           ? GRID_ITEMS.filter((item) => item.key !== "schedule")
           : GRID_ITEMS,

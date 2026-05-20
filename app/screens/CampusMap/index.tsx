@@ -580,6 +580,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       description="Explore MSU Main Campus colleges, offices, student services, and landmarks."
       onBack={handleBack}
       scrollEnabled={!mapInteractionActive}
+      showMobileScrollHandle
     >
         <Animated.View
           style={[
@@ -711,6 +712,7 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
             visibleLocations={visibleLocations}
             selectedLocation={selectedLocation}
             userMarker={userMarker}
+            userAvatarUrl={session?.avatarUrl}
             trackingState={trackingState}
             mapZoom={mapZoom}
             mapRotation={mapRotation}

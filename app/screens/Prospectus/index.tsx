@@ -29,13 +29,15 @@ type ParsedSubject = {
   importance?: "foundation" | "gateway" | "dependent" | "standard";
 };
 
-const graphColumnWidth = 220;
-const graphColumnGap = 12;
+type ProspectusView = "semester" | "graph" | "traditional";
+
+const graphColumnWidth = 250;
+const graphColumnGap = 18;
 const graphColumnPadding = 12;
 const graphTitleHeight = 18;
 const graphStackTop = graphColumnPadding + graphTitleHeight + 12;
-const graphNodeHeight = 74;
-const graphNodeGap = 14;
+const graphNodeHeight = 92;
+const graphNodeGap = 16;
 const graphNodeStep = graphNodeHeight + graphNodeGap;
 const graphNodeCenterY = graphNodeHeight / 2;
 const graphNodeRightX = graphColumnPadding + graphColumnWidth - graphColumnPadding * 2;
@@ -119,7 +121,7 @@ const getCourseImportance = (
 
 export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   const [activeProgramId, setActiveProgramId] = React.useState("");
-  const [showProgramGraph, setShowProgramGraph] = React.useState(false);
+  const [activeView, setActiveView] = React.useState<ProspectusView>("semester");
   const { coursePrograms, prospectusRecords } = useAppData();
   const { width } = useWindowDimensions();
   const compact = width < 760;
@@ -437,127 +439,137 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         </View>
       </View>
 
-      <View style={styles.termStack}>
-        {parsedTerms.map((term) => (
-          <View key={term.id} style={styles.termCard}>
-            <View style={styles.termHeader}>
-              <View>
-                <Text style={styles.termKicker}>{term.yearLevel}</Text>
-                <Text style={styles.termTitle}>{term.semester}</Text>
-              </View>
-              <View style={styles.termSummary}>
-                <Text style={styles.termSummaryValue}>
-                  {term.parsedSubjects.reduce(
-                    (total, subject) => total + subject.unitValue,
-                    0,
-                  )}
-                </Text>
-                <Text style={styles.termSummaryLabel}>units</Text>
-              </View>
-            </View>
-
-            <View style={styles.subjectList}>
-              {term.parsedSubjects.map((subject) => {
-                const unlocks = extractCodes(subject.code).reduce(
-                  (total, code) => total + (unlockCounts.get(code) ?? 0),
-                  0,
-                );
-                const importance = getCourseImportance(subject, unlocks);
-                const priority = importance !== "standard";
-
-                return (
-                  <View
-                    key={`${term.id}-${subject.raw}`}
-                    style={[
-                      styles.subjectRow,
-                      priority && styles.subjectRowPriority,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.importanceRail,
-                        priority && styles.importanceRailPriority,
-                      ]}
-                    />
-                    <View style={styles.subjectBody}>
-                      <View style={styles.subjectTopLine}>
-                        <Text
-                          style={[
-                            styles.codeBadge,
-                            priority && styles.codeBadgePriority,
-                          ]}
-                        >
-                          {subject.code}
-                        </Text>
-                        <Text style={styles.unitBadge}>{subject.units}u</Text>
-                      </View>
-                      <Text style={styles.subjectTitle}>{subject.title}</Text>
-                      <View style={styles.metaRow}>
-                        <Text style={styles.metaText}>Lec {subject.lec}</Text>
-                        <Text style={styles.metaText}>Lab {subject.lab}</Text>
-                        <Text style={styles.metaText}>
-                          Pre: {subject.prereq}
-                        </Text>
-                        <Text style={styles.metaText}>
-                          Co: {subject.coreq}
-                        </Text>
-                        <Text style={styles.metaText}>
-                          Importance: {importance}
-                        </Text>
-                      </View>
-                      {priority ? (
-                        <View style={styles.priorityNote}>
-                          <Ionicons
-                            name="git-network-outline"
-                            size={13}
-                            color={colors.success}
-                          />
-                          <Text style={styles.priorityText}>
-                            {unlocks > 0
-                              ? `Priority course. Unlocks ${unlocks} later course(s).`
-                              : importance === "foundation"
-                                ? "Foundation course. Treat this as a high-importance subject."
-                                : "Priority course. Check prerequisite or co-requisite before enrolling."}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </View>
-
       {visibleRecords.length > 0 ? (
-        <View style={styles.programGraphAction}>
-          <Pressable
-            accessibilityRole="button"
-            style={[
-              styles.programGraphButton,
-              showProgramGraph && styles.programGraphButtonActive,
-            ]}
-            onPress={() => setShowProgramGraph((value) => !value)}
-          >
-            <Ionicons
-              name={showProgramGraph ? "git-network" : "git-network-outline"}
-              size={18}
-              color={showProgramGraph ? colors.surface : colors.maroon}
-            />
-            <Text
-              style={[
-                styles.programGraphButtonText,
-                showProgramGraph && styles.programGraphButtonTextActive,
-              ]}
-            >
-              Program Graph
-            </Text>
-          </Pressable>
+        <View style={styles.viewSwitcher}>
+          {[
+            { id: "semester", label: "Semester", icon: "albums-outline" },
+            { id: "graph", label: "Graph", icon: "git-network-outline" },
+            { id: "traditional", label: "Traditional", icon: "grid-outline" },
+          ].map((view) => {
+            const selected = activeView === view.id;
+
+            return (
+              <Pressable
+                key={view.id}
+                accessibilityRole="button"
+                style={[styles.viewTab, selected && styles.viewTabActive]}
+                onPress={() => setActiveView(view.id as ProspectusView)}
+              >
+                <Ionicons
+                  name={view.icon as keyof typeof Ionicons.glyphMap}
+                  size={16}
+                  color={selected ? colors.surface : colors.maroon}
+                />
+                <Text
+                  style={[
+                    styles.viewTabText,
+                    selected && styles.viewTabTextActive,
+                  ]}
+                >
+                  {view.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
 
-      {showProgramGraph ? (
+      {activeView === "semester" ? (
+        <View style={styles.termStack}>
+          {parsedTerms.map((term) => (
+            <View key={term.id} style={styles.termCard}>
+              <View style={styles.termHeader}>
+                <View>
+                  <Text style={styles.termKicker}>{term.yearLevel}</Text>
+                  <Text style={styles.termTitle}>{term.semester}</Text>
+                </View>
+                <View style={styles.termSummary}>
+                  <Text style={styles.termSummaryValue}>
+                    {term.parsedSubjects.reduce(
+                      (total, subject) => total + subject.unitValue,
+                      0,
+                    )}
+                  </Text>
+                  <Text style={styles.termSummaryLabel}>units</Text>
+                </View>
+              </View>
+
+              <View style={styles.subjectList}>
+                {term.parsedSubjects.map((subject) => {
+                  const unlocks = extractCodes(subject.code).reduce(
+                    (total, code) => total + (unlockCounts.get(code) ?? 0),
+                    0,
+                  );
+                  const importance = getCourseImportance(subject, unlocks);
+                  const priority = importance !== "standard";
+
+                  return (
+                    <View
+                      key={`${term.id}-${subject.raw}`}
+                      style={[
+                        styles.subjectRow,
+                        priority && styles.subjectRowPriority,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.importanceRail,
+                          priority && styles.importanceRailPriority,
+                        ]}
+                      />
+                      <View style={styles.subjectBody}>
+                        <View style={styles.subjectTopLine}>
+                          <Text
+                            style={[
+                              styles.codeBadge,
+                              priority && styles.codeBadgePriority,
+                            ]}
+                          >
+                            {subject.code}
+                          </Text>
+                          <Text style={styles.unitBadge}>{subject.units}u</Text>
+                        </View>
+                        <Text style={styles.subjectTitle}>{subject.title}</Text>
+                        <View style={styles.metaRow}>
+                          <Text style={styles.metaText}>Lec {subject.lec}</Text>
+                          <Text style={styles.metaText}>Lab {subject.lab}</Text>
+                          <Text style={styles.metaText}>
+                            Pre: {subject.prereq}
+                          </Text>
+                          <Text style={styles.metaText}>
+                            Co: {subject.coreq}
+                          </Text>
+                          <Text style={styles.metaText}>
+                            Importance: {importance}
+                          </Text>
+                        </View>
+                        {priority ? (
+                          <View style={styles.priorityNote}>
+                            <Ionicons
+                              name="git-network-outline"
+                              size={13}
+                              color={colors.success}
+                            />
+                            <Text style={styles.priorityText}>
+                              {unlocks > 0
+                                ? `Priority course. Unlocks ${unlocks} later course(s).`
+                                : importance === "foundation"
+                                  ? "Foundation course. Treat this as a high-importance subject."
+                                  : "Priority course. Check prerequisite or co-requisite before enrolling."}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {activeView === "graph" ? (
         <View style={styles.programGraphPanel}>
           <View style={styles.programGraphHeader}>
             <View>
@@ -748,6 +760,113 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
               ))}
             </View>
           </View>
+        </View>
+      ) : null}
+
+      {activeView === "traditional" ? (
+        <View style={styles.traditionalStack}>
+          {parsedTerms.map((term) => {
+            const termUnits = term.parsedSubjects.reduce(
+              (total, subject) => total + subject.unitValue,
+              0,
+            );
+
+            return (
+              <View key={term.id} style={styles.traditionalSheet}>
+                <View style={styles.traditionalTitleBand}>
+                  <View>
+                    <Text style={styles.traditionalKicker}>
+                      {term.yearLevel}
+                    </Text>
+                    <Text style={styles.traditionalTitle}>
+                      {term.semester}
+                    </Text>
+                  </View>
+                  <View style={styles.traditionalTotalBadge}>
+                    <Text style={styles.traditionalTotalValue}>{termUnits}</Text>
+                    <Text style={styles.traditionalTotalLabel}>units</Text>
+                  </View>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.tableScroller}
+                >
+                  <View style={styles.prospectusTable}>
+                    <View style={[styles.tableRow, styles.tableHeaderRow]}>
+                      <Text style={[styles.tableHeaderText, styles.codeCell]}>
+                        Course No.
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.titleCell]}>
+                        Descriptive Title
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.smallCell]}>
+                        Units
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.smallCell]}>
+                        Lec
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.smallCell]}>
+                        Lab
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.reqCell]}>
+                        Pre-req
+                      </Text>
+                      <Text style={[styles.tableHeaderText, styles.reqCell]}>
+                        Co-req
+                      </Text>
+                    </View>
+
+                    {term.parsedSubjects.map((subject, index) => (
+                      <View
+                        key={`${term.id}-table-${subject.raw}`}
+                        style={[
+                          styles.tableRow,
+                          index % 2 === 1 && styles.tableRowAlt,
+                        ]}
+                      >
+                        <Text style={[styles.tableCodeText, styles.codeCell]}>
+                          {subject.code}
+                        </Text>
+                        <Text style={[styles.tableBodyText, styles.titleCell]}>
+                          {subject.title}
+                        </Text>
+                        <Text style={[styles.tableNumberText, styles.smallCell]}>
+                          {subject.units}
+                        </Text>
+                        <Text style={[styles.tableNumberText, styles.smallCell]}>
+                          {subject.lec}
+                        </Text>
+                        <Text style={[styles.tableNumberText, styles.smallCell]}>
+                          {subject.lab}
+                        </Text>
+                        <Text style={[styles.tableBodyText, styles.reqCell]}>
+                          {subject.prereq}
+                        </Text>
+                        <Text style={[styles.tableBodyText, styles.reqCell]}>
+                          {subject.coreq}
+                        </Text>
+                      </View>
+                    ))}
+
+                    <View style={[styles.tableRow, styles.tableFooterRow]}>
+                      <Text style={[styles.tableFooterText, styles.footerLabelCell]}>
+                        Total Units
+                      </Text>
+                      <Text style={[styles.tableFooterText, styles.smallCell]}>
+                        {termUnits}
+                      </Text>
+                      <Text style={[styles.tableFooterText, styles.smallCell]} />
+                      <Text style={[styles.tableFooterText, styles.smallCell]} />
+                      <Text style={[styles.tableFooterText, styles.reqCell]} />
+                      <Text style={[styles.tableFooterText, styles.reqCell]} />
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            );
+          })}
         </View>
       ) : null}
 
@@ -1051,33 +1170,38 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: "900",
   },
-  programGraphAction: {
+  viewSwitcher: {
     width: "100%",
     maxWidth: maxContentWidth,
     alignSelf: "center",
-    alignItems: "flex-start",
-  },
-  programGraphButton: {
-    minHeight: 44,
     flexDirection: "row",
-    alignItems: "center",
     gap: 8,
-    paddingHorizontal: 15,
+    padding: 5,
     borderRadius: radii.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadow,
   },
-  programGraphButtonActive: {
+  viewTab: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+  },
+  viewTabActive: {
     backgroundColor: colors.maroon,
-    borderColor: colors.maroon,
   },
-  programGraphButtonText: {
+  viewTabText: {
     color: colors.maroon,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "900",
   },
-  programGraphButtonTextActive: {
+  viewTabTextActive: {
     color: colors.surface,
   },
   programGraphPanel: {
@@ -1087,13 +1211,13 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 16,
     borderRadius: radii.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FCFBF8",
     borderWidth: 1,
     borderColor: colors.line,
     ...shadow,
   },
   programGraphHeader: {
-    gap: 10,
+    gap: 12,
   },
   programGraphSubtitle: {
     marginTop: 5,
@@ -1120,11 +1244,13 @@ const styles = StyleSheet.create({
   },
   programGraphScroller: {
     paddingRight: 12,
+    paddingBottom: 4,
   },
   graphCanvas: {
     position: "relative",
     flexDirection: "row",
     gap: graphColumnGap,
+    paddingVertical: 2,
   },
   graphLineLayer: {
     position: "absolute",
@@ -1132,34 +1258,35 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    zIndex: 2,
+    zIndex: 1,
   },
   connectorHorizontal: {
     position: "absolute",
-    height: 3,
+    height: 4,
     borderRadius: 2,
     backgroundColor: colors.success,
-    opacity: 0.34,
+    opacity: 0.5,
   },
   connectorVertical: {
     position: "absolute",
-    width: 3,
+    width: 4,
     borderRadius: 2,
     backgroundColor: colors.success,
-    opacity: 0.34,
+    opacity: 0.5,
   },
   connectorCoreq: {
     backgroundColor: colors.goldDark,
-    opacity: 0.42,
+    opacity: 0.56,
   },
   graphTermColumn: {
-    zIndex: 1,
+    zIndex: 2,
     width: graphColumnWidth,
     padding: 12,
     borderRadius: radii.sm,
-    backgroundColor: "rgba(251,248,243,0.94)",
+    backgroundColor: "rgba(255,255,255,0.96)",
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadow,
   },
   graphTermTitle: {
     color: colors.maroonDark,
@@ -1174,11 +1301,16 @@ const styles = StyleSheet.create({
     height: graphNodeHeight,
     flexDirection: "row",
     gap: 9,
-    padding: 10,
+    padding: 11,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: "#D5E3EF",
+    shadowColor: "#251D1F",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
   },
   courseNodeFoundation: {
     backgroundColor: "#F2FBF6",
@@ -1230,7 +1362,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: colors.ink,
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 15,
     fontWeight: "800",
   },
   nodeMeta: {
@@ -1286,6 +1418,159 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 10,
     fontWeight: "800",
+  },
+  traditionalStack: {
+    width: "100%",
+    maxWidth: maxContentWidth,
+    alignSelf: "center",
+    gap: 14,
+  },
+  traditionalSheet: {
+    overflow: "hidden",
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...shadow,
+  },
+  traditionalTitleBand: {
+    minHeight: 76,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.maroon,
+  },
+  traditionalKicker: {
+    color: colors.gold,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  traditionalTitle: {
+    marginTop: 5,
+    color: colors.surface,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  traditionalTotalBadge: {
+    minWidth: 64,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  traditionalTotalValue: {
+    color: colors.surface,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  traditionalTotalLabel: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  tableScroller: {
+    padding: 12,
+  },
+  prospectusTable: {
+    minWidth: 900,
+    overflow: "hidden",
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  tableRow: {
+    flexDirection: "row",
+    minHeight: 46,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  tableHeaderRow: {
+    minHeight: 44,
+    backgroundColor: "#F6EFE1",
+  },
+  tableRowAlt: {
+    backgroundColor: "#FBFAF7",
+  },
+  tableFooterRow: {
+    minHeight: 42,
+    backgroundColor: colors.maroonSoft,
+    borderBottomWidth: 0,
+  },
+  tableHeaderText: {
+    color: colors.maroonDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  tableBodyText: {
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  tableCodeText: {
+    color: colors.maroon,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  tableNumberText: {
+    color: colors.ink,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  tableFooterText: {
+    color: colors.maroon,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  codeCell: {
+    width: 118,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  titleCell: {
+    width: 290,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  smallCell: {
+    width: 62,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  reqCell: {
+    width: 150,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  footerLabelCell: {
+    width: 408,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
   },
   noteCard: {
     padding: 16,

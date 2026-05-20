@@ -8,6 +8,15 @@ export type UserRecord = {
   role: UserRole;
   username: string;
   email: string;
+  idNumber?: string;
+  college?: string;
+  program?: string;
+  yearLevel?: string;
+  section?: string;
+  phone?: string;
+  address?: string;
+  bio?: string;
+  avatarUrl?: string;
   passwordHash?: string;
 };
 
@@ -85,7 +94,7 @@ export const roadNodes: RoadNode[] = [
   { id: "lower-core", mapX: 42.0, mapY: 70.2 },
   { id: "lower-west", mapX: 35.6, mapY: 74.2 },
   { id: "lower-south", mapX: 34.0, mapY: 86.4 },
-  { id: "agriculture", mapX: 38.5, mapY: 93.0 },
+  { id: "agriculture", mapX: 38.5, mapY: 95.2 },
   { id: "business", mapX: 36.6, mapY: 84.8 },
   { id: "education", mapX: 42.7, mapY: 83.6 },
   { id: "law", mapX: 41.3, mapY: 89.0 },
@@ -123,8 +132,8 @@ export const roadNodes: RoadNode[] = [
   { id: "library", mapX: 45.9, mapY: 34.3 },
   { id: "ictc", mapX: 43.5, mapY: 42.0 },
   { id: "aga-khan", mapX: 47.4, mapY: 41.8 },
-  { id: "cnsm", mapX: 47.8, mapY: 45.2 },
-  { id: "cssh", mapX: 51.4, mapY: 53.7 },
+  { id: "cnsm", mapX: 51.4, mapY: 53.7 },
+  { id: "cssh", mapX: 47.8, mapY: 45.2 },
   { id: "public-affairs", mapX: 42.6, mapY: 68.0 },
   { id: "fisheries", mapX: 57.4, mapY: 12.5 },
   { id: "forestry", mapX: 62.2, mapY: 23.0 },
@@ -138,7 +147,7 @@ export const roadNodes: RoadNode[] = [
   { id: "education-road", mapX: 43.2, mapY: 80.0 },
   { id: "engineering-road", mapX: 49.4, mapY: 80.5 },
   { id: "law-road", mapX: 40.0, mapY: 87.4 },
-  { id: "agriculture-road", mapX: 36.1, mapY: 89.8 },
+  { id: "agriculture-road", mapX: 37.2, mapY: 92.6 },
   { id: "college-loop-east", mapX: 49.8, mapY: 76.4 },
   { id: "dorm-south-link", mapX: 52.4, mapY: 74.0 },
 ];
@@ -259,10 +268,10 @@ export const locationRoadAnchors: Record<string, string> = {
   "college-cics": "garcia-cics",
   "college-law": "law-road",
   "college-medicine": "chs-road",
-  "college-cnsm": "first-cnsm",
+  "college-cnsm": "cssh-east",
   "college-public-affairs": "lower-core",
-  "college-social-sciences-humanities": "cssh-east",
-  "college-spear": "spear",
+  "college-social-sciences-humanities": "first-cnsm",
+  "college-spear": "third-oval",
   "college-king-faisal": "upper-kfcaas-road",
   "research-institute": "garcia-ri",
   "international-convention-center": "icc",
@@ -1734,14 +1743,15 @@ export const campusLocations: CampusLocation[] = [
     name: "College of Agriculture",
     category: "College",
     description:
-      "Academic area for agriculture programs, farm-based learning, research, and extension activities on the lower First Street academic row.",
-    mapX: 38.2,
-    mapY: 94,
-    latitude: 7.992606,
-    longitude: 124.258158,
+      "Academic area for agriculture programs, farm-based learning, research, and extension activities near the Law and CBAA lower-campus cluster.",
+    mapX: 38.5,
+    mapY: 95.2,
+    latitude: 7.9924848,
+    longitude: 124.258215,
     street: "1st Street",
     nearby: [
-      "College of Engineering",
+      "College of Law",
+      "CBAA",
       "Lower academic row",
       "Plant Science",
       "Animal Science",
@@ -1895,10 +1905,10 @@ export const campusLocations: CampusLocation[] = [
     category: "College",
     description:
       "Science and mathematics academic cluster for instruction, research, and laboratory learning.",
-    mapX: 47.8,
-    mapY: 45.2,
-    latitude: 7.9965725,
-    longitude: 124.2603837,
+    mapX: 51.4,
+    mapY: 53.7,
+    latitude: 7.9966763,
+    longitude: 124.260666,
     street: "1st Street",
     nearby: ["MSU-Main Library", "CSSH", "ICTC"],
     tags: ["cnsm", "science", "mathematics", "college"],
@@ -1923,10 +1933,10 @@ export const campusLocations: CampusLocation[] = [
     category: "College",
     description:
       "Academic college for humanities, communication, history, sociology, anthropology, and related programs.",
-    mapX: 51.4,
-    mapY: 53.7,
-    latitude: 7.9972432,
-    longitude: 124.2598771,
+    mapX: 47.8,
+    mapY: 45.2,
+    latitude: 7.9975348,
+    longitude: 124.259982,
     street: "1st Street",
     nearby: ["CNSM", "College of Public Affairs", "MSU Oval"],
     tags: ["cssh", "social sciences", "humanities", "college"],
@@ -1937,10 +1947,10 @@ export const campusLocations: CampusLocation[] = [
     category: "College",
     description:
       "Sports, physical education, recreation, fitness, coaching, and dance academic area around the MSU Grandstand west of Dimaporo Gymnasium.",
-    mapX: 27.8,
-    mapY: 72.3,
-    latitude: 7.9946388,
-    longitude: 124.2568347,
+    mapX: 31.7,
+    mapY: 62,
+    latitude: 7.995838,
+    longitude: 124.256923,
     street: "4th Street",
     nearby: ["MSU Grandstand", "Dimaporo Gymnasium", "Sports grounds"],
     tags: ["cspear", "spear", "grandstand", "sports", "college"],

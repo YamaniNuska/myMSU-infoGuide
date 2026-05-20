@@ -27,7 +27,6 @@ import {
   AcademicEvent,
   AnnouncementRecord,
   CampusLocation,
-  ClassScheduleRecord,
   CourseProgram,
   HandbookEntry,
   OfficeRecord,
@@ -40,7 +39,6 @@ type AdminTab =
   | "calendar"
   | "offices"
   | "locations"
-  | "schedules"
   | "courses"
   | "prospectus"
   | "students"
@@ -76,7 +74,6 @@ const tabs: { key: AdminTab; label: string }[] = [
   { key: "calendar", label: "Calendar" },
   { key: "offices", label: "Offices" },
   { key: "locations", label: "Map" },
-  { key: "schedules", label: "Schedules" },
   { key: "courses", label: "Courses" },
   { key: "prospectus", label: "Prospectus" },
   { key: "students", label: "Students" },
@@ -111,7 +108,6 @@ const locationCategoryOptions = [
   "Gate",
   "Facility",
 ];
-const reminderOptions = ["0", "5", "10", "15", "30", "60"];
 const prospectusYearOptions = [
   "First Year",
   "Second Year",
@@ -129,14 +125,6 @@ const prospectusImportanceOptions = [
   "gateway",
   "foundation",
 ] as const;
-
-const timeOptions = Array.from({ length: 29 }, (_, index) => {
-  const totalMinutes = 7 * 60 + index * 30;
-  const hour = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-});
 
 const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   handbook: [
@@ -174,16 +162,6 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "image", label: "Image URL, optional" },
     { key: "nearby", label: "Nearby places, comma separated" },
     { key: "tags", label: "Tags, comma separated" },
-  ],
-  schedules: [
-    { key: "courseCode", label: "Course code" },
-    { key: "courseTitle", label: "Course title" },
-    { key: "scheduleDate", label: "Date" },
-    { key: "startTime", label: "Start time" },
-    { key: "endTime", label: "End time" },
-    { key: "room", label: "Room" },
-    { key: "reminderMinutes", label: "Alarm minutes before class" },
-    { key: "reminder", label: "Reminder", multiline: true },
   ],
   courses: [
     { key: "college", label: "College" },
@@ -250,16 +228,6 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
     image: "",
     nearby: "",
     tags: "",
-  },
-  schedules: {
-    courseCode: "",
-    courseTitle: "",
-    scheduleDate: "",
-    startTime: "08:00",
-    endTime: "09:00",
-    room: "",
-    reminderMinutes: "15",
-    reminder: "",
   },
   courses: {
     college: "",
@@ -351,19 +319,6 @@ const toMapPercent = (value: string, fallback: number) => {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
-const formatTimeLabel = (time: string) => {
-  const [rawHour, rawMinute] = time.split(":").map(Number);
-
-  if (!Number.isFinite(rawHour) || !Number.isFinite(rawMinute)) {
-    return time;
-  }
-
-  const suffix = rawHour >= 12 ? "PM" : "AM";
-  const hour = rawHour % 12 || 12;
-
-  return `${hour}:${pad(rawMinute)} ${suffix}`;
-};
-
 const formatDateLabel = (dateKey: string) => {
   const date = new Date(`${dateKey}T00:00:00`);
 
@@ -382,33 +337,6 @@ const formatDateLabel = (dateKey: string) => {
 const isDateKey = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
-
-const getDayLabel = (dateKey: string) => {
-  const date = new Date(`${dateKey}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleDateString(undefined, { weekday: "long" });
-};
-
-const getReminderAt = (
-  scheduleDate: string,
-  startTime: string,
-  reminderMinutes: number,
-) => {
-  const startsAt = new Date(`${scheduleDate}T${startTime}:00`);
-
-  if (Number.isNaN(startsAt.getTime())) {
-    return undefined;
-  }
-
-  return new Date(startsAt.getTime() - reminderMinutes * 60 * 1000).toISOString();
-};
-
-const getReminderText = (minutes: number) =>
-  minutes === 0 ? "Alarm at class start." : `Alarm ${minutes} minutes before class.`;
 
 const getDateKey = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -676,27 +604,13 @@ export default function AdminPanelScreen() {
   );
 
   const renderFieldInput = (field: FieldConfig) => {
-    if (field.key === "eventDate" || field.key === "scheduleDate") {
+    if (field.key === "eventDate") {
       return (
         <DateSelectField
           value={form[field.key] ?? ""}
           onChange={(value) => updateField(field.key, value)}
         />
       );
-    }
-
-    if (field.key === "startTime" || field.key === "endTime") {
-      const options =
-        field.key === "endTime"
-          ? timeOptions.filter(
-              (time) =>
-                !form.startTime ||
-                Number(time.replace(":", "")) >
-                  Number(form.startTime.replace(":", "")),
-            )
-          : timeOptions;
-
-      return renderChoiceField(field.key, options);
     }
 
     if (activeTab === "calendar" && field.key === "type") {
@@ -713,10 +627,6 @@ export default function AdminPanelScreen() {
 
     if (activeTab === "locations" && field.key === "category") {
       return renderChoiceField("category", locationCategoryOptions);
-    }
-
-    if (field.key === "reminderMinutes") {
-      return renderChoiceField("reminderMinutes", reminderOptions);
     }
 
     if (activeTab === "courses" && field.key === "college") {
@@ -1084,42 +994,33 @@ export default function AdminPanelScreen() {
                     `${item.description} (${item.mapX}, ${item.mapY})`,
                   ),
                 )
-              : activeTab === "schedules"
-                ? data.classSchedules.map((item) =>
-                    mapItem(
-                      item,
-                      `${item.courseCode} - ${item.courseTitle}`,
-                      `${item.scheduleDate ?? item.day}, ${item.time}`,
-                      `${item.room}. ${item.reminder}`,
-                    ),
+              : activeTab === "courses"
+                ? data.coursePrograms.map((item) =>
+                    mapItem(item, item.program, item.college, item.overview),
                   )
-                : activeTab === "courses"
-                  ? data.coursePrograms.map((item) =>
-                      mapItem(item, item.program, item.college, item.overview),
+                : activeTab === "prospectus"
+                  ? data.prospectusRecords.map((item) =>
+                      mapItem(
+                        item,
+                        `${item.program} - ${item.yearLevel}`,
+                        item.semester,
+                        item.subjects.join(", "),
+                      ),
                     )
-                  : activeTab === "prospectus"
-                    ? data.prospectusRecords.map((item) =>
-                        mapItem(
-                          item,
-                          `${item.program} - ${item.yearLevel}`,
-                          item.semester,
-                          item.subjects.join(", "),
-                        ),
-                      )
-                    : activeTab === "students"
-                      ? data.users
-                          .filter((item) => item.role === "student")
-                          .map((item) =>
-                            mapItem(
-                              item,
-                              item.name,
-                              item.username,
-                              `${item.email} | ${item.role}`,
-                            ),
-                          )
-                      : data.announcements.map((item) =>
-                          mapItem(item, item.title, item.dateLabel, item.body),
-                        );
+                  : activeTab === "students"
+                    ? data.users
+                        .filter((item) => item.role === "student")
+                        .map((item) =>
+                          mapItem(
+                            item,
+                            item.name,
+                            item.username,
+                            `${item.email} | ${item.role}`,
+                          ),
+                        )
+                    : data.announcements.map((item) =>
+                        mapItem(item, item.title, item.dateLabel, item.body),
+                      );
 
     const cleanQuery = query.trim().toLowerCase();
 
@@ -1193,13 +1094,11 @@ export default function AdminPanelScreen() {
             ? "offices"
             : activeTab === "locations"
               ? "campusLocations"
-              : activeTab === "schedules"
-                ? "classSchedules"
-                : activeTab === "courses"
-                  ? "coursePrograms"
-                  : activeTab === "prospectus"
-                    ? "prospectusRecords"
-                    : "announcements";
+              : activeTab === "courses"
+                ? "coursePrograms"
+                : activeTab === "prospectus"
+                  ? "prospectusRecords"
+                  : "announcements";
 
     const synced = await deleteRecord(key, item.id);
     setMessage(
@@ -1309,43 +1208,6 @@ export default function AdminPanelScreen() {
         tags: splitList(form.tags),
         image: form.image.trim() || undefined,
       } satisfies CampusLocation);
-    }
-
-    if (activeTab === "schedules") {
-      const reminderMinutes = Number(form.reminderMinutes || 15);
-      const hasStructuredTime =
-        isDateKey(form.scheduleDate.trim()) &&
-        form.startTime.trim() &&
-        form.endTime.trim();
-
-      if (!hasStructuredTime) {
-        setMessage("Select a valid class date, start time, and end time.");
-        setIsSaving(false);
-        return;
-      }
-
-      synced = await upsertRecord("classSchedules", {
-        id,
-        courseCode: form.courseCode,
-        courseTitle: form.courseTitle,
-        day: hasStructuredTime ? getDayLabel(form.scheduleDate) : "",
-        time: hasStructuredTime
-          ? `${formatTimeLabel(form.startTime)} - ${formatTimeLabel(form.endTime)}`
-          : "",
-        scheduleDate: form.scheduleDate.trim() || undefined,
-        startTime: form.startTime.trim() || undefined,
-        endTime: form.endTime.trim() || undefined,
-        room: form.room,
-        reminder: form.reminder.trim() || getReminderText(reminderMinutes),
-        reminderMinutes: Number.isFinite(reminderMinutes) ? reminderMinutes : 15,
-        reminderAt: hasStructuredTime
-          ? getReminderAt(
-              form.scheduleDate,
-              form.startTime,
-              Number.isFinite(reminderMinutes) ? reminderMinutes : 15,
-            )
-          : undefined,
-      } satisfies ClassScheduleRecord);
     }
 
     if (activeTab === "courses") {

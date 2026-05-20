@@ -20,6 +20,7 @@ type CampusMapCanvasProps = {
   visibleLocations: CampusLocation[];
   selectedLocation?: CampusLocation;
   userMarker: UserMarker | null;
+  userAvatarUrl?: string;
   trackingState: TrackingState;
   mapZoom: number;
   mapRotation: number;
@@ -81,29 +82,50 @@ const mapHtml = `
       .leaflet-control-attribution { padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); color: #5C5050; font-size: 10px; }
       .mymsu-pin, .mymsu-user-icon { background: transparent; border: 0; }
       .mymsu-marker {
-        position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-        border-radius: 20px; border: 3px solid #fff; color: #fff; font-size: 16px; font-weight: 900;
-        box-shadow: 0 8px 18px rgba(29, 11, 11, 0.24);
+        position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+        border-radius: 23px; border: 4px solid #fff; color: #fff; font-size: 18px; font-weight: 900;
+        box-shadow: 0 11px 24px rgba(29, 11, 11, 0.28), 0 0 0 3px rgba(243, 190, 76, 0.42);
       }
       .mymsu-marker:after {
-        content: ""; position: absolute; left: 50%; bottom: -8px; width: 13px; height: 13px; background: inherit;
-        border-right: 3px solid #fff; border-bottom: 3px solid #fff; transform: translateX(-50%) rotate(45deg);
+        content: ""; position: absolute; left: 50%; bottom: -10px; width: 16px; height: 16px; background: inherit;
+        border-right: 4px solid #fff; border-bottom: 4px solid #fff; transform: translateX(-50%) rotate(45deg);
       }
-      .mymsu-marker.selected { width: 48px; height: 48px; border-radius: 24px; transform: translate(-4px, -4px); box-shadow: 0 12px 26px rgba(58, 8, 13, 0.32); }
+      .mymsu-marker.selected { width: 62px; height: 62px; border-radius: 31px; transform: translate(-8px, -10px); border-width: 5px; font-size: 23px; box-shadow: 0 18px 34px rgba(58, 8, 13, 0.38), 0 0 0 7px rgba(243, 190, 76, 0.5), 0 0 0 15px rgba(122, 11, 20, 0.14); }
       .mymsu-label {
-        position: absolute; left: 50%; top: 47px; max-width: 96px; transform: translateX(-50%);
-        padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #3A080D;
-        border: 1px solid rgba(37, 29, 31, 0.1); font-size: 10px; font-weight: 900; line-height: 1.1;
+        position: absolute; left: 50%; top: 54px; max-width: 126px; transform: translateX(-50%);
+        padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #3A080D;
+        border: 1px solid rgba(37, 29, 31, 0.1); font-size: 11px; font-weight: 900; line-height: 1.1;
         text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .mymsu-marker.selected .mymsu-label { top: 55px; background: #3A080D; color: #fff; }
+      .mymsu-marker.selected .mymsu-label { top: 71px; background: #3A080D; color: #fff; border: 2px solid #fff; box-shadow: 0 10px 22px rgba(29, 11, 11, 0.26); }
       .mymsu-user {
-        width: 34px; height: 34px; border-radius: 17px; border: 3px solid #fff; background: #0F766E;
-        box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22);
+        position: relative; width: 58px; height: 64px; display: flex; align-items: flex-start; justify-content: center;
       }
       .mymsu-user:after {
-        content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
-        border-radius: 27px; background: rgba(15, 118, 110, 0.16); animation: pulse 1.7s ease-out infinite;
+        content: ""; position: absolute; left: 50%; top: 7px; width: 76px; height: 76px; margin-left: -38px;
+        border-radius: 38px; background: rgba(15, 118, 110, 0.18); animation: pulse 1.7s ease-out infinite;
+      }
+      .mymsu-user-avatar {
+        position: relative; z-index: 2; width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
+        border: 4px solid #fff; background: #0F766E; color: #fff; font-size: 11px; font-weight: 950; letter-spacing: 0;
+        box-shadow: 0 11px 26px rgba(29, 11, 11, 0.32), 0 0 0 3px rgba(243, 190, 76, 0.9);
+      }
+      .mymsu-user-avatar:before {
+        content: ""; position: absolute; top: 8px; width: 15px; height: 15px; border-radius: 50%; background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 17px 0 7px rgba(255, 255, 255, 0.92);
+      }
+      .mymsu-user-avatar.has-photo:before { display: none; }
+      .mymsu-user-avatar img {
+        width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;
+      }
+      .mymsu-user-avatar span {
+        position: absolute; left: 50%; bottom: -18px; transform: translateX(-50%); padding: 3px 7px; border-radius: 999px;
+        background: #3A080D; border: 2px solid #fff; color: #fff; font-size: 10px; line-height: 1; white-space: nowrap;
+      }
+      .mymsu-user-tip {
+        position: absolute; z-index: 1; left: 50%; bottom: 4px; width: 18px; height: 18px; margin-left: -9px;
+        transform: rotate(45deg); background: #0F766E; border-right: 4px solid #fff; border-bottom: 4px solid #fff;
+        box-shadow: 5px 5px 12px rgba(29, 11, 11, 0.18);
       }
       @keyframes pulse { from { transform: scale(.65); opacity: .8; } to { transform: scale(1.4); opacity: 0; } }
       .mymsu-popup-title { color: #3A080D; font-weight: 900; font-size: 14px; }
@@ -135,12 +157,17 @@ const mapHtml = `
       const latLngKey = (latLng) => latLng ? latLng[0].toFixed(6) + "," + latLng[1].toFixed(6) : null;
       const makeIcon = (location, selected) => L.divIcon({
         className: "mymsu-pin",
-        iconAnchor: selected ? [24, 54] : [20, 46],
-        iconSize: selected ? [48, 70] : [40, 64],
-        popupAnchor: [0, selected ? -54 : -46],
+        iconAnchor: selected ? [31, 77] : [23, 55],
+        iconSize: selected ? [62, 96] : [46, 78],
+        popupAnchor: [0, selected ? -77 : -55],
         html: '<div class="mymsu-marker ' + (selected ? 'selected' : '') + '" style="background:' + location.color + '"><span>' + escapeHtml(location.categoryLetter) + '</span><span class="mymsu-label">' + escapeHtml(location.label) + '</span></div>',
       });
-      const userIcon = L.divIcon({ className: "mymsu-user-icon", iconAnchor: [17, 17], iconSize: [34, 34], html: '<div class="mymsu-user"></div>' });
+      const makeUserIcon = (avatarUrl) => L.divIcon({
+        className: "mymsu-user-icon",
+        iconAnchor: [29, 62],
+        iconSize: [58, 64],
+        html: '<div class="mymsu-user"><div class="mymsu-user-avatar ' + (avatarUrl ? 'has-photo' : '') + '">' + (avatarUrl ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" />' : '') + '<span>YOU</span></div><div class="mymsu-user-tip"></div></div>'
+      });
       const fitLocations = (locations) => {
         const points = locations.length ? locations.map((item) => item.latLng) : [[7.992, 124.2509], [8.0021, 124.2699]];
         map.fitBounds(points, { padding: [26, 26], maxZoom: 17 });
@@ -183,8 +210,9 @@ const mapHtml = `
         }
 
         if (payload.user) {
+          const userIcon = makeUserIcon(payload.user.avatarUrl);
           if (!userMarker) userMarker = L.marker(payload.user.latLng, { icon: userIcon, title: "Your live location", zIndexOffset: 1800 }).addTo(map);
-          else userMarker.setLatLng(payload.user.latLng);
+          else userMarker.setLatLng(payload.user.latLng).setIcon(userIcon);
           if (typeof payload.user.accuracy === "number") {
             if (!accuracyCircle) accuracyCircle = L.circle(payload.user.latLng, { radius: Math.max(payload.user.accuracy, 8), color: "#0F766E", fillColor: "#0F766E", fillOpacity: 0.08, opacity: 0.25, weight: 1 }).addTo(map);
             else accuracyCircle.setLatLng(payload.user.latLng).setRadius(Math.max(payload.user.accuracy, 8));
@@ -233,6 +261,7 @@ export default function CampusMapCanvas({
   visibleLocations,
   selectedLocation,
   userMarker,
+  userAvatarUrl,
   trackingState,
   resetSignal,
   routePoints = [],
@@ -273,10 +302,11 @@ export default function CampusMapCanvas({
         ? {
             latLng: userToLatLng(userMarker),
             accuracy: userMarker.accuracy,
+            avatarUrl: userAvatarUrl,
           }
         : null,
     }),
-    [fitVersion, routePoints, selectedLocation?.id, trackingActive, userMarker, visibleLocations],
+    [fitVersion, routePoints, selectedLocation?.id, trackingActive, userAvatarUrl, userMarker, visibleLocations],
   );
 
   React.useEffect(() => {

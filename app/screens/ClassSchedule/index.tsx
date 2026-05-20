@@ -319,17 +319,17 @@ export default function ClassScheduleScreen({ onBack }: ClassScheduleScreenProps
     setIsSaving(false);
   };
 
-  if (!session || session.role === "visitor") {
+  if (!session || (session.role !== "student" && session.role !== "faculty")) {
     return (
       <SecondaryScreenLayout
         title="Class Schedule"
-        description="Class schedules are available to MSU student, faculty, employee, and admin accounts."
+        description="Class schedules are available to students and faculty accounts."
         onBack={onBack}
       >
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>MSU access required</Text>
+          <Text style={styles.formTitle}>Schedule access unavailable</Text>
           <Text style={styles.detailText}>
-            Sign in with your MSU account to save schedules and enable reminders.
+            This feature is for students and faculty who need class reminders.
           </Text>
         </View>
       </SecondaryScreenLayout>

@@ -30,6 +30,7 @@ type CampusMapCanvasProps = {
   visibleLocations: CampusLocation[];
   selectedLocation?: CampusLocation;
   userMarker: UserMarker | null;
+  userAvatarUrl?: string;
   trackingState: TrackingState;
   mapZoom: number;
   mapRotation: number;
@@ -285,57 +286,66 @@ const ensureLeafletStyles = () => {
     }
     .mymsu-leaflet-marker {
       position: relative;
-      width: 40px;
-      height: 40px;
+      width: 46px;
+      height: 46px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 20px;
-      border: 3px solid #fff;
+      border-radius: 23px;
+      border: 4px solid #fff;
       color: #fff;
-      box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22);
+      box-shadow:
+        0 11px 24px rgba(29, 11, 11, 0.28),
+        0 0 0 3px rgba(243, 190, 76, 0.42);
     }
     .mymsu-leaflet-marker::after {
       content: "";
       position: absolute;
       left: 50%;
-      bottom: -8px;
-      width: 13px;
-      height: 13px;
+      bottom: -10px;
+      width: 16px;
+      height: 16px;
       background: inherit;
-      border-right: 3px solid #fff;
-      border-bottom: 3px solid #fff;
+      border-right: 4px solid #fff;
+      border-bottom: 4px solid #fff;
       transform: translateX(-50%) rotate(45deg);
       box-shadow: 4px 4px 10px rgba(29, 11, 11, 0.16);
     }
     .mymsu-leaflet-marker.is-selected {
-      width: 48px;
-      height: 48px;
-      border-radius: 24px;
-      transform: translate(-4px, -4px);
-      box-shadow: 0 12px 26px rgba(58, 8, 13, 0.3);
+      width: 62px;
+      height: 62px;
+      border-radius: 31px;
+      transform: translate(-8px, -10px);
+      border-width: 5px;
+      box-shadow:
+        0 18px 34px rgba(58, 8, 13, 0.38),
+        0 0 0 7px rgba(243, 190, 76, 0.5),
+        0 0 0 15px rgba(122, 11, 20, 0.14);
     }
     .mymsu-leaflet-glyph {
       position: relative;
       z-index: 2;
       font-family: Ionicons;
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
+    }
+    .mymsu-leaflet-marker.is-selected .mymsu-leaflet-glyph {
+      font-size: 28px;
     }
     .mymsu-leaflet-label {
       position: absolute;
       left: 50%;
-      top: 47px;
-      max-width: 92px;
+      top: 54px;
+      max-width: 126px;
       transform: translateX(-50%);
-      padding: 4px 7px;
+      padding: 6px 10px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.94);
       color: #3A080D;
       border: 1px solid rgba(37, 29, 31, 0.1);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 10px;
-      font-weight: 800;
+      font-size: 11px;
+      font-weight: 900;
       line-height: 1.1;
       text-align: center;
       white-space: nowrap;
@@ -344,30 +354,98 @@ const ensureLeafletStyles = () => {
       box-shadow: 0 5px 14px rgba(29, 11, 11, 0.12);
     }
     .mymsu-leaflet-marker.is-selected .mymsu-leaflet-label {
-      top: 55px;
+      top: 71px;
       background: #3A080D;
       color: #fff;
+      border: 2px solid #fff;
+      box-shadow: 0 10px 22px rgba(29, 11, 11, 0.26);
     }
     .mymsu-leaflet-user {
       position: relative;
-      width: 34px;
-      height: 34px;
-      border-radius: 17px;
-      border: 3px solid #fff;
-      background: #0F766E;
-      box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22);
+      width: 58px;
+      height: 64px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
     }
     .mymsu-leaflet-user::after {
       content: "";
       position: absolute;
       left: 50%;
-      top: 50%;
-      width: 54px;
-      height: 54px;
-      margin: -27px 0 0 -27px;
-      border-radius: 27px;
-      background: rgba(15, 118, 110, 0.16);
+      top: 7px;
+      width: 76px;
+      height: 76px;
+      margin-left: -38px;
+      border-radius: 38px;
+      background: rgba(15, 118, 110, 0.18);
       animation: mymsu-user-pulse 1.7s ease-out infinite;
+    }
+    .mymsu-leaflet-user-avatar {
+      position: relative;
+      z-index: 2;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 24px;
+      border: 4px solid #fff;
+      background: #0F766E;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: 0;
+      box-shadow:
+        0 11px 26px rgba(29, 11, 11, 0.32),
+        0 0 0 3px rgba(243, 190, 76, 0.9);
+    }
+    .mymsu-leaflet-user-avatar::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 17px 0 7px rgba(255, 255, 255, 0.92);
+    }
+    .mymsu-leaflet-user-avatar.has-photo::before {
+      display: none;
+    }
+    .mymsu-leaflet-user-avatar img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .mymsu-leaflet-user-avatar span {
+      position: absolute;
+      left: 50%;
+      bottom: -18px;
+      transform: translateX(-50%);
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #3A080D;
+      border: 2px solid #fff;
+      color: #fff;
+      font-size: 10px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .mymsu-leaflet-user-tip {
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      bottom: 4px;
+      width: 18px;
+      height: 18px;
+      margin-left: -9px;
+      transform: rotate(45deg);
+      background: #0F766E;
+      border-right: 4px solid #fff;
+      border-bottom: 4px solid #fff;
+      box-shadow: 5px 5px 12px rgba(29, 11, 11, 0.18);
     }
     @keyframes mymsu-user-pulse {
       from {
@@ -423,9 +501,9 @@ const createLocationIcon = (
 
   return leaflet.divIcon({
     className: "mymsu-leaflet-location-icon",
-    iconAnchor: selected ? [24, 54] : [20, 46],
-    iconSize: selected ? [48, 70] : [40, 64],
-    popupAnchor: [0, selected ? -54 : -46],
+    iconAnchor: selected ? [31, 77] : [23, 55],
+    iconSize: selected ? [62, 96] : [46, 78],
+    popupAnchor: [0, selected ? -77 : -55],
     html: `
       <div
         class="mymsu-leaflet-marker${selected ? " is-selected" : ""}"
@@ -438,12 +516,20 @@ const createLocationIcon = (
   });
 };
 
-const createUserIcon = (leaflet: LeafletModule) =>
+const createUserIcon = (leaflet: LeafletModule, avatarUrl?: string) =>
   leaflet.divIcon({
     className: "mymsu-leaflet-user-icon",
-    iconAnchor: [17, 17],
-    iconSize: [34, 34],
-    html: `<div class="mymsu-leaflet-user"></div>`,
+    iconAnchor: [29, 62],
+    iconSize: [58, 64],
+    html: `
+      <div class="mymsu-leaflet-user">
+        <div class="mymsu-leaflet-user-avatar${avatarUrl ? " has-photo" : ""}">
+          ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" />` : ""}
+          <span>YOU</span>
+        </div>
+        <div class="mymsu-leaflet-user-tip"></div>
+      </div>
+    `,
   });
 
 const createPopupHtml = (location: CampusLocation) => `
@@ -458,6 +544,7 @@ export default function CampusMapCanvas({
   visibleLocations,
   selectedLocation,
   userMarker,
+  userAvatarUrl,
   trackingState,
   resetSignal,
   routePoints = [],
@@ -693,12 +780,14 @@ export default function CampusMapCanvas({
 
     if (!userMarkerRef.current) {
       userMarkerRef.current = leaflet.marker(latLng, {
-        icon: createUserIcon(leaflet),
+        icon: createUserIcon(leaflet, userAvatarUrl),
         title: "Your live location",
         zIndexOffset: 1800,
       }).addTo(map);
     } else {
-      userMarkerRef.current.setLatLng(latLng);
+      userMarkerRef.current
+        .setLatLng(latLng)
+        .setIcon(createUserIcon(leaflet, userAvatarUrl));
     }
 
     if (typeof userMarker.accuracy === "number") {
@@ -756,7 +845,7 @@ export default function CampusMapCanvas({
     if (trackingState === "active") {
       map.panTo(latLng, { animate: true, duration: 0.45 });
     }
-  }, [mapReady, trackingState, userMarker]);
+  }, [mapReady, trackingState, userAvatarUrl, userMarker]);
 
   React.useEffect(() => {
     fitCampus();

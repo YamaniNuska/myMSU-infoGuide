@@ -1,21 +1,178 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
-import { signOut, useAuthSession } from "../src/auth/localAuth";
-import { databaseTables } from "../src/data/mymsuDatabase";
+import {
+  signOut,
+  updateProfileDetails,
+  uploadProfileAvatar,
+  useAuthSession,
+} from "../src/auth/localAuth";
+import type { UserRecord, UserRole } from "../src/data/mymsuDatabase";
 import { colors, maxContentWidth, radii, shadow } from "../src/theme";
+
+type ProfileForm = {
+  name: string;
+  idNumber: string;
+  avatarUrl: string;
+  college: string;
+  program: string;
+  yearLevel: string;
+  section: string;
+  phone: string;
+  address: string;
+  bio: string;
+};
+
+type ProfileFieldConfig = {
+  key: keyof ProfileForm;
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+  keyboardType?: "default" | "phone-pad";
+};
+
+const defaultProfileForm: ProfileForm = {
+  name: "",
+  idNumber: "",
+  avatarUrl: "",
+  college: "",
+  program: "",
+  yearLevel: "",
+  section: "",
+  phone: "",
+  address: "",
+  bio: "",
+};
+
+const profileFormFromUser = (user: UserRecord): ProfileForm => ({
+  name: user.name,
+  idNumber: user.idNumber ?? "",
+  avatarUrl: user.avatarUrl ?? "",
+  college: user.college ?? "",
+  program: user.program ?? "",
+  yearLevel: user.yearLevel ?? "",
+  section: user.section ?? "",
+  phone: user.phone ?? "",
+  address: user.address ?? "",
+  bio: user.bio ?? "",
+});
+
+const getEditableProfileFields = (role: UserRole): ProfileFieldConfig[] => {
+  const baseFields: ProfileFieldConfig[] = [
+    { key: "name", label: "Display name", placeholder: "Your full name" },
+  ];
+
+  if (role === "student") {
+    return [
+      ...baseFields,
+      { key: "idNumber", label: "ID Number", placeholder: "e.g. 2024-00001" },
+      { key: "college", label: "College", placeholder: "College / department" },
+      { key: "program", label: "Program", placeholder: "Program or course" },
+      { key: "yearLevel", label: "Year level", placeholder: "e.g. 3rd Year" },
+      { key: "section", label: "Section", placeholder: "Class section" },
+      {
+        key: "phone",
+        label: "Phone",
+        placeholder: "Contact number",
+        keyboardType: "phone-pad",
+      },
+      { key: "address", label: "Address", placeholder: "Home or campus address" },
+      {
+        key: "bio",
+        label: "Bio",
+        placeholder: "Short note about you",
+        multiline: true,
+      },
+    ];
+  }
+
+  if (role === "faculty" || role === "employee") {
+    return [
+      ...baseFields,
+      {
+        key: "college",
+        label: "Office / Department",
+        placeholder: "Office or department",
+      },
+      {
+        key: "phone",
+        label: "Phone",
+        placeholder: "Contact number",
+        keyboardType: "phone-pad",
+      },
+      { key: "address", label: "Address", placeholder: "Office or campus address" },
+      {
+        key: "bio",
+        label: "Bio",
+        placeholder: "Short note about you",
+        multiline: true,
+      },
+    ];
+  }
+
+  return [
+    ...baseFields,
+    {
+      key: "phone",
+      label: "Phone",
+      placeholder: "Contact number",
+      keyboardType: "phone-pad",
+    },
+    {
+      key: "bio",
+      label: "Bio",
+      placeholder: role === "admin" ? "Admin profile note" : "Short note about you",
+      multiline: true,
+    },
+  ];
+};
+
+const getProfileDetailItems = (user: UserRecord) => {
+  if (user.role === "student") {
+    return [
+      ["Display name", user.name],
+      ["ID Number", user.idNumber],
+      ["College", user.college],
+      ["Program", user.program],
+      ["Year level", user.yearLevel],
+      ["Section", user.section],
+      ["Phone", user.phone],
+      ["Address", user.address],
+      ["Bio", user.bio],
+    ];
+  }
+
+  if (user.role === "faculty" || user.role === "employee") {
+    return [
+      ["Display name", user.name],
+      ["Office / Department", user.college],
+      ["Phone", user.phone],
+      ["Address", user.address],
+      ["Bio", user.bio],
+    ];
+  }
+
+  return [
+    ["Display name", user.name],
+    ["Phone", user.phone],
+    ["Bio", user.bio],
+  ];
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -23,6 +180,20 @@ export default function ProfileScreen() {
   const isWide = width >= 760;
   const user = useAuthSession();
   const entry = React.useRef(new Animated.Value(0)).current;
+  const [profileForm, setProfileForm] =
+    React.useState<ProfileForm>(defaultProfileForm);
+  const [editingProfile, setEditingProfile] = React.useState(false);
+  const [savingProfile, setSavingProfile] = React.useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = React.useState(false);
+  const [profileMessage, setProfileMessage] = React.useState("");
+  const editableProfileFields = React.useMemo(
+    () => (user ? getEditableProfileFields(user.role) : []),
+    [user],
+  );
+  const profileDetailItems = React.useMemo(
+    () => (user ? getProfileDetailItems(user) : []),
+    [user],
+  );
 
   React.useEffect(() => {
     Animated.timing(entry, {
@@ -36,6 +207,90 @@ export default function ProfileScreen() {
   const handleSignOut = () => {
     signOut();
     router.push("/");
+  };
+
+  React.useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setProfileForm(profileFormFromUser(user));
+    setEditingProfile(false);
+    setProfileMessage("");
+  }, [user]);
+
+  const updateProfileField = (key: keyof ProfileForm, value: string) => {
+    setProfileForm((current) => ({ ...current, [key]: value }));
+    setProfileMessage("");
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    setProfileMessage("");
+
+    const result = await updateProfileDetails(profileForm);
+
+    setSavingProfile(false);
+    setProfileMessage(
+      result.ok ? "Profile details saved to Supabase." : result.message,
+    );
+
+    if (result.ok) {
+      setEditingProfile(false);
+    }
+  };
+
+  const resetProfileForm = () => {
+    if (!user) {
+      return;
+    }
+
+    setProfileForm(profileFormFromUser(user));
+    setProfileMessage("");
+    setEditingProfile(false);
+  };
+
+  const handlePickAvatar = async () => {
+    setUploadingAvatar(true);
+    setProfileMessage("");
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "image/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const upload = await uploadProfileAvatar({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+      });
+
+      if (upload.ok) {
+        setProfileForm((current) => ({
+          ...current,
+          avatarUrl: upload.user.avatarUrl ?? "",
+        }));
+      }
+
+      setProfileMessage(
+        upload.ok ? "Profile picture saved to Supabase." : upload.message,
+      );
+    } catch (error) {
+      setProfileMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to choose that profile picture.",
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   return (
@@ -86,7 +341,14 @@ export default function ProfileScreen() {
               style={styles.profileCard}
             >
               <View style={styles.avatar}>
-                <Ionicons name="person" size={32} color={colors.surface} />
+                {user.avatarUrl ? (
+                  <Image
+                    source={{ uri: user.avatarUrl }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Ionicons name="person" size={32} color={colors.surface} />
+                )}
               </View>
               <View style={styles.profileText}>
                 <Text style={styles.name}>{user.name}</Text>
@@ -111,7 +373,9 @@ export default function ProfileScreen() {
                 <Text style={styles.value}>
                   {user.role === "visitor"
                     ? "Visitor guide, map, offices, and announcements"
-                    : "Handbook, map, schedules, and guide"}
+                    : user.role === "student" || user.role === "faculty"
+                      ? "Handbook, map, schedules, and guide"
+                      : "Handbook, map, offices, announcements, and guide"}
                 </Text>
               </View>
               {user.role === "admin" ? (
@@ -144,23 +408,135 @@ export default function ProfileScreen() {
                 </Pressable>
               </View>
             </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text style={styles.cardTitle}>Profile Details</Text>
+                </View>
+                {editingProfile ? (
+                  <Pressable style={styles.secondaryButton} onPress={resetProfileForm}>
+                    <Text style={styles.secondaryButtonText}>Cancel</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.editProfileButton}
+                    onPress={() => {
+                      setEditingProfile(true);
+                      setProfileMessage("");
+                    }}
+                  >
+                    <Ionicons
+                      name="create-outline"
+                      size={17}
+                      color={colors.maroon}
+                    />
+                    <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {editingProfile ? (
+                <View style={styles.formGrid}>
+                  {editableProfileFields.map((field) => (
+                    <View key={field.key} style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{field.label}</Text>
+                      <TextInput
+                        style={[styles.input, field.multiline && styles.textArea]}
+                        value={profileForm[field.key]}
+                        onChangeText={(value) =>
+                          updateProfileField(field.key, value)
+                        }
+                        placeholder={field.placeholder}
+                        placeholderTextColor="#8B7D7D"
+                        keyboardType={field.keyboardType ?? "default"}
+                        multiline={field.multiline}
+                        textAlignVertical={field.multiline ? "top" : "center"}
+                      />
+                    </View>
+                  ))}
+
+                  <View style={styles.avatarEditor}>
+                    <View style={styles.profilePhoto}>
+                      {user.avatarUrl ? (
+                        <Image
+                          source={{ uri: user.avatarUrl }}
+                          style={styles.profilePhotoImage}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="person"
+                          size={34}
+                          color={colors.maroon}
+                        />
+                      )}
+                    </View>
+                    <Pressable
+                      style={[
+                        styles.avatarButton,
+                        uploadingAvatar && styles.saveProfileButtonDisabled,
+                      ]}
+                      onPress={handlePickAvatar}
+                      disabled={uploadingAvatar}
+                    >
+                      <Ionicons
+                        name="camera-outline"
+                        size={17}
+                        color={colors.maroon}
+                      />
+                      <Text style={styles.avatarButtonText}>
+                        {uploadingAvatar ? "Uploading..." : "Set Profile Pic"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.profileDetailGrid}>
+                  {profileDetailItems.map(([label, value]) => (
+                    <View key={label} style={styles.profileDetailItem}>
+                      <Text style={styles.profileDetailLabel}>{label}</Text>
+                      <Text style={styles.profileDetailValue}>
+                        {value?.trim() || "Not set"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {profileMessage ? (
+                <Text
+                  style={[
+                    styles.profileMessage,
+                    profileMessage.includes("saved") && styles.profileSuccess,
+                  ]}
+                >
+                  {profileMessage}
+                </Text>
+              ) : null}
+
+              {editingProfile ? (
+                <Pressable
+                  style={[
+                    styles.saveProfileButton,
+                    savingProfile && styles.saveProfileButtonDisabled,
+                  ]}
+                  onPress={handleSaveProfile}
+                  disabled={savingProfile}
+                >
+                  <Ionicons
+                    name="save-outline"
+                    size={18}
+                    color={colors.surface}
+                  />
+                  <Text style={styles.primaryButtonText}>
+                    {savingProfile ? "Saving..." : "Save Profile Details"}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </>
         )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Compatible Database</Text>
-          <Text style={styles.cardText}>
-            The app syncs with Supabase Auth, profiles, and shared data tables,
-            then falls back to bundled seed data when Supabase is unavailable.
-          </Text>
-          <View style={styles.tableWrap}>
-            {databaseTables.map((table) => (
-              <Text key={table} style={styles.tableChip}>
-                {table}
-              </Text>
-            ))}
-          </View>
-        </View>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -201,6 +577,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.14)",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   profileText: {
     flex: 1,
@@ -231,6 +612,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  editProfileButton: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 13,
+    borderRadius: radii.pill,
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: "#E5C5C8",
+  },
+  editProfileButtonText: {
+    color: colors.maroon,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  secondaryButton: {
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 13,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  secondaryButtonText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   cardText: {
     marginTop: 8,
     color: colors.muted,
@@ -258,21 +675,126 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontWeight: "800",
   },
-  tableWrap: {
+  formGrid: {
+    gap: 12,
+    marginTop: 16,
+  },
+  profileDetailGrid: {
+    gap: 10,
+    marginTop: 16,
+  },
+  profileDetailItem: {
+    gap: 5,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  profileDetailLabel: {
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  profileDetailValue: {
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+  inputGroup: {
+    gap: 7,
+  },
+  inputLabel: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  input: {
+    minHeight: 46,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  textArea: {
+    minHeight: 92,
+    lineHeight: 19,
+  },
+  avatarEditor: {
+    minHeight: 92,
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  profilePhoto: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  profilePhotoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 13,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  avatarButtonText: {
+    color: colors.maroon,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  profileMessage: {
+    marginTop: 12,
+    color: colors.warning,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  profileSuccess: {
+    color: colors.success,
+  },
+  saveProfileButton: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     marginTop: 14,
-  },
-  tableChip: {
-    overflow: "hidden",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     borderRadius: radii.pill,
-    backgroundColor: colors.maroonSoft,
-    color: colors.maroonDark,
-    fontSize: 11,
-    fontWeight: "800",
+    backgroundColor: colors.maroon,
+  },
+  saveProfileButtonDisabled: {
+    opacity: 0.66,
   },
   primaryButton: {
     flexDirection: "row",
