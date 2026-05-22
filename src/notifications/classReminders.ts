@@ -2,8 +2,8 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { ClassScheduleRecord } from "../data/mymsuDatabase";
 
-const CHANNEL_ID = "class-reminders-custom";
-const CLASS_REMINDER_SOUND = "class-reminder.mp3";
+const CHANNEL_ID = "class_reminders-custom";
+const CLASS_REMINDER_SOUND = "class_reminder.mp3";
 
 type ReminderScheduleResult =
   | {

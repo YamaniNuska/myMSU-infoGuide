@@ -41,7 +41,7 @@
         "expo-notifications",
         {
           "sounds": [
-            "./assets/sounds/class-reminder.mp3"
+            "./assets/sounds/class_reminder.mp3"
           ]
         }
       ],
