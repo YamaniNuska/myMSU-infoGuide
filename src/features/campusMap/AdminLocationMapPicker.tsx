@@ -249,7 +249,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#DCE9D2",
   },
   mapBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     backgroundColor: "#DCE9D2",
   },
   gridLineVertical: {
