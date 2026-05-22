@@ -1,17 +1,17 @@
 import { Platform, type DimensionValue } from "react-native";
 
 export const colors = {
-  maroon: "#7A0B14",
-  maroonDark: "#3A080D",
-  maroonSoft: "#F6E8E9",
-  gold: "#D8B446",
-  goldDark: "#896511",
-  ink: "#251D1F",
-  muted: "#76696B",
-  line: "#E9DFDA",
+  maroon: "#74101A",
+  maroonDark: "#2C060A",
+  maroonSoft: "#F8EAEC",
+  gold: "#D8B24A",
+  goldDark: "#85620F",
+  ink: "#221A1C",
+  muted: "#74686A",
+  line: "#E7DDD6",
   surface: "#FFFFFF",
-  surfaceMuted: "#FBF8F3",
-  canvas: "#F7F3EE",
+  surfaceMuted: "#FBF7F0",
+  canvas: "#F8F4EE",
   teal: "#0F766E",
   tealSoft: "#E8F5F2",
   blue: "#2F5F8F",
@@ -40,17 +40,31 @@ export const radii = {
 export const shadow =
   Platform.OS === "web"
     ? {
-        boxShadow: "0px 10px 24px rgba(31, 17, 17, 0.08)",
+        boxShadow: "0px 14px 34px rgba(44, 6, 10, 0.10)",
       }
     : {
-        shadowColor: "#1F1111",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.07,
-        shadowRadius: 20,
-        elevation: 3,
+        shadowColor: "#2C060A",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.09,
+        shadowRadius: 22,
+        elevation: 4,
+      };
+
+export const softShadow =
+  Platform.OS === "web"
+    ? {
+        boxShadow: "0px 8px 22px rgba(44, 6, 10, 0.07)",
+      }
+    : {
+        shadowColor: "#2C060A",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 2,
       };
 
 export const maxContentWidth = 1120;
+export const bottomTabClearance = 148;
 
 export function getColumnCount(width: number) {
   if (width >= 1100) {

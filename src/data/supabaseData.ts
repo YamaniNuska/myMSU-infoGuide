@@ -114,6 +114,8 @@ const toProspectusRecord = (row: DbRecord): ProspectusRecord => ({
   program: String(row.program ?? ""),
   yearLevel: String(row.year_level ?? ""),
   semester: String(row.semester ?? ""),
+  summary: optionalString(row.summary),
+  technicalElectives: asArray(row.technical_electives) as string[],
   subjects: asArray(row.subjects) as string[],
 });
 
@@ -237,6 +239,8 @@ const fromAppRecord = (key: CollectionKey, item: AppData[CollectionKey][number])
         program: prospectus.program,
         year_level: prospectus.yearLevel,
         semester: prospectus.semester,
+        summary: prospectus.summary ?? null,
+        technical_electives: prospectus.technicalElectives ?? [],
         subjects: prospectus.subjects,
       };
     }

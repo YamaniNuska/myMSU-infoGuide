@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useAuthSession } from "../../../src/auth/localAuth";
+import PopupSelect from "../../../src/components/PopupSelect";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import { deleteRecord, upsertRecord, useAppData } from "../../../src/data/appStore";
 import type { ClassScheduleRecord } from "../../../src/data/mymsuDatabase";
@@ -180,6 +181,16 @@ const getReminderText = (minutes: number) =>
     ? "Weekly alarm at class start."
     : `Weekly alarm ${minutes} minutes before class.`;
 
+const timeSelectOptions = TIME_OPTIONS.map((time) => ({
+  value: time,
+  label: formatTimeLabel(time),
+}));
+
+const reminderSelectOptions = REMINDER_OPTIONS.map((minutes) => ({
+  value: minutes,
+  label: minutes === 0 ? "At class start" : `${minutes} minutes before`,
+}));
+
 export default function ClassScheduleScreen({ onBack }: ClassScheduleScreenProps) {
   const session = useAuthSession();
   const { classSchedules } = useAppData();
@@ -193,6 +204,14 @@ export default function ClassScheduleScreen({ onBack }: ClassScheduleScreenProps
   const endTimeOptions = React.useMemo(
     () => TIME_OPTIONS.filter((time) => toMinutes(time) > toMinutes(form.startTime)),
     [form.startTime],
+  );
+  const endTimeSelectOptions = React.useMemo(
+    () =>
+      endTimeOptions.map((time) => ({
+        value: time,
+        label: formatTimeLabel(time),
+      })),
+    [endTimeOptions],
   );
   const visibleSchedules = React.useMemo(
     () =>
@@ -377,119 +396,35 @@ export default function ClassScheduleScreen({ onBack }: ClassScheduleScreenProps
           />
         </View>
 
-        <View style={styles.choiceBlock}>
-          <Text style={styles.fieldLabel}>Days, repeats weekly</Text>
-          <View style={styles.choiceRow}>
-            {DAY_OPTIONS.map((option) => {
-              const selected = form.dayPattern === option.value;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.dayChip,
-                    selected && styles.choiceChipActive,
-                  ]}
-                  onPress={() => updateField("dayPattern", option.value)}
-                >
-                  <Text
-                    style={[
-                      styles.dayChipCode,
-                      selected && styles.choiceTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.dayChipDescription,
-                      selected && styles.choiceTextActive,
-                    ]}
-                  >
-                    {option.description}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.choiceBlock}>
-          <Text style={styles.fieldLabel}>Start time</Text>
-          <View style={styles.choiceRow}>
-            {TIME_OPTIONS.map((time) => {
-              const selected = form.startTime === time;
-
-              return (
-                <Pressable
-                  key={time}
-                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                  onPress={() => updateField("startTime", time)}
-                >
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      selected && styles.choiceTextActive,
-                    ]}
-                  >
-                    {formatTimeLabel(time)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.choiceBlock}>
-          <Text style={styles.fieldLabel}>End time</Text>
-          <View style={styles.choiceRow}>
-            {endTimeOptions.map((time) => {
-              const selected = form.endTime === time;
-
-              return (
-                <Pressable
-                  key={time}
-                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                  onPress={() => updateField("endTime", time)}
-                >
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      selected && styles.choiceTextActive,
-                    ]}
-                  >
-                    {formatTimeLabel(time)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.choiceBlock}>
-          <Text style={styles.fieldLabel}>Alarm</Text>
-          <View style={styles.choiceRow}>
-            {REMINDER_OPTIONS.map((minutes) => {
-              const selected = form.reminderMinutes === minutes;
-
-              return (
-                <Pressable
-                  key={minutes}
-                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                  onPress={() => updateField("reminderMinutes", minutes)}
-                >
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      selected && styles.choiceTextActive,
-                    ]}
-                  >
-                    {minutes === 0 ? "At start" : `${minutes} min`}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        <View style={styles.selectGrid}>
+          <PopupSelect
+            label="Days, repeats weekly"
+            value={form.dayPattern}
+            options={DAY_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+              description: option.description,
+            }))}
+            onChange={(value) => updateField("dayPattern", value)}
+          />
+          <PopupSelect
+            label="Start time"
+            value={form.startTime}
+            options={timeSelectOptions}
+            onChange={(value) => updateField("startTime", value)}
+          />
+          <PopupSelect
+            label="End time"
+            value={form.endTime}
+            options={endTimeSelectOptions}
+            onChange={(value) => updateField("endTime", value)}
+          />
+          <PopupSelect
+            label="Alarm"
+            value={form.reminderMinutes}
+            options={reminderSelectOptions}
+            onChange={(value) => updateField("reminderMinutes", value)}
+          />
         </View>
 
         <Pressable
@@ -623,66 +558,11 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 14,
   },
-  choiceBlock: {
-    marginTop: 14,
-  },
-  fieldLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 8,
-  },
-  choiceRow: {
+  selectGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-  },
-  choiceChip: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: radii.pill,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  choiceChipActive: {
-    backgroundColor: colors.maroon,
-    borderColor: colors.maroon,
-  },
-  dayChip: {
-    flexGrow: 1,
-    minWidth: 180,
-    maxWidth: 260,
-    minHeight: 58,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: radii.sm,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  dayChipCode: {
-    color: colors.maroonDark,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  dayChipDescription: {
-    marginTop: 3,
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: "700",
-  },
-  choiceText: {
-    color: colors.maroonDark,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  choiceTextActive: {
-    color: colors.surface,
+    gap: 10,
+    marginTop: 14,
   },
   addButton: {
     alignSelf: "flex-start",

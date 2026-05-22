@@ -15,8 +15,15 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import HeaderUserAvatar from "../../../src/components/HeaderUserAvatar";
 import { useAppData } from "../../../src/data/appStore";
-import { colors, maxContentWidth, radii, shadow } from "../../../src/theme";
+import {
+  bottomTabClearance,
+  colors,
+  maxContentWidth,
+  radii,
+  shadow,
+} from "../../../src/theme";
 
 if (
   Platform.OS === "android" &&
@@ -121,10 +128,13 @@ export default function HandbookScreen() {
         style={styles.header}
       >
         <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
-          <Pressable style={styles.backButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={20} color={colors.surface} />
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
+          <View style={styles.headerTopRow}>
+            <Pressable style={styles.backButton} onPress={handleBack}>
+              <Ionicons name="arrow-back" size={20} color={colors.surface} />
+              <Text style={styles.backText}>Back</Text>
+            </Pressable>
+          </View>
+          <HeaderUserAvatar light lowered style={styles.headerAvatar} />
 
           <View style={styles.headerTitleRow}>
             <View style={styles.headerIcon}>
@@ -321,9 +331,21 @@ const styles = StyleSheet.create({
   headerInner: {
     width: "100%",
     alignSelf: "center",
+    position: "relative",
+    paddingRight: 92,
   },
   headerInnerWide: {
     maxWidth: maxContentWidth,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  headerAvatar: {
+    position: "absolute",
+    top: 28,
+    right: 0,
   },
   backButton: {
     alignSelf: "flex-start",
@@ -331,7 +353,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     marginTop: 2,
-    marginBottom: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: radii.pill,
@@ -397,7 +418,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   contentWithTabSpace: {
-    paddingBottom: 128,
+    paddingBottom: bottomTabClearance,
   },
   contentWide: {
     maxWidth: maxContentWidth,

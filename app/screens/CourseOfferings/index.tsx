@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useAppData } from "../../../src/data/appStore";
+import { getProgramProspectusStats } from "../../../src/data/curriculum";
 import { colors, getCardWidth, getColumnCount, radii, shadow } from "../../../src/theme";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 
@@ -19,7 +20,7 @@ type CourseOfferScreenProps = {
 export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
   const [query, setQuery] = React.useState("");
   const [activeCollege, setActiveCollege] = React.useState("All");
-  const { coursePrograms } = useAppData();
+  const { coursePrograms, prospectusRecords } = useAppData();
   const { width } = useWindowDimensions();
   const columns = getColumnCount(width);
 
@@ -97,32 +98,72 @@ export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
       </View>
 
       <View style={styles.grid}>
-        {filteredPrograms.map((program) => (
-          <View
-            key={program.id}
-            style={[
-              styles.programCard,
-              { width: getCardWidth(columns) },
-              columns === 2 && styles.programCardMobile,
-            ]}
-          >
-            <View style={styles.degreeBadge}>
-              <Text style={styles.degreeText}>{program.degree}</Text>
-            </View>
+        {filteredPrograms.map((program) => {
+          const stats = getProgramProspectusStats(program.id, prospectusRecords);
 
-            <Text style={styles.programTitle}>{program.program}</Text>
-            <Text style={styles.collegeText}>{program.college}</Text>
-            <Text style={styles.overview}>{program.overview}</Text>
+          return (
+            <View
+              key={program.id}
+              style={[
+                styles.programCard,
+                { width: getCardWidth(columns) },
+                columns === 2 && styles.programCardMobile,
+              ]}
+            >
+              <View style={styles.cardTopRow}>
+                <View style={styles.degreeBadge}>
+                  <Text style={styles.degreeText}>{program.degree}</Text>
+                </View>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    stats.recordCount > 0
+                      ? styles.statusBadgeReady
+                      : styles.statusBadgeEmpty,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      stats.recordCount > 0
+                        ? styles.statusTextReady
+                        : styles.statusTextEmpty,
+                    ]}
+                  >
+                    {stats.recordCount > 0 ? "Prospectus Ready" : "No Prospectus"}
+                  </Text>
+                </View>
+              </View>
 
-            <View style={styles.tagRow}>
-              {program.tags.map((tag) => (
-                <Text key={tag} style={styles.tag}>
-                  {tag}
-                </Text>
-              ))}
+              <Text style={styles.programTitle}>{program.program}</Text>
+              <Text style={styles.collegeText}>{program.college}</Text>
+              <Text style={styles.overview}>{program.overview}</Text>
+
+              <View style={styles.curriculumStatsRow}>
+                <View style={styles.curriculumStat}>
+                  <Text style={styles.curriculumStatValue}>{stats.recordCount}</Text>
+                  <Text style={styles.curriculumStatLabel}>Terms</Text>
+                </View>
+                <View style={styles.curriculumStat}>
+                  <Text style={styles.curriculumStatValue}>{stats.subjectCount}</Text>
+                  <Text style={styles.curriculumStatLabel}>Subjects</Text>
+                </View>
+                <View style={styles.curriculumStat}>
+                  <Text style={styles.curriculumStatValue}>{stats.totalUnits}</Text>
+                  <Text style={styles.curriculumStatLabel}>Units</Text>
+                </View>
+              </View>
+
+              <View style={styles.tagRow}>
+                {program.tags.map((tag) => (
+                  <Text key={tag} style={styles.tag}>
+                    {tag}
+                  </Text>
+                ))}
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {filteredPrograms.length === 0 ? (
@@ -211,6 +252,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  statusBadgeReady: {
+    backgroundColor: "#EAF8F4",
+    borderColor: "#B5DDD0",
+  },
+  statusBadgeEmpty: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.line,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  statusTextReady: {
+    color: colors.teal,
+  },
+  statusTextEmpty: {
+    color: colors.muted,
+  },
   programTitle: {
     marginTop: 14,
     color: colors.maroonDark,
@@ -231,6 +302,39 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     lineHeight: 20,
+  },
+  summaryText: {
+    marginTop: 10,
+    color: colors.maroonDark,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+  curriculumStatsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+  },
+  curriculumStat: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  curriculumStatValue: {
+    color: colors.maroonDark,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  curriculumStatLabel: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   tagRow: {
     flexDirection: "row",

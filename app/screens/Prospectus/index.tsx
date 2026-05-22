@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import { useAppData } from "../../../src/data/appStore";
+import { isProspectusTermRecord } from "../../../src/data/curriculum";
 import { colors, maxContentWidth, radii, shadow } from "../../../src/theme";
 
 type ProspectusScreenProps = {
@@ -29,7 +30,11 @@ type ParsedSubject = {
   importance?: "foundation" | "gateway" | "dependent" | "standard";
 };
 
-type ProspectusView = "semester" | "graph" | "traditional";
+type ProspectusView =
+  | "semester"
+  | "graph"
+  | "traditional"
+  | "electives";
 
 const graphColumnWidth = 250;
 const graphColumnGap = 18;
@@ -128,13 +133,16 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   const programOptions = React.useMemo(() => {
     const courseOptions = coursePrograms
       .filter((program) =>
-        prospectusRecords.some((record) => record.programId === program.id),
+        prospectusRecords.some((record) => record.programId === program.id) ||
+        program.id.startsWith("bsit-"),
       )
       .map((program) => ({
         id: program.id,
         title: program.program,
         subtitle: program.overview,
-        label: program.degree || program.program,
+        label: program.id.startsWith("bsit-")
+          ? program.program
+          : program.degree || program.program,
       }));
     const knownIds = new Set(courseOptions.map((program) => program.id));
     const prospectusOnlyOptions = Array.from(
@@ -146,7 +154,7 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
             {
               id: record.programId,
               title: record.program || record.programId,
-              subtitle: "Prospectus record added from the Admin Console.",
+              subtitle: "Prospectus record added from the curriculum console.",
               label: record.program || record.programId,
             },
           ]),
@@ -168,7 +176,10 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   const visibleRecords = React.useMemo(
     () =>
       prospectusRecords
-        .filter((record) => record.programId === activeProgramId)
+        .filter(
+          (record) =>
+            record.programId === activeProgramId && isProspectusTermRecord(record),
+        )
         .sort(
           (left, right) =>
             (termOrder[`${left.yearLevel}|${left.semester}`] ?? 99) -
@@ -178,6 +189,11 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   );
   const activeProgram = programOptions.find(
     (program) => program.id === activeProgramId,
+  );
+  const activeProspectusMeta = prospectusRecords.find(
+    (record) =>
+      record.programId === activeProgramId &&
+      record.technicalElectives?.length,
   );
   const parsedTerms = React.useMemo(
     () =>
@@ -240,6 +256,10 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
     (total, term) => total + term.priorityCount,
     0,
   );
+  const technicalElectives =
+    activeProspectusMeta?.technicalElectives?.filter((elective) =>
+      elective.trim(),
+    ) ?? [];
   const programGraphTerms = React.useMemo(
     () =>
       parsedTerms.map((term, termIndex) => ({
@@ -415,17 +435,17 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
               {activeProgram?.title ?? "No prospectus records yet"}
             </Text>
             <Text style={styles.heroSubtitle}>
-              {activeProgramId === "bsit"
-                ? "Database Systems Track"
-                : activeProgram?.subtitle ??
-                  "Add prospectus records from the Admin Console to show them here."}
+              {activeProgram?.subtitle ??
+                "Add prospectus records from the Faculty or Admin Console to show them here."}
             </Text>
           </View>
         </View>
 
         <View style={styles.statRow}>
           <View style={styles.statPill}>
-            <Text style={styles.statValue}>{totalUnits}</Text>
+            <Text style={styles.statValue}>
+              {totalUnits}
+            </Text>
             <Text style={styles.statLabel}>Units</Text>
           </View>
           <View style={styles.statPill}>
@@ -440,37 +460,63 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
       </View>
 
       {visibleRecords.length > 0 ? (
-        <View style={styles.viewSwitcher}>
-          {[
-            { id: "semester", label: "Semester", icon: "albums-outline" },
-            { id: "graph", label: "Graph", icon: "git-network-outline" },
-            { id: "traditional", label: "Traditional", icon: "grid-outline" },
-          ].map((view) => {
-            const selected = activeView === view.id;
+        <View style={styles.viewSection}>
+          <View style={styles.viewSwitcher}>
+            {[
+              { id: "semester", label: "Semester", icon: "albums-outline" },
+              { id: "graph", label: "Graph", icon: "git-network-outline" },
+              { id: "traditional", label: "Traditional", icon: "grid-outline" },
+              ...(technicalElectives.length > 0
+                ? [
+                    {
+                      id: "electives",
+                      label: "Electives",
+                      icon: "list-outline",
+                    },
+                  ]
+                : []),
+            ].map((view) => {
+              const selected = activeView === view.id;
 
-            return (
-              <Pressable
-                key={view.id}
-                accessibilityRole="button"
-                style={[styles.viewTab, selected && styles.viewTabActive]}
-                onPress={() => setActiveView(view.id as ProspectusView)}
-              >
-                <Ionicons
-                  name={view.icon as keyof typeof Ionicons.glyphMap}
-                  size={16}
-                  color={selected ? colors.surface : colors.maroon}
-                />
-                <Text
-                  style={[
-                    styles.viewTabText,
-                    selected && styles.viewTabTextActive,
-                  ]}
+              return (
+                <Pressable
+                  key={view.id}
+                  accessibilityRole="button"
+                  style={[styles.viewTab, selected && styles.viewTabActive]}
+                  onPress={() => setActiveView(view.id as ProspectusView)}
                 >
-                  {view.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Ionicons
+                    name={view.icon as keyof typeof Ionicons.glyphMap}
+                    size={16}
+                    color={selected ? colors.surface : colors.maroon}
+                  />
+                  <Text
+                    style={[
+                      styles.viewTabText,
+                      selected && styles.viewTabTextActive,
+                    ]}
+                  >
+                    {view.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
+      {activeView === "electives" && technicalElectives.length > 0 ? (
+        <View style={styles.summarySection}>
+          <View style={styles.summaryPanel}>
+            <Text style={styles.electiveTitle}>Offered Technical Electives</Text>
+            <View style={styles.electiveGrid}>
+              {technicalElectives.map((elective) => (
+                <View key={elective} style={styles.electiveChip}>
+                  <Text style={styles.electiveText}>{elective}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
       ) : null}
 
@@ -870,12 +916,16 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         </View>
       ) : null}
 
-      {prospectusRecords.length === 0 ? (
+      {visibleRecords.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No prospectus records found</Text>
+          <Text style={styles.emptyTitle}>
+            {activeProgram?.title
+              ? `${activeProgram.title} is empty for now`
+              : "No prospectus records found"}
+          </Text>
           <Text style={styles.emptyText}>
-            Add a prospectus record in the Admin Console and it will appear here
-            after Supabase syncs.
+            Add prospectus records in the Faculty or Admin Console and they will
+            appear here after Supabase syncs.
           </Text>
         </View>
       ) : null}
@@ -883,9 +933,10 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Curriculum note</Text>
         <Text style={styles.noteText}>
-          BSIT entries use the Database Systems Track prospectus PDF. Always
-          confirm final advising, substitutions, and prerequisite clearance with
-          the college or department before enrollment.
+          Prospectus entries should be added through the Faculty or Admin Console and
+          confirmed with the latest college curriculum. Always confirm final
+          advising, substitutions, and prerequisite clearance with the college or
+          department before enrollment.
         </Text>
       </View>
     </SecondaryScreenLayout>
@@ -984,6 +1035,123 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase",
+  },
+  viewSection: {
+    width: "100%",
+    maxWidth: maxContentWidth,
+    alignSelf: "center",
+  },
+  summarySection: {
+    width: "100%",
+    maxWidth: maxContentWidth,
+    alignSelf: "center",
+  },
+  summaryPanel: {
+    width: "100%",
+    gap: 14,
+    padding: 16,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...shadow,
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  summaryKicker: {
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  summaryTitle: {
+    marginTop: 4,
+    color: colors.maroonDark,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  summaryTotalPill: {
+    minWidth: 88,
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radii.sm,
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: "#E5C5C8",
+  },
+  summaryTotalValue: {
+    color: colors.maroon,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  summaryTotalLabel: {
+    marginTop: 2,
+    color: colors.maroonDark,
+    fontSize: 9,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  unitTable: {
+    overflow: "hidden",
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  unitRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.surfaceMuted,
+  },
+  unitRowLast: {
+    borderBottomWidth: 0,
+  },
+  unitTerm: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  unitValue: {
+    color: colors.maroon,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  electiveTitle: {
+    color: colors.maroonDark,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  electiveGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  electiveChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  electiveText: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: "800",
   },
   legendPanel: {
     width: "100%",
@@ -1175,16 +1343,18 @@ const styles = StyleSheet.create({
     maxWidth: maxContentWidth,
     alignSelf: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     padding: 5,
-    borderRadius: radii.pill,
+    borderRadius: radii.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     ...shadow,
   },
   viewTab: {
-    flex: 1,
+    minWidth: 120,
+    flexGrow: 1,
     minHeight: 40,
     flexDirection: "row",
     alignItems: "center",

@@ -14,7 +14,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, maxContentWidth, radii } from "../theme";
+import { bottomTabClearance, colors, maxContentWidth, radii, shadow } from "../theme";
+import HeaderUserAvatar from "./HeaderUserAvatar";
 
 type SecondaryScreenLayoutProps = {
   title: string;
@@ -123,23 +124,28 @@ export default function SecondaryScreenLayout({
           ]}
         >
           <LinearGradient
-            colors={[colors.maroonDark, colors.maroon]}
+            colors={[colors.maroonDark, "#551018", colors.maroon]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
             <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={handleBack}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="arrow-back" size={20} color="#ffffff" />
-                <Text style={styles.backText}>Back</Text>
-              </TouchableOpacity>
+              <View style={styles.headerTopRow}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={handleBack}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                  <Text style={styles.backText}>Back</Text>
+                </TouchableOpacity>
+              </View>
+              <HeaderUserAvatar light lowered style={styles.headerAvatar} />
 
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.description}>{description}</Text>
+              <View style={styles.titleBlock}>
+                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.description}>{description}</Text>
+              </View>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -242,19 +248,32 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 14,
-    borderBottomLeftRadius: radii.sm,
-    borderBottomRightRadius: radii.sm,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(255, 255, 255, 0.10)",
+    ...shadow,
   },
   headerInner: {
     width: "100%",
     alignSelf: "center",
+    position: "relative",
+    paddingRight: 92,
   },
   headerInnerWide: {
     maxWidth: maxContentWidth,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  headerAvatar: {
+    position: "absolute",
+    top: 28,
+    right: 0,
   },
   backButton: {
     alignSelf: "flex-start",
@@ -262,41 +281,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     marginTop: 2,
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    minHeight: 38,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.13)",
+    backgroundColor: "rgba(255, 255, 255, 0.11)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
   },
   backText: {
     color: colors.surface,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "800",
+  },
+  titleBlock: {
+    maxWidth: 760,
   },
   title: {
     color: colors.surface,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "900",
   },
   description: {
-    marginTop: 5,
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: 12,
-    lineHeight: 17,
+    marginTop: 6,
+    color: "rgba(255, 255, 255, 0.78)",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
   },
   content: {
     width: "100%",
     alignSelf: "center",
-    padding: 14,
+    padding: 16,
+    paddingBottom: bottomTabClearance,
   },
   contentAnimator: {
     width: "100%",
-    gap: 14,
+    gap: 16,
   },
   contentWide: {
     maxWidth: maxContentWidth,
-    paddingVertical: 16,
+    paddingVertical: 18,
+    paddingBottom: bottomTabClearance,
   },
 });

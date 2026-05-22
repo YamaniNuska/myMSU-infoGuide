@@ -23,7 +23,10 @@ import {
   useAuthSession,
 } from "../src/auth/localAuth";
 import type { UserRecord, UserRole } from "../src/data/mymsuDatabase";
-import { colors, maxContentWidth, radii, shadow } from "../src/theme";
+import { bottomTabClearance, colors, maxContentWidth, radii, shadow } from "../src/theme";
+
+const defaultStudentAvatar = require("../assets/images/default-student-avatar.webp");
+const defaultFacultyAvatar = require("../assets/images/default-faculty-avatar.webp");
 
 type ProfileForm = {
   name: string;
@@ -84,7 +87,6 @@ const getEditableProfileFields = (role: UserRole): ProfileFieldConfig[] => {
       { key: "college", label: "College", placeholder: "College / department" },
       { key: "program", label: "Program", placeholder: "Program or course" },
       { key: "yearLevel", label: "Year level", placeholder: "e.g. 3rd Year" },
-      { key: "section", label: "Section", placeholder: "Class section" },
       {
         key: "phone",
         label: "Phone",
@@ -150,7 +152,6 @@ const getProfileDetailItems = (user: UserRecord) => {
       ["College", user.college],
       ["Program", user.program],
       ["Year level", user.yearLevel],
-      ["Section", user.section],
       ["Phone", user.phone],
       ["Address", user.address],
       ["Bio", user.bio],
@@ -272,7 +273,7 @@ export default function ProfileScreen() {
         mimeType: asset.mimeType,
       });
 
-      if (upload.ok) {
+      if (upload.ok && "user" in upload) {
         setProfileForm((current) => ({
           ...current,
           avatarUrl: upload.user.avatarUrl ?? "",
@@ -299,7 +300,7 @@ export default function ProfileScreen() {
         contentContainerStyle={[
           styles.content,
           isWide && styles.contentWide,
-          { paddingBottom: 112 },
+          { paddingBottom: bottomTabClearance },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -346,6 +347,10 @@ export default function ProfileScreen() {
                     source={{ uri: user.avatarUrl }}
                     style={styles.avatarImage}
                   />
+                ) : user.role === "student" ? (
+                  <Image source={defaultStudentAvatar} style={styles.avatarImage} />
+                ) : user.role === "faculty" ? (
+                  <Image source={defaultFacultyAvatar} style={styles.avatarImage} />
                 ) : (
                   <Ionicons name="person" size={32} color={colors.surface} />
                 )}
@@ -373,11 +378,19 @@ export default function ProfileScreen() {
                 <Text style={styles.value}>
                   {user.role === "visitor"
                     ? "Visitor guide, map, offices, and announcements"
-                    : user.role === "student" || user.role === "faculty"
-                      ? "Handbook, map, schedules, and guide"
+                    : user.role === "faculty"
+                      ? "Handbook, map, schedules, guide, and Faculty Console"
+                      : user.role === "student"
+                        ? "Handbook, map, schedules, and guide"
                       : "Handbook, map, offices, announcements, and guide"}
                 </Text>
               </View>
+              {user.role === "faculty" ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.label}>Faculty Tools</Text>
+                  <Text style={styles.value}>Course and prospectus editing</Text>
+                </View>
+              ) : null}
               {user.role === "admin" ? (
                 <View style={styles.detailRow}>
                   <Text style={styles.label}>Admin Tools</Text>
@@ -396,6 +409,19 @@ export default function ProfileScreen() {
                       color={colors.surface}
                     />
                     <Text style={styles.primaryButtonText}>Admin Console</Text>
+                  </Pressable>
+                ) : null}
+                {user.role === "faculty" ? (
+                  <Pressable
+                    style={styles.primaryButton}
+                    onPress={() => router.push("/screens/AdminPanel")}
+                  >
+                    <Ionicons
+                      name="school-outline"
+                      size={18}
+                      color={colors.surface}
+                    />
+                    <Text style={styles.primaryButtonText}>Faculty Console</Text>
                   </Pressable>
                 ) : null}
                 <Pressable style={styles.signOutButton} onPress={handleSignOut}>
@@ -463,6 +489,16 @@ export default function ProfileScreen() {
                           source={{ uri: user.avatarUrl }}
                           style={styles.profilePhotoImage}
                         />
+                      ) : user.role === "student" ? (
+                        <Image
+                          source={defaultStudentAvatar}
+                          style={styles.profilePhotoImage}
+                        />
+                      ) : user.role === "faculty" ? (
+                        <Image
+                          source={defaultFacultyAvatar}
+                          style={styles.profilePhotoImage}
+                        />
                       ) : (
                         <Ionicons
                           name="person"
@@ -492,10 +528,23 @@ export default function ProfileScreen() {
                 </View>
               ) : (
                 <View style={styles.profileDetailGrid}>
-                  {profileDetailItems.map(([label, value]) => (
-                    <View key={label} style={styles.profileDetailItem}>
+                  {profileDetailItems.map(([label, value], index) => (
+                    <View
+                      key={label}
+                      style={[
+                        styles.profileDetailItem,
+                        label === "Bio" && styles.profileDetailItemLong,
+                        index === profileDetailItems.length - 1 &&
+                          styles.profileDetailItemLast,
+                      ]}
+                    >
                       <Text style={styles.profileDetailLabel}>{label}</Text>
-                      <Text style={styles.profileDetailValue}>
+                      <Text
+                        style={[
+                          styles.profileDetailValue,
+                          label === "Bio" && styles.profileDetailValueLong,
+                        ]}
+                      >
                         {value?.trim() || "Not set"}
                       </Text>
                     </View>
@@ -565,8 +614,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+    marginTop: 18,
     padding: 18,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
   },
@@ -601,7 +651,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 16,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
@@ -624,7 +674,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 7,
     paddingHorizontal: 13,
-    borderRadius: radii.pill,
+    borderRadius: radii.sm,
     backgroundColor: colors.maroonSoft,
     borderWidth: 1,
     borderColor: "#E5C5C8",
@@ -680,28 +730,52 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   profileDetailGrid: {
-    gap: 10,
     marginTop: 16,
-  },
-  profileDetailItem: {
-    gap: 5,
-    padding: 12,
+    overflow: "hidden",
     borderRadius: radii.sm,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
   },
+  profileDetailItem: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  profileDetailItemLast: {
+    borderBottomWidth: 0,
+  },
+  profileDetailItemLong: {
+    minHeight: 92,
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+    paddingVertical: 13,
+  },
   profileDetailLabel: {
-    color: colors.goldDark,
-    fontSize: 11,
+    width: 116,
+    color: colors.muted,
+    fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   profileDetailValue: {
+    flex: 1,
+    minWidth: 0,
     color: colors.ink,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: "800",
+    textAlign: "right",
+  },
+  profileDetailValueLong: {
+    textAlign: "left",
+    lineHeight: 20,
   },
   inputGroup: {
     gap: 7,

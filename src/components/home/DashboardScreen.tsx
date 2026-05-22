@@ -34,6 +34,8 @@ import {
   maxContentWidth,
   radii,
   shadow,
+  softShadow,
+  bottomTabClearance,
 } from "../../theme";
 
 if (
@@ -121,6 +123,14 @@ const ADMIN_GRID_ITEM: GridItem = {
   title: "Admin Console",
   subtitle: "Edit app content",
   icon: "shield-checkmark-outline",
+  IconComponent: Ionicons,
+};
+
+const FACULTY_GRID_ITEM: GridItem = {
+  key: "facultyPanel",
+  title: "Faculty Console",
+  subtitle: "Courses and prospectus",
+  icon: "school-outline",
   IconComponent: Ionicons,
 };
 
@@ -301,6 +311,11 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
             ADMIN_GRID_ITEM,
             ...GRID_ITEMS.filter((item) => item.key !== "schedule"),
           ]
+        : user?.role === "faculty"
+          ? [
+              FACULTY_GRID_ITEM,
+              ...GRID_ITEMS,
+            ]
         : user?.role === "visitor"
           ? GRID_ITEMS.filter((item) => item.key !== "schedule")
           : GRID_ITEMS,
@@ -337,6 +352,7 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
       calendar: "academicCalendar",
       schedule: "classSchedule",
       adminPanel: "adminPanel",
+      facultyPanel: "adminPanel",
     };
 
     const destination = destinations[key];
@@ -365,7 +381,7 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
         ]}
       >
         <LinearGradient
-          colors={[colors.maroonDark, colors.maroon]}
+          colors={[colors.maroonDark, "#551018", colors.maroon]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -378,6 +394,8 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
               <Text style={styles.subtitle}>
                 {user?.role === "admin"
                   ? "Admin mode: review and manage guide content"
+                  : user?.role === "faculty"
+                    ? "Faculty mode: manage courses and prospectus"
                   : "Find what you need today"}
               </Text>
             </View>
@@ -395,7 +413,6 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
               ) : null}
             </TouchableOpacity>
           </View>
-
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={colors.maroon} />
             <TextInput
@@ -420,7 +437,7 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
         contentContainerStyle={[
           styles.content,
           isWide && styles.contentWide,
-          { paddingBottom: 112 },
+          { paddingBottom: bottomTabClearance },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -580,9 +597,10 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 18,
     paddingTop: 54,
-    paddingBottom: 22,
-    borderBottomLeftRadius: radii.sm,
-    borderBottomRightRadius: radii.sm,
+    paddingBottom: 24,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
+    ...shadow,
   },
   headerInner: {
     width: "100%",
@@ -611,9 +629,10 @@ const styles = StyleSheet.create({
   },
   greeting: {
     marginTop: 4,
-    fontSize: 26,
+    fontSize: 28,
+    lineHeight: 34,
     color: colors.surface,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   subtitle: {
     marginTop: 3,
@@ -624,10 +643,12 @@ const styles = StyleSheet.create({
   notificationBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(255,255,255,0.12)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
   },
   notificationDot: {
     position: "absolute",
@@ -646,10 +667,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     backgroundColor: colors.surface,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(255,255,255,0.42)",
+    ...softShadow,
   },
   searchInput: {
     flex: 1,
@@ -714,7 +736,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: 14,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     ...shadow,
   },
   handbookCopy: {
@@ -746,15 +768,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   card: {
-    minHeight: 132,
+    minHeight: 136,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     padding: 14,
     alignItems: "center",
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     justifyContent: "center",
-    ...shadow,
+    ...softShadow,
   },
   cardText: {
     marginTop: 12,
@@ -772,9 +794,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   iconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: radii.sm,
     backgroundColor: colors.maroon,
     alignItems: "center",
     justifyContent: "center",
@@ -784,10 +806,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     padding: 16,
-    borderRadius: radii.sm,
-    backgroundColor: colors.maroon,
+    borderRadius: radii.lg,
+    backgroundColor: colors.maroonDark,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(216,178,74,0.25)",
+    ...shadow,
   },
   alertTextWrap: {
     flex: 1,
@@ -826,10 +849,10 @@ const styles = StyleSheet.create({
   listCard: {
     backgroundColor: colors.surface,
     padding: 15,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    ...shadow,
+    ...softShadow,
   },
   listCardHeader: {
     flexDirection: "row",

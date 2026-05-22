@@ -24,7 +24,7 @@ const universityLogo = require("../../../assets/images/msu-logo.webp");
 const floatIconSize = 58;
 const displayFont = Platform.select({
   ios: "Avenir Next",
-  android: "sans-serif-condensed",
+  android: "sans-serif",
   default: "system-ui",
 });
 const bodyFont = Platform.select({
@@ -90,6 +90,7 @@ export default function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
   }).current;
   const press = React.useRef(new Animated.Value(0)).current;
   const isCompact = width < 560;
+  const isNarrowPhone = width < 380;
 
   React.useEffect(() => {
     const maxX = Math.max(16, width - floatIconSize - 16);
@@ -553,7 +554,13 @@ export default function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
             <Text style={styles.brandSubtext}>Mindanao State University</Text>
           </View>
 
-          <Text style={[styles.title, isCompact && styles.titleCompact]}>
+          <Text
+            style={[
+              styles.title,
+              isCompact && styles.titleCompact,
+              isNarrowPhone && styles.titleNarrowPhone,
+            ]}
+          >
             <Text style={styles.titleSoft}>Your </Text>
             <Text style={styles.titleGold}>campus </Text>
             <Text style={styles.titleMint}>companion, </Text>
@@ -714,6 +721,10 @@ const styles = StyleSheet.create({
     marginTop: 28,
     fontSize: 34,
     lineHeight: 40,
+  },
+  titleNarrowPhone: {
+    fontSize: 30,
+    lineHeight: 36,
   },
   titleSoft: {
     color: "rgba(255, 255, 255, 0.96)",

@@ -16,8 +16,9 @@ import {
   View,
 } from "react-native";
 import { getLiveAssistantAnswer } from "../src/data/appStore";
-import { colors, radii, shadow } from "../src/theme";
+import { bottomTabClearance, colors, radii, shadow } from "../src/theme";
 import { buildSystemPrompt } from "../src/data/msuKnowledge";
+import HeaderUserAvatar from "../src/components/HeaderUserAvatar";
 
 type AIScreenProps = {
   onBack?: () => void;
@@ -295,6 +296,17 @@ export default function AI({ onBack }: AIScreenProps) {
     }
   };
 
+  const handleComposerKeyPress = (event: any) => {
+    if (Platform.OS !== "web") {
+      return;
+    }
+
+    if (event.nativeEvent?.key === "Enter" && !event.nativeEvent?.shiftKey) {
+      event.preventDefault?.();
+      void sendMessage();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -313,9 +325,7 @@ export default function AI({ onBack }: AIScreenProps) {
             </Text>
           </View>
 
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>AI</Text>
-          </View>
+          <HeaderUserAvatar lowered style={styles.headerAvatar} />
         </View>
 
         <ScrollView
@@ -420,6 +430,7 @@ export default function AI({ onBack }: AIScreenProps) {
             value={input}
             onChangeText={setInput}
             multiline
+            onKeyPress={handleComposerKeyPress}
           />
           <Pressable
             style={[
@@ -449,24 +460,34 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    position: "relative",
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
+    paddingRight: 106,
+    paddingTop: 18,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadow,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: radii.sm,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.maroon,
+    marginTop: 16,
   },
   headerTextWrap: {
     flex: 1,
     marginLeft: 12,
+    marginTop: 16,
+  },
+  headerAvatar: {
+    position: "absolute",
+    top: 10,
+    right: 12,
   },
   headerTitle: {
     fontSize: 18,
@@ -478,25 +499,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
   },
-  headerBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.maroonSoft,
-  },
-  headerBadgeText: {
-    color: colors.maroon,
-    fontSize: 12,
-    fontWeight: "700",
-  },
   chatContent: {
     padding: 16,
-    paddingBottom: 112,
+    paddingBottom: bottomTabClearance,
   },
   heroCard: {
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     padding: 18,
-    backgroundColor: colors.maroon,
+    backgroundColor: colors.maroonDark,
     marginBottom: 14,
     ...shadow,
   },
@@ -516,7 +526,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   suggestionChip: {
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: colors.surface,
@@ -540,17 +550,17 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "84%",
-    borderRadius: 22,
+    borderRadius: radii.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   userBubble: {
     backgroundColor: colors.maroon,
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: radii.sm,
   },
   assistantBubble: {
     backgroundColor: colors.surface,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -599,12 +609,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadow,
   },
   input: {
     flex: 1,
     minHeight: 52,
     maxHeight: 120,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: colors.surface,
@@ -616,7 +627,7 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: radii.lg,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.maroon,

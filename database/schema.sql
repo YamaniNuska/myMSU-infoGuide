@@ -147,15 +147,25 @@ CREATE TABLE IF NOT EXISTS public.course_offerings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.course_offerings
+  DROP COLUMN IF EXISTS summary,
+  DROP COLUMN IF EXISTS technical_electives;
+
 CREATE TABLE IF NOT EXISTS public.prospectus_records (
   id TEXT PRIMARY KEY,
   program_id TEXT NOT NULL REFERENCES public.course_offerings (id) ON DELETE CASCADE,
   program TEXT NOT NULL,
   year_level TEXT NOT NULL,
   semester TEXT NOT NULL,
+  summary TEXT,
+  technical_electives JSONB NOT NULL DEFAULT '[]'::jsonb,
   subjects JSONB NOT NULL DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.prospectus_records
+  ADD COLUMN IF NOT EXISTS summary TEXT,
+  ADD COLUMN IF NOT EXISTS technical_electives JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS public.academic_calendar (
   id TEXT PRIMARY KEY,
@@ -201,7 +211,9 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data ->> 'name', split_part(NEW.email, '@', 1)),
     CASE
+      WHEN lower(NEW.email) = 'admin@msumain.edu.ph' THEN 'admin'::public.user_role
       WHEN lower(NEW.email) LIKE '%@s.msumain.edu.ph' THEN 'student'::public.user_role
+      WHEN lower(NEW.email) LIKE '%@msumain.edu.ph' THEN 'faculty'::public.user_role
       WHEN NEW.raw_user_meta_data ->> 'role' IN ('faculty', 'employee', 'visitor') THEN (NEW.raw_user_meta_data ->> 'role')::public.user_role
       ELSE 'visitor'::public.user_role
     END,
@@ -327,3 +339,41 @@ CREATE POLICY "Public read academic calendar" ON public.academic_calendar
   FOR SELECT USING (true);
 CREATE POLICY "Public write academic calendar" ON public.academic_calendar
   FOR ALL USING (true) WITH CHECK (true);
+
+-- Current curriculum records.
+-- This intentionally clears old curriculum rows so course/program offerings are
+-- database-backed and limited to the two supported colleges/programs.
+DELETE FROM public.prospectus_records;
+DELETE FROM public.course_offerings;
+
+INSERT INTO public.course_offerings (
+  id,
+  college,
+  program,
+  degree,
+  overview,
+  tags
+)
+VALUES
+  (
+    'coe-bsee-2018',
+    'College of Engineering',
+    'Bachelor of Science in Electrical Engineering',
+    'BSEE',
+    'Curriculum record for the College of Engineering Bachelor of Science in Electrical Engineering prospectus.',
+    '["coe", "engineering", "electrical engineering", "bsee"]'::jsonb
+  ),
+  (
+    'cics-bsit-dbs',
+    'College of Information and Computing Sciences',
+    'BS-IT (DBs)',
+    'BSIT-DBS',
+    'Curriculum record for the CICS Bachelor of Science in Information Technology Database Systems track prospectus.',
+    '["cics", "it", "database", "database systems", "dbs"]'::jsonb
+  )
+ON CONFLICT (id) DO UPDATE SET
+  college = EXCLUDED.college,
+  program = EXCLUDED.program,
+  degree = EXCLUDED.degree,
+  overview = EXCLUDED.overview,
+  tags = EXCLUDED.tags;

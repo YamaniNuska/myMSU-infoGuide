@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import {
   Animated,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -61,10 +62,17 @@ const locationToLatLng = (location: CampusLocation) =>
     : pointToLatLng(location);
 
 const userToLatLng = (marker: UserMarker) =>
-  marker.insideCampus &&
-  typeof marker.latitude === "number" &&
-  typeof marker.longitude === "number"
-    ? [marker.latitude, marker.longitude]
+  typeof marker.latitude === "number" && typeof marker.longitude === "number"
+    ? [
+        Math.min(
+          Math.max(marker.latitude, CAMPUS_BOUNDS.south),
+          CAMPUS_BOUNDS.north,
+        ),
+        Math.min(
+          Math.max(marker.longitude, CAMPUS_BOUNDS.west),
+          CAMPUS_BOUNDS.east,
+        ),
+      ]
     : pointToLatLng(marker);
 
 const mapHtml = `
@@ -77,55 +85,57 @@ const mapHtml = `
       html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }
       body { overflow: hidden; background: #d9e6cf; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       .leaflet-container { background: #d9e6cf; touch-action: none; overscroll-behavior: contain; }
-      .leaflet-control-zoom { border: 1px solid rgba(37, 29, 31, 0.1); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 18px rgba(29, 11, 11, 0.16); }
-      .leaflet-control-zoom a { width: 34px; height: 34px; line-height: 34px; color: #3A080D; font-weight: 900; }
+      .leaflet-control-zoom { border: 1px solid rgba(37, 29, 31, 0.1); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 14px rgba(29, 11, 11, 0.14); }
+      .leaflet-control-zoom a { width: 32px; height: 32px; line-height: 32px; color: #3A080D; font-weight: 900; }
       .leaflet-control-attribution { padding: 4px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); color: #5C5050; font-size: 10px; }
       .mymsu-pin, .mymsu-user-icon { background: transparent; border: 0; }
       .mymsu-marker {
-        position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
-        border-radius: 23px; border: 4px solid #fff; color: #fff; font-size: 18px; font-weight: 900;
-        box-shadow: 0 11px 24px rgba(29, 11, 11, 0.28), 0 0 0 3px rgba(243, 190, 76, 0.42);
+        position: relative; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+        border-radius: 15px; border: 3px solid #fff; color: #fff; font-size: 13px; font-weight: 900;
+        box-shadow: 0 7px 16px rgba(29, 11, 11, 0.22), 0 0 0 2px rgba(243, 190, 76, 0.32);
       }
       .mymsu-marker:after {
-        content: ""; position: absolute; left: 50%; bottom: -10px; width: 16px; height: 16px; background: inherit;
-        border-right: 4px solid #fff; border-bottom: 4px solid #fff; transform: translateX(-50%) rotate(45deg);
+        content: ""; position: absolute; left: 50%; bottom: -6px; width: 10px; height: 10px; background: inherit;
+        border-right: 3px solid #fff; border-bottom: 3px solid #fff; transform: translateX(-50%) rotate(45deg);
       }
-      .mymsu-marker.selected { width: 62px; height: 62px; border-radius: 31px; transform: translate(-8px, -10px); border-width: 5px; font-size: 23px; box-shadow: 0 18px 34px rgba(58, 8, 13, 0.38), 0 0 0 7px rgba(243, 190, 76, 0.5), 0 0 0 15px rgba(122, 11, 20, 0.14); }
+      .mymsu-marker.selected { width: 42px; height: 42px; border-radius: 21px; transform: translate(-6px, -7px); border-width: 4px; font-size: 17px; box-shadow: 0 12px 24px rgba(58, 8, 13, 0.34), 0 0 0 4px rgba(243, 190, 76, 0.45), 0 0 0 10px rgba(122, 11, 20, 0.12); }
       .mymsu-label {
-        position: absolute; left: 50%; top: 54px; max-width: 126px; transform: translateX(-50%);
-        padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #3A080D;
-        border: 1px solid rgba(37, 29, 31, 0.1); font-size: 11px; font-weight: 900; line-height: 1.1;
+        position: absolute; left: 50%; top: 36px; max-width: 106px; transform: translateX(-50%);
+        padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #3A080D;
+        border: 1px solid rgba(37, 29, 31, 0.1); font-size: 9px; font-weight: 900; line-height: 1.1;
         text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .mymsu-marker.selected .mymsu-label { top: 71px; background: #3A080D; color: #fff; border: 2px solid #fff; box-shadow: 0 10px 22px rgba(29, 11, 11, 0.26); }
+      .mymsu-marker.selected .mymsu-label { top: 50px; background: #3A080D; color: #fff; border: 2px solid #fff; box-shadow: 0 8px 18px rgba(29, 11, 11, 0.22); }
       .mymsu-user {
-        position: relative; width: 58px; height: 64px; display: flex; align-items: flex-start; justify-content: center;
+        position: relative; width: 44px; height: 54px; display: flex; align-items: flex-start; justify-content: center;
       }
       .mymsu-user:after {
-        content: ""; position: absolute; left: 50%; top: 7px; width: 76px; height: 76px; margin-left: -38px;
-        border-radius: 38px; background: rgba(15, 118, 110, 0.18); animation: pulse 1.7s ease-out infinite;
+        content: ""; position: absolute; left: 50%; top: 5px; width: 58px; height: 58px; margin-left: -29px;
+        border-radius: 29px; background: rgba(15, 118, 110, 0.18); animation: pulse 1.7s ease-out infinite;
       }
       .mymsu-user-avatar {
-        position: relative; z-index: 2; width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
-        border: 4px solid #fff; background: #0F766E; color: #fff; font-size: 11px; font-weight: 950; letter-spacing: 0;
-        box-shadow: 0 11px 26px rgba(29, 11, 11, 0.32), 0 0 0 3px rgba(243, 190, 76, 0.9);
+        position: relative; z-index: 2; width: 38px; height: 38px; border-radius: 19px; display: flex; align-items: center; justify-content: center;
+        border: 3px solid #fff; background: #0F766E; color: #fff; font-size: 10px; font-weight: 950; letter-spacing: 0;
+        box-shadow: 0 8px 20px rgba(29, 11, 11, 0.28), 0 0 0 2px rgba(243, 190, 76, 0.82);
+        box-sizing: border-box; overflow: hidden;
       }
       .mymsu-user-avatar:before {
-        content: ""; position: absolute; top: 8px; width: 15px; height: 15px; border-radius: 50%; background: rgba(255, 255, 255, 0.92);
-        box-shadow: 0 17px 0 7px rgba(255, 255, 255, 0.92);
+        content: ""; position: absolute; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 14px 0 6px rgba(255, 255, 255, 0.92);
       }
       .mymsu-user-avatar.has-photo:before { display: none; }
       .mymsu-user-avatar img {
         width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;
       }
-      .mymsu-user-avatar span {
-        position: absolute; left: 50%; bottom: -18px; transform: translateX(-50%); padding: 3px 7px; border-radius: 999px;
-        background: #3A080D; border: 2px solid #fff; color: #fff; font-size: 10px; line-height: 1; white-space: nowrap;
+      .mymsu-user-label {
+        position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%); padding: 3px 6px; border-radius: 999px;
+        background: #3A080D; border: 2px solid #fff; color: #fff; font-size: 9px; line-height: 1; white-space: nowrap;
+        z-index: 3; font-weight: 950;
       }
       .mymsu-user-tip {
-        position: absolute; z-index: 1; left: 50%; bottom: 4px; width: 18px; height: 18px; margin-left: -9px;
-        transform: rotate(45deg); background: #0F766E; border-right: 4px solid #fff; border-bottom: 4px solid #fff;
-        box-shadow: 5px 5px 12px rgba(29, 11, 11, 0.18);
+        position: absolute; z-index: 1; left: 50%; bottom: 7px; width: 14px; height: 14px; margin-left: -7px;
+        transform: rotate(45deg); background: #0F766E; border-right: 3px solid #fff; border-bottom: 3px solid #fff;
+        box-shadow: 4px 4px 10px rgba(29, 11, 11, 0.16);
       }
       @keyframes pulse { from { transform: scale(.65); opacity: .8; } to { transform: scale(1.4); opacity: 0; } }
       .mymsu-popup-title { color: #3A080D; font-weight: 900; font-size: 14px; }
@@ -138,8 +148,29 @@ const mapHtml = `
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       const campusCenter = [${campusCenter[0]}, ${campusCenter[1]}];
-      const map = L.map("map", { zoomControl: true, attributionControl: false, preferCanvas: true }).setView(campusCenter, 16);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+      const campusBounds = [
+        [${CAMPUS_BOUNDS.south}, ${CAMPUS_BOUNDS.west}],
+        [${CAMPUS_BOUNDS.north}, ${CAMPUS_BOUNDS.east}]
+      ];
+      const map = L.map("map", {
+        zoomControl: true,
+        attributionControl: false,
+        preferCanvas: true,
+        maxBounds: campusBounds,
+        maxBoundsViscosity: 1,
+        minZoom: 15,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false
+      }).setView(campusCenter, 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+        maxNativeZoom: 19,
+        keepBuffer: 1,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
       L.control.attribution({ position: "bottomright" }).addAttribution("OpenStreetMap").addTo(map);
       const markers = new Map();
       let routeHalo = null;
@@ -152,26 +183,58 @@ const mapHtml = `
       let openedSelectedId = null;
       let fittedRouteDestination = null;
       let handledFitVersion = null;
+      let gestureEndTimer = null;
+      let mapInteractionTimer = null;
+      let mapInteractionActive = false;
+      let userCameraOverride = false;
+
+      const postMapGesture = (active) => {
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: active ? "map-gesture-start" : "map-gesture-end" }));
+      };
+      const startMapGesture = () => {
+        if (gestureEndTimer) clearTimeout(gestureEndTimer);
+        if (mapInteractionTimer) clearTimeout(mapInteractionTimer);
+        mapInteractionActive = true;
+        userCameraOverride = true;
+        postMapGesture(true);
+      };
+      const endMapGesture = () => {
+        if (gestureEndTimer) clearTimeout(gestureEndTimer);
+        gestureEndTimer = setTimeout(() => postMapGesture(false), 80);
+        if (mapInteractionTimer) clearTimeout(mapInteractionTimer);
+        mapInteractionTimer = setTimeout(() => {
+          mapInteractionActive = false;
+        }, 700);
+      };
 
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
       const latLngKey = (latLng) => latLng ? latLng[0].toFixed(6) + "," + latLng[1].toFixed(6) : null;
+      const locationKey = (location, selected) => [
+        selected ? "1" : "0",
+        location.color,
+        location.categoryLetter,
+        location.label,
+      ].join("|");
+      const routeKey = (points) => points.map(latLngKey).join("|");
       const makeIcon = (location, selected) => L.divIcon({
         className: "mymsu-pin",
-        iconAnchor: selected ? [31, 77] : [23, 55],
-        iconSize: selected ? [62, 96] : [46, 78],
-        popupAnchor: [0, selected ? -77 : -55],
+        iconAnchor: selected ? [21, 55] : [15, 36],
+        iconSize: selected ? [42, 68] : [30, 48],
+        popupAnchor: [0, selected ? -55 : -36],
         html: '<div class="mymsu-marker ' + (selected ? 'selected' : '') + '" style="background:' + location.color + '"><span>' + escapeHtml(location.categoryLetter) + '</span><span class="mymsu-label">' + escapeHtml(location.label) + '</span></div>',
       });
       const makeUserIcon = (avatarUrl) => L.divIcon({
         className: "mymsu-user-icon",
-        iconAnchor: [29, 62],
-        iconSize: [58, 64],
-        html: '<div class="mymsu-user"><div class="mymsu-user-avatar ' + (avatarUrl ? 'has-photo' : '') + '">' + (avatarUrl ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" />' : '') + '<span>YOU</span></div><div class="mymsu-user-tip"></div></div>'
+        iconAnchor: [22, 52],
+        iconSize: [44, 54],
+        html: '<div class="mymsu-user"><div class="mymsu-user-avatar ' + (avatarUrl ? 'has-photo' : '') + '">' + (avatarUrl ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" />' : '') + '</div><span class="mymsu-user-label">YOU</span><div class="mymsu-user-tip"></div></div>'
       });
       const fitLocations = (locations) => {
         const points = locations.length ? locations.map((item) => item.latLng) : [[7.992, 124.2509], [8.0021, 124.2699]];
         map.fitBounds(points, { padding: [26, 26], maxZoom: 17 });
       };
+      let lastRouteKey = "";
+      let lastUserAvatarUrl = null;
 
       window.updateMymsuMap = (payload) => {
         lastPayload = payload;
@@ -187,40 +250,74 @@ const mapHtml = `
           const html = '<div class="mymsu-popup-title">' + escapeHtml(location.name) + '</div><div class="mymsu-popup-meta">' + escapeHtml(location.category) + '</div><div class="mymsu-popup-body">' + escapeHtml(location.description) + '</div>';
           const existing = markers.get(location.id);
           if (existing) {
-            existing.setLatLng(location.latLng).setIcon(makeIcon(location, selected)).bindPopup(html, { autoPan: false });
-            existing.setZIndexOffset(selected ? 1000 : 0);
+            const nextLocationKey = locationKey(location, selected);
+            const nextLatLngKey = latLngKey(location.latLng);
+            if (existing._mymsuLatLngKey !== nextLatLngKey) {
+              existing.setLatLng(location.latLng);
+              existing._mymsuLatLngKey = nextLatLngKey;
+            }
+            if (existing._mymsuIconKey !== nextLocationKey) {
+              existing.setIcon(makeIcon(location, selected));
+              existing._mymsuIconKey = nextLocationKey;
+            }
+            if (existing._mymsuPopupHtml !== html) {
+              existing.bindPopup(html, { autoPan: false });
+              existing._mymsuPopupHtml = html;
+            }
+            const zIndexOffset = selected ? 1000 : 0;
+            if (existing._mymsuZIndexOffset !== zIndexOffset) {
+              existing.setZIndexOffset(zIndexOffset);
+              existing._mymsuZIndexOffset = zIndexOffset;
+            }
           } else {
+            const nextLocationKey = locationKey(location, selected);
             const marker = L.marker(location.latLng, { icon: makeIcon(location, selected), title: location.name, zIndexOffset: selected ? 1000 : 0 })
               .bindPopup(html, { autoPan: false })
               .on("click", () => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "select", id: location.id })))
               .addTo(map);
+            marker._mymsuIconKey = nextLocationKey;
+            marker._mymsuLatLngKey = latLngKey(location.latLng);
+            marker._mymsuPopupHtml = html;
+            marker._mymsuZIndexOffset = selected ? 1000 : 0;
             markers.set(location.id, marker);
           }
         });
 
-        if (routeHalo) routeHalo.remove();
-        if (routeLine) routeLine.remove();
-        routeHalo = null;
-        routeLine = null;
+        const nextRouteKey = routeKey(payload.routePoints);
         const routeDestinationKey = payload.routePoints.length > 1 ? latLngKey(payload.routePoints[payload.routePoints.length - 1]) : null;
         if (!routeDestinationKey) fittedRouteDestination = null;
-        if (payload.routePoints.length > 1) {
-          routeHalo = L.polyline(payload.routePoints, { color: "#FFFFFF", weight: 11, opacity: 0.88, lineCap: "round", lineJoin: "round" }).addTo(map);
-          routeLine = L.polyline(payload.routePoints, { color: "#16A34A", weight: 6, opacity: 0.94, lineCap: "round", lineJoin: "round" }).addTo(map);
+        if (nextRouteKey !== lastRouteKey) {
+          if (payload.routePoints.length > 1) {
+            if (!routeHalo) routeHalo = L.polyline(payload.routePoints, { color: "#FFFFFF", weight: 9, opacity: 0.84, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
+            else routeHalo.setLatLngs(payload.routePoints);
+            if (!routeLine) routeLine = L.polyline(payload.routePoints, { color: "#16A34A", weight: 5, opacity: 0.94, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
+            else routeLine.setLatLngs(payload.routePoints);
+          } else {
+            if (routeHalo) routeHalo.remove();
+            if (routeLine) routeLine.remove();
+            routeHalo = null;
+            routeLine = null;
+          }
+          lastRouteKey = nextRouteKey;
         }
 
         if (payload.user) {
-          const userIcon = makeUserIcon(payload.user.avatarUrl);
-          if (!userMarker) userMarker = L.marker(payload.user.latLng, { icon: userIcon, title: "Your live location", zIndexOffset: 1800 }).addTo(map);
-          else userMarker.setLatLng(payload.user.latLng).setIcon(userIcon);
+          if (!userMarker) userMarker = L.marker(payload.user.latLng, { icon: makeUserIcon(payload.user.avatarUrl), title: "Your live location", zIndexOffset: 1800 }).addTo(map);
+          else {
+            userMarker.setLatLng(payload.user.latLng);
+            if (lastUserAvatarUrl !== payload.user.avatarUrl) userMarker.setIcon(makeUserIcon(payload.user.avatarUrl));
+          }
+          lastUserAvatarUrl = payload.user.avatarUrl;
           if (typeof payload.user.accuracy === "number") {
             if (!accuracyCircle) accuracyCircle = L.circle(payload.user.latLng, { radius: Math.max(payload.user.accuracy, 8), color: "#0F766E", fillColor: "#0F766E", fillOpacity: 0.08, opacity: 0.25, weight: 1 }).addTo(map);
             else accuracyCircle.setLatLng(payload.user.latLng).setRadius(Math.max(payload.user.accuracy, 8));
           }
           const last = trail[trail.length - 1];
           if (!last || Math.abs(last[0] - payload.user.latLng[0]) > 0.000005 || Math.abs(last[1] - payload.user.latLng[1]) > 0.000005) trail = trail.concat([payload.user.latLng]).slice(-80);
-          if (movementLine) movementLine.remove();
-          movementLine = trail.length > 1 ? L.polyline(trail, { color: "#0F766E", weight: 4, opacity: 0.64, dashArray: "4 8" }).addTo(map) : null;
+          if (trail.length > 1) {
+            if (!movementLine) movementLine = L.polyline(trail, { color: "#0F766E", weight: 3, opacity: 0.58, dashArray: "4 8", interactive: false }).addTo(map);
+            else movementLine.setLatLngs(trail);
+          }
         } else {
           if (userMarker) userMarker.remove();
           if (accuracyCircle) accuracyCircle.remove();
@@ -229,6 +326,7 @@ const mapHtml = `
           accuracyCircle = null;
           movementLine = null;
           trail = [];
+          lastUserAvatarUrl = null;
         }
 
         const selectedMarker = payload.selectedId ? markers.get(payload.selectedId) : null;
@@ -238,12 +336,13 @@ const mapHtml = `
         } else if (!payload.selectedId) {
           openedSelectedId = null;
         }
-        if (payload.followUser && payload.user) map.panTo(payload.user.latLng, { animate: true, duration: 0.45 });
-        else if (payload.routePoints.length > 1 && fittedRouteDestination !== routeDestinationKey) {
+        if (payload.followUser && payload.user && !mapInteractionActive && !userCameraOverride) map.panTo(payload.user.latLng, { animate: true, duration: 0.45 });
+        else if (payload.routePoints.length > 1 && fittedRouteDestination !== routeDestinationKey && !mapInteractionActive) {
           map.fitBounds(payload.routePoints.concat(payload.user ? [payload.user.latLng] : []), { padding: [38, 38], maxZoom: 18 });
           fittedRouteDestination = routeDestinationKey;
         }
         else if (payload.fitVersion !== handledFitVersion) {
+          userCameraOverride = false;
           fitLocations(payload.locations);
           handledFitVersion = payload.fitVersion;
         }
@@ -251,6 +350,14 @@ const mapHtml = `
 
       document.addEventListener("message", (event) => window.updateMymsuMap(JSON.parse(event.data)));
       window.addEventListener("message", (event) => window.updateMymsuMap(JSON.parse(event.data)));
+      const mapElement = document.getElementById("map");
+      mapElement.addEventListener("touchstart", startMapGesture, { passive: true });
+      mapElement.addEventListener("touchend", endMapGesture, { passive: true });
+      mapElement.addEventListener("touchcancel", endMapGesture, { passive: true });
+      mapElement.addEventListener("mousedown", startMapGesture);
+      window.addEventListener("mouseup", endMapGesture);
+      map.on("dragstart zoomstart movestart", startMapGesture);
+      map.on("dragend zoomend moveend", endMapGesture);
       setTimeout(() => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "ready" })), 80);
     </script>
   </body>
@@ -281,6 +388,26 @@ export default function CampusMapCanvas({
   const trackingActive = trackingState === "active" && !!userMarker;
   const findingUser = trackingState === "loading";
   const routeActive = routePoints.length > 1;
+  const mapGesturePan = React.useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponderCapture: () => {
+          onMapGestureStart?.();
+          return false;
+        },
+        onMoveShouldSetPanResponderCapture: () => {
+          onMapGestureStart?.();
+          return false;
+        },
+        onPanResponderRelease: () => {
+          onMapGestureEnd?.();
+        },
+        onPanResponderTerminate: () => {
+          onMapGestureEnd?.();
+        },
+      }),
+    [onMapGestureEnd, onMapGestureStart],
+  );
 
   const payload = React.useMemo(
     () => ({
@@ -337,6 +464,14 @@ export default function CampusMapCanvas({
       if (message.type === "select" && message.id) {
         onSelectLocation(message.id);
       }
+
+      if (message.type === "map-gesture-start") {
+        onMapGestureStart?.();
+      }
+
+      if (message.type === "map-gesture-end") {
+        onMapGestureEnd?.();
+      }
     } catch {
       // Ignore malformed WebView messages.
     }
@@ -346,10 +481,11 @@ export default function CampusMapCanvas({
 
   return (
     <View
-      style={styles.mapShell}
+      style={[styles.mapShell, compactMap && styles.mapShellScrollGutter]}
       onTouchStart={onMapGestureStart}
       onTouchEnd={onMapGestureEnd}
       onTouchCancel={onMapGestureEnd}
+      {...mapGesturePan.panHandlers}
     >
       <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
         <WebView
@@ -409,6 +545,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     ...shadow,
+  },
+  mapShellScrollGutter: {
+    marginHorizontal: 17,
   },
   mapBoard: {
     position: "relative",

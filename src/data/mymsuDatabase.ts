@@ -306,6 +306,8 @@ export type ProspectusRecord = {
   program: string;
   yearLevel: string;
   semester: string;
+  summary?: string;
+  technicalElectives?: string[];
   subjects: string[];
 };
 
@@ -359,8 +361,16 @@ export const users: UserRecord[] = [
     name: "Student Demo",
     role: "student",
     username: "student",
-    email: "student@msumain.edu.ph",
+    email: "student@s.msumain.edu.ph",
     passwordHash: "demo:student123",
+  },
+  {
+    id: "user-faculty-demo",
+    name: "Faculty Demo",
+    role: "faculty",
+    username: "faculty",
+    email: "faculty@msumain.edu.ph",
+    passwordHash: "demo:faculty123",
   },
   {
     id: "user-visitor-demo",
@@ -2195,217 +2205,9 @@ export const campusLocations: CampusLocation[] = [
   },
 ];
 
-export const coursePrograms: CourseProgram[] = [
-  {
-    id: "bsit",
-    college: "College of Information and Computing Sciences",
-    program: "Bachelor of Science in Information Technology",
-    degree: "BSIT",
-    overview:
-      "Focuses on software development, databases, networking, web technologies, and applied information systems.",
-    tags: ["it", "software", "database", "web"],
-  },
-  {
-    id: "bscs",
-    college: "College of Information and Computing Sciences",
-    program: "Bachelor of Science in Computer Science",
-    degree: "BSCS",
-    overview:
-      "Focuses on computing theory, programming, algorithms, data structures, and software systems.",
-    tags: ["computer science", "programming", "algorithms"],
-  },
-  {
-    id: "bsis",
-    college: "College of Information and Computing Sciences",
-    program: "Bachelor of Science in Information Systems",
-    degree: "BSIS",
-    overview:
-      "Focuses on information systems, business processes, systems analysis, and organizational technology solutions.",
-    tags: ["information systems", "business", "analysis"],
-  },
-  {
-    id: "engineering",
-    college: "College of Engineering",
-    program: "Engineering Programs",
-    degree: "Engineering",
-    overview:
-      "Program group for students pursuing engineering fields. Students should check the college for the active curriculum and specialization list.",
-    tags: ["engineering", "college", "curriculum"],
-  },
-  {
-    id: "education",
-    college: "College of Education",
-    program: "Education Programs",
-    degree: "Education",
-    overview:
-      "Program group for students preparing for teaching, education leadership, and learner support fields.",
-    tags: ["education", "teaching", "college"],
-  },
-  {
-    id: "business",
-    college: "College of Business Administration and Accountancy",
-    program: "Business and Accountancy Programs",
-    degree: "Business",
-    overview:
-      "Program group for students pursuing management, accountancy, entrepreneurship, and related business fields.",
-    tags: ["business", "accountancy", "management"],
-  },
-];
+export const coursePrograms: CourseProgram[] = [];
 
-export const prospectusRecords: ProspectusRecord[] = [
-  {
-    id: "bsit-y1-s1",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "First Year",
-    semester: "First Semester",
-    subjects: [
-      "GEC101 | Understanding the Self | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "GEC102 | Purposive Communication | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "MAT104 | Discrete Structures | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "GEC104 | Mathematics in the Modern World | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "CCC100 | Fundamentals of Computing | Units: 3 | Lec: 2 | Lab: 3 | Prereq: None | Coreq: None",
-      "CCC101 | Computer Programming 1 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: None | Coreq: None",
-      "PED001 | Exercise Prescription and Management | Units: 2 | Lec: 2 | Lab: 0 | Prereq: None | Coreq: None",
-      "NST001 | National Service Training Program 1 | Units: (3) | Lec: 0 | Lab: 0 | Prereq: None | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y1-s2",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "First Year",
-    semester: "Second Semester",
-    subjects: [
-      "GEC103 | The Contemporary World | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "GEC105 | Readings in Philippine History | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "GEC106 | Art Appreciation | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "FPE101 | Fundamental of Peace Education | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "MAT051 | Calculus 1 | Units: 5 | Lec: 5 | Lab: 0 | Prereq: None | Coreq: None",
-      "CCC102 | Computer Programming 2 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC101 | Coreq: None",
-      "PED002 | Dance / Martial Arts | Units: 2 | Lec: 2 | Lab: 0 | Prereq: PED001 | Coreq: None",
-      "NST002 | National Service Training Program 2 | Units: (3) | Lec: 0 | Lab: 0 | Prereq: NST001 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y2-s1",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Second Year",
-    semester: "First Semester",
-    subjects: [
-      "GEC107 | Ethics | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "GEC108 | Science, Technology and Society | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "Lang Elect | Foreign Language | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "MAT061 | Calculus 2 | Units: 3 | Lec: 5 | Lab: 0 | Prereq: MAT051 | Coreq: None",
-      "CCC121 | Data Structures and Algorithms | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC102 | Coreq: None",
-      "ITE131 | Computer Architecture and Operating Systems | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "PED003 | Individual/Dual Sports/Traditional/Recreational Games | Units: 2 | Lec: 2 | Lab: 0 | Prereq: PED001 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y2-s2",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Second Year",
-    semester: "Second Semester",
-    subjects: [
-      "GEC109 | Life and Works of Rizal | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "ITE114/MAT121/* | Numerical Linear Algebra and Matrix Theory / Linear Algebra / Technical Elective | Units: 3 | Lec: 2 | Lab: 3 | Prereq: MAT104 and CCC101 | Coreq: None",
-      "STT071 | Probability and Statistical Inference for Computing Systems | Units: 2 | Lec: 2 | Lab: 0 | Prereq: CCC102 | Coreq: STT071.1",
-      "STT071.1 | Probability and Statistical Inference for Computing Systems Lab | Units: 1 | Lec: 0 | Lab: 3 | Prereq: CCC102 | Coreq: STT071",
-      "ITE125 | Introduction to Human Computer Interaction | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC102 | Coreq: None",
-      "ITE132 | Fundamentals of Computer Networks | Units: 3 | Lec: 2 | Lab: 3 | Prereq: ITE131 | Coreq: None",
-      "CCC151 | Information Management | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC121 | Coreq: None",
-      "PED004 | Team Sports | Units: 2 | Lec: 2 | Lab: 0 | Prereq: PED001 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y3-s1",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Third Year",
-    semester: "First Semester",
-    subjects: [
-      "HIS003 | History of Filipino Muslims and the Indigenous Peoples of MINSUPALA | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "FIL101 | Wika at Kultura sa Mapayapang Lipunan | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "ITE152 | Advance Databases | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-      "ISY108 | Requirements Engineering | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-      "CCC181 | Application Development and Emerging Technologies | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-      "ITE191/ITE198 | CAPSTONE 1 / Research Methods | Units: 3 | Lec: 3 | Lab: 0 | Prereq: ITE132 and CCC151 | Coreq: None",
-      "Tech Elect 1 | Technical Elective 1 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y3-s2",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Third Year",
-    semester: "Second Semester",
-    subjects: [
-      "FIL102 | Ekokritisismo at Pagpahalaga sa Kalikasan | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "ITE153 | Introduction to Artificial Intelligence and Expert Systems | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC121 | Coreq: None",
-      "ITE182 | System Integration, Administration and Maintenance | Units: 3 | Lec: 3 | Lab: 0 | Prereq: CCC151 | Coreq: None",
-      "ITE193 | Special Topics in IT | Units: 3 | Lec: 3 | Lab: 0 | Prereq: ITE152 | Coreq: None",
-      "ITE192/ITE199 | CAPSTONE 2 / Undergraduate Thesis | Units: 3 | Lec: 3 | Lab: 0 | Prereq: ITE191/ITE198 | Coreq: None",
-      "Tech Elect 2 | Technical Elective 2 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-      "Tech Elect 3 | Technical Elective 3 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y4-s1",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Fourth Year",
-    semester: "First Semester",
-    subjects: [
-      "ENT101 | Startup Essentials: Fundamentals of Innovation-driven Entrepreneurship | Units: 3 | Lec: 3 | Lab: 0 | Prereq: None | Coreq: None",
-      "ITE183 | Web Systems and Technologies | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC181 | Coreq: None",
-      "ITE184 | Social, Legal and Professional Issues in Computing | Units: 3 | Lec: 3 | Lab: 0 | Prereq: GEC107 | Coreq: None",
-      "ITE185 | Information Assurance and Security | Units: 3 | Lec: 3 | Lab: 0 | Prereq: CCC151 | Coreq: None",
-      "Tech Elect 4 | Technical Elective 4 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-      "Tech Elect 5 | Technical Elective 5 | Units: 3 | Lec: 2 | Lab: 3 | Prereq: CCC151 | Coreq: None",
-    ],
-  },
-  {
-    id: "bsit-y4-s2",
-    programId: "bsit",
-    program: "BS Information Technology - Database Systems Track",
-    yearLevel: "Fourth Year",
-    semester: "Second Semester",
-    subjects: [
-      "ITE197 | On-the-Job Training | Units: 6 | Lec: 0 | Lab: 40 | Prereq: None | Coreq: None",
-    ],
-  },
-  {
-    id: "bscs-y1-s1",
-    programId: "bscs",
-    program: "BS Computer Science",
-    yearLevel: "First Year",
-    semester: "First Semester",
-    subjects: [
-      "Introduction to Computing",
-      "Computer Programming 1",
-      "Calculus 1",
-      "Purposive Communication",
-      "Physical Education 1",
-    ],
-  },
-  {
-    id: "bsis-y1-s1",
-    programId: "bsis",
-    program: "BS Information Systems",
-    yearLevel: "First Year",
-    semester: "First Semester",
-    subjects: [
-      "Introduction to Information Systems",
-      "Computer Programming 1",
-      "Organization and Management Concepts",
-      "Mathematics in the Modern World",
-      "Physical Education 1",
-    ],
-  },
-];
+export const prospectusRecords: ProspectusRecord[] = [];
 
 export const academicEvents: AcademicEvent[] = [
   {

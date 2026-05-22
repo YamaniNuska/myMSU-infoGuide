@@ -15,6 +15,7 @@ import {
   updateStudentAccount,
   useAuthSession,
 } from "../../../src/auth/localAuth";
+import PopupSelect from "../../../src/components/PopupSelect";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import {
   deleteRecord,
@@ -22,6 +23,15 @@ import {
   upsertRecord,
   useAppData,
 } from "../../../src/data/appStore";
+import {
+  buildProspectusInfoRecordId,
+  buildProspectusRecordId,
+  getProgramProspectusStats,
+  isProspectusTermRecord,
+  parseProspectusSubject,
+  prospectusInfoSemester,
+  prospectusInfoYearLevel,
+} from "../../../src/data/curriculum";
 import AdminLocationMapPicker from "../../../src/features/campusMap/AdminLocationMapPicker";
 import {
   AcademicEvent,
@@ -76,9 +86,17 @@ const tabs: { key: AdminTab; label: string }[] = [
   { key: "locations", label: "Map" },
   { key: "courses", label: "Courses" },
   { key: "prospectus", label: "Prospectus" },
-  { key: "students", label: "Students" },
+  { key: "students", label: "Users" },
   { key: "announcements", label: "Announcements" },
 ];
+
+const facultyTabs: AdminTab[] = ["courses", "prospectus"];
+const curriculumCollegeOptions = [
+  "College of Engineering",
+  "College of Information and Computing Sciences",
+];
+const allProspectusCollegeOption = "All Colleges";
+
 
 const announcementAudienceOptions = [
   "All users",
@@ -125,6 +143,12 @@ const prospectusImportanceOptions = [
   "gateway",
   "foundation",
 ] as const;
+const prospectusImportanceSelectOptions = prospectusImportanceOptions.map(
+  (option) => ({
+    value: option,
+    label: option,
+  }),
+);
 
 const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   handbook: [
@@ -173,6 +197,11 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
   prospectus: [
     { key: "programId", label: "Program ID" },
     { key: "program", label: "Program name" },
+    {
+      key: "technicalElectives",
+      label: "Technical electives offered",
+      multiline: true,
+    },
     { key: "yearLevel", label: "Year level" },
     { key: "semester", label: "Semester" },
     { key: "subjects", label: "Subjects, comma separated", multiline: true },
@@ -230,7 +259,7 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
     tags: "",
   },
   courses: {
-    college: "",
+    college: "College of Engineering",
     program: "",
     degree: "",
     overview: "",
@@ -239,6 +268,7 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
   prospectus: {
     programId: "",
     program: "",
+    technicalElectives: "",
     yearLevel: "",
     semester: "",
     subjects: "",
@@ -267,6 +297,11 @@ const splitList = (value: string) =>
 const joinList = (value: unknown) =>
   Array.isArray(value) ? value.join(", ") : "";
 
+const toStringList = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item))
+    : splitList(String(value ?? ""));
+
 const defaultProspectusSubjectDraft: ProspectusSubjectDraft = {
   code: "",
   title: "",
@@ -280,15 +315,71 @@ const defaultProspectusSubjectDraft: ProspectusSubjectDraft = {
 
 const formatProspectusSubject = (draft: ProspectusSubjectDraft) =>
   [
-    draft.code.trim(),
-    draft.title.trim(),
+    draft.code,
+    draft.title,
     `Units: ${draft.units.trim() || "0"}`,
     `Lec: ${draft.lec.trim() || "0"}`,
     `Lab: ${draft.lab.trim() || "0"}`,
-    `Prereq: ${draft.prereq.trim() || "None"}`,
-    `Coreq: ${draft.coreq.trim() || "None"}`,
+    `Prereq: ${draft.prereq.trim() ? draft.prereq : "None"}`,
+    `Coreq: ${draft.coreq.trim() ? draft.coreq : "None"}`,
     `Importance: ${draft.importance.trim() || "standard"}`,
   ].join(" | ");
+
+const stripTableSeparatorPadding = (value: string) => {
+  let nextValue = value;
+
+  if (nextValue.startsWith(" ")) {
+    nextValue = nextValue.slice(1);
+  }
+
+  if (nextValue.endsWith(" ")) {
+    nextValue = nextValue.slice(0, -1);
+  }
+
+  return nextValue;
+};
+
+const getDraftSubjectValue = (parts: string[], label: string) => {
+  const part =
+    parts.find((item) =>
+      item.trimStart().toLowerCase().startsWith(`${label.toLowerCase()}:`),
+    ) ?? "";
+  const value = stripTableSeparatorPadding(part)
+    .split(":")
+    .slice(1)
+    .join(":");
+
+  return value.startsWith(" ") ? value.slice(1) : value;
+};
+
+const parseProspectusSubjectDraft = (subject: string): ProspectusSubjectDraft => {
+  const parts = subject.split("|");
+
+  return {
+    code: stripTableSeparatorPadding(parts[0] ?? ""),
+    title: stripTableSeparatorPadding(parts[1] ?? ""),
+    units: getDraftSubjectValue(parts, "Units") || "0",
+    lec: getDraftSubjectValue(parts, "Lec") || "0",
+    lab: getDraftSubjectValue(parts, "Lab") || "0",
+    prereq: getDraftSubjectValue(parts, "Prereq") || "None",
+    coreq: getDraftSubjectValue(parts, "Coreq") || "None",
+    importance: getDraftSubjectValue(parts, "Importance").trim() || "standard",
+  };
+};
+
+const parseTechnicalElective = (value: string) => {
+  const trimmed = value.trim();
+  const [first = "", ...rest] = trimmed.split(/\s+/);
+  const looksLikeCode = /^[A-Z]{2,}\s?\d+[A-Z]?$/i.test(first);
+
+  return {
+    code: looksLikeCode ? first : "",
+    title: looksLikeCode ? rest.join(" ") : trimmed,
+  };
+};
+
+const formatTechnicalElective = (code: string, title: string) =>
+  [code.trim(), title.trim()].filter(Boolean).join(" ");
 
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
@@ -461,59 +552,111 @@ export default function AdminPanelScreen() {
   const data = useAppData();
   const { width } = useWindowDimensions();
   const isWide = width >= 760;
-  const [activeTab, setActiveTab] = React.useState<AdminTab>("handbook");
+  const [activeTab, setActiveTab] = React.useState<AdminTab>("courses");
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState(defaultForm.handbook);
+  const [form, setForm] = React.useState(defaultForm.courses);
   const [query, setQuery] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
-  const [prospectusSubjectDraft, setProspectusSubjectDraft] = React.useState("");
-  const [prospectusStructuredDraft, setProspectusStructuredDraft] =
-    React.useState<ProspectusSubjectDraft>(defaultProspectusSubjectDraft);
   const [prospectusSubjects, setProspectusSubjects] = React.useState<string[]>([]);
+  const [technicalElectiveRows, setTechnicalElectiveRows] = React.useState<string[]>([]);
   const [courseTagDraft, setCourseTagDraft] = React.useState("");
   const [courseTags, setCourseTags] = React.useState<string[]>([]);
+  const [activeProspectusCollege, setActiveProspectusCollege] = React.useState(
+    allProspectusCollegeOption,
+  );
   const [scrollEnabled, setScrollEnabled] = React.useState(true);
+  const canUseConsole = session?.role === "admin" || session?.role === "faculty";
+  const isFacultyConsole = session?.role === "faculty";
+  const visibleTabs = React.useMemo(
+    () =>
+      isFacultyConsole
+        ? tabs.filter((tab) => facultyTabs.includes(tab.key))
+        : tabs,
+    [isFacultyConsole],
+  );
+  const canDeleteRecords = session?.role === "admin";
 
   const courseCollegeOptions = React.useMemo(
     () =>
-      Array.from(new Set(data.coursePrograms.map((item) => item.college))).filter(
-        Boolean,
-      ),
+      Array.from(
+        new Set([
+          ...curriculumCollegeOptions,
+          ...data.coursePrograms
+            .map((program) => program.college.trim())
+            .filter(Boolean),
+        ]),
+      ).sort((left, right) => left.localeCompare(right)),
     [data.coursePrograms],
   );
 
-  const setTab = (tab: AdminTab) => {
+  const prospectusCollegeOptions = React.useMemo(
+    () => [allProspectusCollegeOption, ...courseCollegeOptions],
+    [courseCollegeOptions],
+  );
+
+  const activeProspectusPrograms = React.useMemo(
+    () =>
+      activeProspectusCollege === allProspectusCollegeOption
+        ? data.coursePrograms
+        : data.coursePrograms.filter(
+            (program) => program.college === activeProspectusCollege,
+          ),
+    [activeProspectusCollege, data.coursePrograms],
+  );
+
+  const selectedProspectusProgram = React.useMemo(
+    () =>
+      data.coursePrograms.find((program) => program.id === form.programId) ?? null,
+    [data.coursePrograms, form.programId],
+  );
+
+  const selectedProspectusStats = React.useMemo(
+    () =>
+      form.programId
+        ? getProgramProspectusStats(form.programId, data.prospectusRecords)
+        : null,
+    [data.prospectusRecords, form.programId],
+  );
+
+  const getProspectusMetaForProgram = React.useCallback(
+    (programId: string) =>
+      data.prospectusRecords.find(
+        (record) =>
+          record.programId === programId &&
+          record.technicalElectives?.length,
+      ) ?? null,
+    [data.prospectusRecords],
+  );
+
+  const setTab = React.useCallback((tab: AdminTab) => {
+    if (isFacultyConsole && !facultyTabs.includes(tab)) {
+      return;
+    }
+
     setActiveTab(tab);
     setEditingId(null);
     setForm(defaultForm[tab]);
-    setProspectusSubjectDraft("");
-    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
     setProspectusSubjects([]);
+    setTechnicalElectiveRows([]);
     setCourseTagDraft("");
     setCourseTags([]);
     setQuery("");
     setMessage("");
-  };
+    if (tab === "prospectus") {
+      setActiveProspectusCollege(allProspectusCollegeOption);
+    }
+  }, [isFacultyConsole]);
+
+  React.useEffect(() => {
+    if (isFacultyConsole && !facultyTabs.includes(activeTab)) {
+      setTab("courses");
+    }
+  }, [activeTab, isFacultyConsole, setTab]);
 
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
-
-  const updateProspectusSubjectDraft = (
-    key: keyof ProspectusSubjectDraft,
-    value: string,
-  ) => {
-    setProspectusStructuredDraft((current) => ({ ...current, [key]: value }));
-  };
-
-  React.useEffect(() => {
-    if (activeTab !== "prospectus") {
-      return;
-    }
-
-    setProspectusSubjects(splitList(form.subjects));
-  }, [activeTab, form.subjects]);
 
   React.useEffect(() => {
     if (activeTab !== "courses") {
@@ -525,38 +668,126 @@ export default function AdminPanelScreen() {
 
   const selectProspectusProgram = (programId: string) => {
     const program = data.coursePrograms.find((item) => item.id === programId);
+    const prospectusMeta = getProspectusMetaForProgram(programId);
+    const nextTechnicalElectives = prospectusMeta?.technicalElectives ?? [];
 
     setForm((current) => ({
       ...current,
       programId,
       program: program?.program ?? current.program,
+      technicalElectives: nextTechnicalElectives.join(", "),
     }));
+    setTechnicalElectiveRows(nextTechnicalElectives);
   };
 
-  const addProspectusSubject = () => {
-    const subject =
-      prospectusSubjectDraft.trim() ||
-      formatProspectusSubject(prospectusStructuredDraft);
+  const setProspectusSubjectRows = (
+    nextSubjects:
+      | string[]
+      | ((currentSubjects: string[]) => string[]),
+  ) => {
+    setProspectusSubjects((currentSubjects) => {
+      const resolvedSubjects =
+        typeof nextSubjects === "function"
+          ? nextSubjects(currentSubjects)
+          : nextSubjects;
 
-    if (
-      !prospectusSubjectDraft.trim() &&
-      (!prospectusStructuredDraft.code.trim() ||
-        !prospectusStructuredDraft.title.trim())
-    ) {
+      setForm((current) => ({
+        ...current,
+        subjects: resolvedSubjects.join(", "),
+      }));
+
+      return resolvedSubjects;
+    });
+  };
+
+  const setTechnicalElectiveRowList = (nextElectives: string[]) => {
+    setTechnicalElectiveRows(nextElectives);
+    updateField("technicalElectives", nextElectives.join(", "));
+  };
+
+  const updateProspectusSubjectRow = (
+    indexToUpdate: number,
+    patch: Partial<ProspectusSubjectDraft>,
+  ) => {
+    setProspectusSubjectRows((currentSubjects) =>
+      currentSubjects.map((subject, index) => {
+        if (index !== indexToUpdate) {
+          return subject;
+        }
+
+        const parsed = parseProspectusSubjectDraft(subject);
+
+        return formatProspectusSubject({
+          code: patch.code ?? parsed.code,
+          title: patch.title ?? parsed.title,
+          units: patch.units ?? parsed.units,
+          lec: patch.lec ?? parsed.lec,
+          lab: patch.lab ?? parsed.lab,
+          prereq: patch.prereq ?? parsed.prereq,
+          coreq: patch.coreq ?? parsed.coreq,
+          importance: patch.importance ?? parsed.importance,
+        });
+      }),
+    );
+  };
+
+  const addProspectusSubjectRow = () => {
+    setProspectusSubjectRows([
+      ...prospectusSubjects,
+      formatProspectusSubject(defaultProspectusSubjectDraft),
+    ]);
+  };
+
+  const removeProspectusSubject = (indexToRemove: number) => {
+    const nextSubjects = prospectusSubjects.filter(
+      (_, index) => index !== indexToRemove,
+    );
+    setProspectusSubjectRows(nextSubjects);
+  };
+
+  const moveProspectusSubject = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= prospectusSubjects.length) {
       return;
     }
 
-    const nextSubjects = [...prospectusSubjects, subject];
-    setProspectusSubjects(nextSubjects);
-    updateField("subjects", nextSubjects.join(", "));
-    setProspectusSubjectDraft("");
-    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
+    const nextSubjects = [...prospectusSubjects];
+    const current = nextSubjects[index];
+    nextSubjects[index] = nextSubjects[targetIndex];
+    nextSubjects[targetIndex] = current;
+    setProspectusSubjectRows(nextSubjects);
   };
 
-  const removeProspectusSubject = (subject: string) => {
-    const nextSubjects = prospectusSubjects.filter((item) => item !== subject);
-    setProspectusSubjects(nextSubjects);
-    updateField("subjects", nextSubjects.join(", "));
+  const addTechnicalElectiveRow = () => {
+    setTechnicalElectiveRowList([...technicalElectiveRows, ""]);
+  };
+
+  const updateTechnicalElectiveRow = (
+    indexToUpdate: number,
+    patch: Partial<{ code: string; title: string }>,
+  ) => {
+    const nextElectives = technicalElectiveRows.map((elective, index) => {
+      if (index !== indexToUpdate) {
+        return elective;
+      }
+
+      const parsed = parseTechnicalElective(elective);
+
+      return formatTechnicalElective(
+        patch.code ?? parsed.code,
+        patch.title ?? parsed.title,
+      );
+    });
+
+    setTechnicalElectiveRowList(nextElectives);
+  };
+
+  const removeTechnicalElectiveRow = (indexToRemove: number) => {
+    const nextElectives = technicalElectiveRows.filter(
+      (_, index) => index !== indexToRemove,
+    );
+    setTechnicalElectiveRowList(nextElectives);
   };
 
   const addCourseTag = () => {
@@ -630,25 +861,17 @@ export default function AdminPanelScreen() {
     }
 
     if (activeTab === "courses" && field.key === "college") {
-      return courseCollegeOptions.length > 0 ? (
+      return (
         <View style={styles.choiceStack}>
           {renderChoiceField("college", courseCollegeOptions)}
           <TextInput
             style={styles.input}
             value={form.college ?? ""}
             onChangeText={(value) => updateField("college", value)}
-            placeholder="Or type a new college name"
+            placeholder="Type a new college name"
             placeholderTextColor="#998B8B"
           />
         </View>
-      ) : (
-        <TextInput
-          style={styles.input}
-          value={form.college ?? ""}
-          onChangeText={(value) => updateField("college", value)}
-          placeholder="College"
-          placeholderTextColor="#998B8B"
-        />
       );
     }
 
@@ -660,7 +883,10 @@ export default function AdminPanelScreen() {
       return renderChoiceField("semester", prospectusSemesterOptions);
     }
 
-    if (activeTab === "prospectus" && field.key === "programId") {
+    if (
+      activeTab === "prospectus" &&
+      field.key === "programId"
+    ) {
       if (data.coursePrograms.length === 0) {
         return (
           <Text style={styles.helperText}>
@@ -670,49 +896,99 @@ export default function AdminPanelScreen() {
       }
 
       return (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.programChoiceRow}
-        >
-          {data.coursePrograms.map((program) => {
-            const selected = form.programId === program.id;
+        <View style={styles.choiceStack}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.programChoiceRow}
+          >
+            {prospectusCollegeOptions.map((college) => {
+              const selected = activeProspectusCollege === college;
 
-            return (
-              <Pressable
-                key={program.id}
-                style={[
-                  styles.programChoice,
-                  selected && styles.choiceChipActive,
-                ]}
-                onPress={() => selectProspectusProgram(program.id)}
-              >
-                <Text
-                  style={[
-                    styles.programChoiceTitle,
-                    selected && styles.choiceChipTextActive,
-                  ]}
-                  numberOfLines={1}
+              return (
+                <Pressable
+                  key={college}
+                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                  onPress={() => setActiveProspectusCollege(college)}
                 >
-                  {program.degree || program.id}
-                </Text>
-                <Text
-                  style={[
-                    styles.programChoiceSubtitle,
-                    selected && styles.choiceChipTextActive,
-                  ]}
-                  numberOfLines={2}
-                >
-                  {program.program}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    style={[
+                      styles.choiceChipText,
+                      selected && styles.choiceChipTextActive,
+                    ]}
+                  >
+                    {college}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {activeProspectusPrograms.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.programChoiceRow}
+            >
+              {activeProspectusPrograms.map((program) => {
+                const selected = form.programId === program.id;
+                const stats = getProgramProspectusStats(
+                  program.id,
+                  data.prospectusRecords,
+                );
+
+                return (
+                  <Pressable
+                    key={program.id}
+                    style={[
+                      styles.programChoice,
+                      selected && styles.choiceChipActive,
+                    ]}
+                    onPress={() => selectProspectusProgram(program.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.programChoiceTitle,
+                        selected && styles.choiceChipTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {program.degree || program.id}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.programChoiceSubtitle,
+                        selected && styles.choiceChipTextActive,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {program.program}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.programChoiceMeta,
+                        selected && styles.choiceChipTextActive,
+                      ]}
+                    >
+                      {stats.recordCount} term(s) | {stats.subjectCount} subject(s)
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <Text style={styles.helperText}>
+              No course/program records found for this college yet.
+            </Text>
+          )}
+        </View>
       );
     }
 
-    if (activeTab === "prospectus" && field.key === "program") {
+    if (
+      activeTab === "prospectus" &&
+      field.key === "program"
+    ) {
       return (
         <View style={styles.readonlyField}>
           <Text style={styles.readonlyFieldText}>
@@ -722,177 +998,230 @@ export default function AdminPanelScreen() {
       );
     }
 
-    if (activeTab === "prospectus" && field.key === "subjects") {
+    if (activeTab === "prospectus" && field.key === "technicalElectives") {
       return (
         <View style={styles.subjectBuilder}>
-          <View style={styles.prospectusSubjectForm}>
-            <View style={styles.inlineFieldRow}>
-              <View style={styles.inlineFieldWide}>
-                <Text style={styles.inlineFieldLabel}>Subject code</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.code}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("code", value)
-                  }
-                  placeholder="ITE183"
-                  placeholderTextColor="#998B8B"
-                  autoCapitalize="characters"
-                />
-              </View>
-              <View style={styles.inlineFieldWide}>
-                <Text style={styles.inlineFieldLabel}>Title</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.title}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("title", value)
-                  }
-                  placeholder="Web Systems and Technologies"
-                  placeholderTextColor="#998B8B"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inlineFieldRow}>
-              <View style={styles.inlineField}>
-                <Text style={styles.inlineFieldLabel}>Units</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.units}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("units", value)
-                  }
-                  placeholder="3"
-                  placeholderTextColor="#998B8B"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.inlineField}>
-                <Text style={styles.inlineFieldLabel}>Lec</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.lec}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("lec", value)
-                  }
-                  placeholder="3"
-                  placeholderTextColor="#998B8B"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.inlineField}>
-                <Text style={styles.inlineFieldLabel}>Lab</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.lab}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("lab", value)
-                  }
-                  placeholder="0"
-                  placeholderTextColor="#998B8B"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inlineFieldRow}>
-              <View style={styles.inlineFieldWide}>
-                <Text style={styles.inlineFieldLabel}>Prerequisite</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.prereq}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("prereq", value)
-                  }
-                  placeholder="CCC181 or None"
-                  placeholderTextColor="#998B8B"
-                />
-              </View>
-              <View style={styles.inlineFieldWide}>
-                <Text style={styles.inlineFieldLabel}>Co-requisite</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prospectusStructuredDraft.coreq}
-                  onChangeText={(value) =>
-                    updateProspectusSubjectDraft("coreq", value)
-                  }
-                  placeholder="STT071.1 or None"
-                  placeholderTextColor="#998B8B"
-                />
-              </View>
-            </View>
-
-            <View>
-              <Text style={styles.inlineFieldLabel}>Importance</Text>
-              <View style={styles.choiceRow}>
-                {prospectusImportanceOptions.map((option) => {
-                  const selected = prospectusStructuredDraft.importance === option;
-
-                  return (
-                    <Pressable
-                      key={option}
-                      style={[
-                        styles.choiceChip,
-                        selected && styles.choiceChipActive,
-                      ]}
-                      onPress={() =>
-                        updateProspectusSubjectDraft("importance", option)
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.choiceChipText,
-                          selected && styles.choiceChipTextActive,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <TextInput
-              style={[styles.input, styles.subjectComposerInput]}
-              value={prospectusSubjectDraft}
-              onChangeText={setProspectusSubjectDraft}
-              placeholder="Optional: paste a complete subject line instead"
-              placeholderTextColor="#998B8B"
-              multiline
-            />
-
-            <Text style={styles.helperText}>
-              Saved format: Code | Title | Units | Lec | Lab | Prereq | Coreq |
-              Importance.
-            </Text>
-
-            <Pressable style={styles.inlineAddButton} onPress={addProspectusSubject}>
+          <View style={styles.subjectTableToolbar}>
+            <Pressable style={styles.inlineAddButton} onPress={addTechnicalElectiveRow}>
               <Ionicons name="add" size={18} color={colors.surface} />
-              <Text style={styles.inlineAddButtonText}>Add Subject</Text>
+              <Text style={styles.inlineAddButtonText}>Add Elective</Text>
             </Pressable>
+            <Text style={styles.helperText}>
+              Add one technical elective per row.
+            </Text>
           </View>
 
-          {prospectusSubjects.length > 0 ? (
-            <View style={styles.subjectList}>
-              {prospectusSubjects.map((subject, index) => (
-                <View key={`${subject}-${index}`} style={styles.subjectItem}>
-                  <Text style={styles.subjectItemIndex}>{index + 1}</Text>
-                  <Text style={styles.subjectItemText}>{subject}</Text>
-                  <Pressable onPress={() => removeProspectusSubject(subject)}>
-                    <Ionicons
-                      name="close-circle"
-                      size={18}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-                </View>
-              ))}
+          {technicalElectiveRows.length > 0 ? (
+            <View style={styles.electiveTable}>
+              <View style={[styles.prospectusInfoTableRow, styles.subjectTableHeader]}>
+                <Text style={[styles.subjectTableCell, styles.electiveNumberCell]}>#</Text>
+                <Text style={[styles.subjectTableCell, styles.electiveCodeCell]}>
+                  Code
+                </Text>
+                <Text style={[styles.subjectTableCell, styles.electiveValueCell]}>
+                  Elective title
+                </Text>
+                <Text style={[styles.subjectTableCell, styles.electiveActionCell]}>
+                  Action
+                </Text>
+              </View>
+              {technicalElectiveRows.map((elective, index) => {
+                const parsed = parseTechnicalElective(elective);
+
+                return (
+                  <View key={`technical-elective-${index}`} style={styles.prospectusInfoTableRow}>
+                    <Text style={[styles.subjectTableCell, styles.electiveNumberCell]}>
+                      {index + 1}
+                    </Text>
+                    <View style={[styles.subjectTableCell, styles.electiveCodeCell]}>
+                      <TextInput
+                        style={styles.prospectusInfoInput}
+                        value={parsed.code}
+                        onChangeText={(value) =>
+                          updateTechnicalElectiveRow(index, { code: value })
+                        }
+                        placeholder="ITD100"
+                        placeholderTextColor="#998B8B"
+                        autoCapitalize="characters"
+                      />
+                    </View>
+                    <View style={[styles.subjectTableCell, styles.electiveValueCell]}>
+                      <TextInput
+                        style={styles.prospectusInfoInput}
+                        value={parsed.title}
+                        onChangeText={(value) =>
+                          updateTechnicalElectiveRow(index, { title: value })
+                        }
+                        placeholder="Course title"
+                        placeholderTextColor="#998B8B"
+                      />
+                    </View>
+                    <View style={[styles.subjectTableCell, styles.electiveActionCell]}>
+                      <Pressable onPress={() => removeTechnicalElectiveRow(index)}>
+                        <Ionicons name="close-circle" size={18} color={colors.muted} />
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           ) : (
             <Text style={styles.helperText}>
-              Add each prospectus subject as its own line.
+              Add an elective row when this prospectus has technical electives.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    if (activeTab === "prospectus" && field.key === "subjects") {
+      return (
+        <View style={styles.subjectBuilder}>
+          <View style={styles.subjectTableToolbar}>
+            <Pressable style={styles.inlineAddButton} onPress={addProspectusSubjectRow}>
+              <Ionicons name="add" size={18} color={colors.surface} />
+              <Text style={styles.inlineAddButtonText}>Add Row</Text>
+            </Pressable>
+            <Text style={styles.helperText}>
+              Edit subjects directly in the table. Use None when there is no
+              prerequisite or co-requisite.
+            </Text>
+          </View>
+
+          {prospectusSubjects.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.subjectTable}>
+                <View style={[styles.subjectTableRow, styles.subjectTableHeader]}>
+                  <Text style={[styles.subjectTableCell, styles.subjectNumberCell]}>#</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectCodeCell]}>Code</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectProgramCell]}>Program / Subject</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectSmallCell]}>Units</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectSmallCell]}>Lec</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectSmallCell]}>Lab</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectReqCell]}>Pre-requisite</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectReqCell]}>Co-requisite</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectImportanceCell]}>Importance</Text>
+                  <Text style={[styles.subjectTableCell, styles.subjectActionCell]}>Actions</Text>
+                </View>
+                {prospectusSubjects.map((subject, index) => {
+                  const parsed = parseProspectusSubjectDraft(subject);
+
+                  return (
+                    <View key={`prospectus-subject-${index}`} style={styles.subjectTableRow}>
+                      <Text style={[styles.subjectTableCell, styles.subjectNumberCell]}>{index + 1}</Text>
+                      <View style={[styles.subjectTableCell, styles.subjectCodeCell]}>
+                        <TextInput
+                          style={styles.subjectTableInput}
+                          value={parsed.code}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { code: value })
+                          }
+                          placeholder="Code"
+                          placeholderTextColor="#998B8B"
+                          autoCapitalize="characters"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectProgramCell]}>
+                        <TextInput
+                          style={styles.subjectTableInput}
+                          value={parsed.title}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { title: value })
+                          }
+                          placeholder="Program / subject title"
+                          placeholderTextColor="#998B8B"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectSmallCell]}>
+                        <TextInput
+                          style={[styles.subjectTableInput, styles.subjectTableInputCenter]}
+                          value={parsed.units}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { units: value })
+                          }
+                          placeholder="3"
+                          placeholderTextColor="#998B8B"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectSmallCell]}>
+                        <TextInput
+                          style={[styles.subjectTableInput, styles.subjectTableInputCenter]}
+                          value={parsed.lec}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { lec: value })
+                          }
+                          placeholder="3"
+                          placeholderTextColor="#998B8B"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectSmallCell]}>
+                        <TextInput
+                          style={[styles.subjectTableInput, styles.subjectTableInputCenter]}
+                          value={parsed.lab}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { lab: value })
+                          }
+                          placeholder="0"
+                          placeholderTextColor="#998B8B"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectReqCell]}>
+                        <TextInput
+                          style={styles.subjectTableInput}
+                          value={parsed.prereq}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { prereq: value })
+                          }
+                          placeholder="None"
+                          placeholderTextColor="#998B8B"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectReqCell]}>
+                        <TextInput
+                          style={styles.subjectTableInput}
+                          value={parsed.coreq}
+                          onChangeText={(value) =>
+                            updateProspectusSubjectRow(index, { coreq: value })
+                          }
+                          placeholder="None"
+                          placeholderTextColor="#998B8B"
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectImportanceCell]}>
+                        <PopupSelect
+                          compact
+                          label="Importance"
+                          value={parsed.importance}
+                          options={prospectusImportanceSelectOptions}
+                          onChange={(value) =>
+                            updateProspectusSubjectRow(index, {
+                              importance: value,
+                            })
+                          }
+                        />
+                      </View>
+                      <View style={[styles.subjectTableCell, styles.subjectActionCell, styles.subjectItemActions]}>
+                        <Pressable onPress={() => moveProspectusSubject(index, -1)}>
+                          <Ionicons name="arrow-up-circle-outline" size={18} color={colors.muted} />
+                        </Pressable>
+                        <Pressable onPress={() => moveProspectusSubject(index, 1)}>
+                          <Ionicons name="arrow-down-circle-outline" size={18} color={colors.muted} />
+                        </Pressable>
+                        <Pressable onPress={() => removeProspectusSubject(index)}>
+                          <Ionicons name="close-circle" size={18} color={colors.muted} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          ) : (
+            <Text style={styles.helperText}>
+              Add a row to start encoding this semester.
             </Text>
           )}
         </View>
@@ -971,6 +1300,15 @@ export default function AdminPanelScreen() {
       body,
       raw,
     });
+    const prospectusProgramsForList =
+      activeProspectusCollege === allProspectusCollegeOption
+        ? data.coursePrograms
+        : data.coursePrograms.filter(
+            (program) => program.college === activeProspectusCollege,
+          );
+    const prospectusProgramCollegeMap = new Map(
+      data.coursePrograms.map((program) => [program.id, program.college]),
+    );
 
     const items: ListItem[] =
       activeTab === "handbook"
@@ -996,18 +1334,58 @@ export default function AdminPanelScreen() {
                 )
               : activeTab === "courses"
                 ? data.coursePrograms.map((item) =>
-                    mapItem(item, item.program, item.college, item.overview),
+                    mapItem(
+                      item,
+                      item.program,
+                      item.college,
+                      `${item.overview} Linked prospectus terms: ${
+                        getProgramProspectusStats(item.id, data.prospectusRecords)
+                          .recordCount
+                      }.`,
+                    ),
                   )
                 : activeTab === "prospectus"
-                  ? data.prospectusRecords.map((item) =>
-                      mapItem(
-                        item,
-                        `${item.program} - ${item.yearLevel}`,
-                        item.semester,
-                        item.subjects.join(", "),
-                      ),
-                    )
-                  : activeTab === "students"
+                  ? [
+                      ...prospectusProgramsForList.map((program) => {
+                        const meta = getProspectusMetaForProgram(program.id);
+
+                        return mapItem(
+                          {
+                            id: meta?.id ?? buildProspectusInfoRecordId(program.id),
+                            programId: program.id,
+                            program: program.program,
+                            technicalElectives: meta?.technicalElectives ?? [],
+                            yearLevel: "",
+                            semester: "",
+                            subjects: [],
+                          },
+                          program.program,
+                          `${program.college} | Prospectus info`,
+                          `Technical electives: ${
+                            meta?.technicalElectives?.length ?? 0
+                          }.`,
+                        );
+                      }),
+                      ...data.prospectusRecords.filter((item) => {
+                        const college = prospectusProgramCollegeMap.get(item.programId);
+
+                        return (
+                          isProspectusTermRecord(item) &&
+                          (activeProspectusCollege === allProspectusCollegeOption ||
+                            college === activeProspectusCollege)
+                        );
+                      }).map((item) => {
+                        const stats = item.subjects.length;
+
+                        return mapItem(
+                          item,
+                          `${item.program} - ${item.yearLevel}`,
+                          item.semester,
+                          `${stats} subject(s). ${item.subjects.join(", ")}`,
+                        );
+                      }),
+                    ]
+                    : activeTab === "students"
                     ? data.users
                         .filter((item) => item.role === "student")
                         .map((item) =>
@@ -1034,27 +1412,86 @@ export default function AdminPanelScreen() {
         .toLowerCase()
         .includes(cleanQuery),
     );
-  }, [activeTab, data, query]);
+  }, [activeProspectusCollege, activeTab, data, getProspectusMetaForProgram, query]);
+
+  const prospectusCollegeGroups = React.useMemo(() => {
+    const programCollegeMap = new Map(
+      data.coursePrograms.map((program) => [program.id, program.college]),
+    );
+    const groups = new Map<string, ListItem[]>();
+
+    listItems.forEach((item) => {
+      const programId = String(item.raw.programId ?? "");
+      const college =
+        programCollegeMap.get(programId) ||
+        item.subtitle.split("|")[0]?.trim() ||
+        "Other Colleges";
+
+      groups.set(college, [...(groups.get(college) ?? []), item]);
+    });
+
+    return Array.from(groups, ([college, items]) => ({
+      college,
+      items,
+    })).sort((left, right) => left.college.localeCompare(right.college));
+  }, [data.coursePrograms, listItems]);
+
+  const renderRecordCard = (item: ListItem) => (
+    <View key={item.id} style={styles.card}>
+      <Text style={styles.cardKicker}>{item.subtitle}</Text>
+      <Text style={styles.cardTitle}>{item.title}</Text>
+      <Text style={styles.cardBody} numberOfLines={3}>
+        {item.body}
+      </Text>
+      <View style={styles.actionRow}>
+        <Pressable style={styles.editButton} onPress={() => editItem(item)}>
+          <Ionicons name="create-outline" size={16} color={colors.maroon} />
+          <Text style={styles.editButtonText}>Edit</Text>
+        </Pressable>
+        {canDeleteRecords ? (
+          <Pressable style={styles.deleteButton} onPress={() => deleteItem(item)}>
+            <Ionicons name="trash-outline" size={16} color={colors.surface} />
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
 
   const resetForm = () => {
     setEditingId(null);
     setForm(defaultForm[activeTab]);
-    setProspectusSubjectDraft("");
-    setProspectusStructuredDraft(defaultProspectusSubjectDraft);
     setProspectusSubjects([]);
+    setTechnicalElectiveRows([]);
     setCourseTagDraft("");
     setCourseTags([]);
   };
 
   const editItem = (item: ListItem) => {
     setEditingId(item.id);
-    const nextForm = recordToForm(activeTab, item.raw);
-    setForm(nextForm);
+    let nextForm = recordToForm(activeTab, item.raw);
     if (activeTab === "prospectus") {
-      setProspectusSubjectDraft("");
-      setProspectusStructuredDraft(defaultProspectusSubjectDraft);
-      setProspectusSubjects(splitList(nextForm.subjects));
+      const meta = nextForm.programId
+        ? getProspectusMetaForProgram(nextForm.programId)
+        : null;
+      const linkedProgram = nextForm.programId
+        ? data.coursePrograms.find((program) => program.id === nextForm.programId)
+        : null;
+
+      nextForm = {
+        ...nextForm,
+        technicalElectives:
+          nextForm.technicalElectives ||
+          (meta?.technicalElectives ?? []).join(", "),
+      };
+
+      setProspectusSubjects(toStringList(item.raw.subjects));
+      setTechnicalElectiveRows(splitList(nextForm.technicalElectives));
+      if (linkedProgram?.college) {
+        setActiveProspectusCollege(linkedProgram.college);
+      }
     }
+    setForm(nextForm);
     if (activeTab === "courses") {
       setCourseTagDraft("");
       setCourseTags(splitList(nextForm.tags));
@@ -1079,6 +1516,11 @@ export default function AdminPanelScreen() {
   };
 
   const deleteItem = async (item: ListItem) => {
+    if (!canDeleteRecords) {
+      setMessage("Faculty accounts can add and edit courses and prospectus, but only admin can delete records.");
+      return;
+    }
+
     if (activeTab === "students") {
       const result = await deleteStudentAccount(item.id);
       setMessage(result.ok ? "Student account deleted." : result.message);
@@ -1100,10 +1542,16 @@ export default function AdminPanelScreen() {
                   ? "prospectusRecords"
                   : "announcements";
 
+    const linkedProspectusCount =
+      activeTab === "courses"
+        ? data.prospectusRecords.filter((record) => record.programId === item.id).length
+        : 0;
     const synced = await deleteRecord(key, item.id);
     setMessage(
       synced
-        ? "Record deleted and synced."
+        ? activeTab === "courses" && linkedProspectusCount > 0
+          ? `Program deleted with ${linkedProspectusCount} linked prospectus term(s).`
+          : "Record deleted and synced."
         : `Supabase did not delete this record. ${
             getLastAppDataError() || "Check the schema and connection."
           }`,
@@ -1116,7 +1564,13 @@ export default function AdminPanelScreen() {
       return;
     }
 
-    const id = editingId ?? makeId(activeTab);
+    if (isFacultyConsole && !facultyTabs.includes(activeTab)) {
+      setMessage("Faculty accounts can only manage course offerings and prospectus records.");
+      return;
+    }
+
+    const wasEditing = Boolean(editingId);
+    let id = editingId ?? makeId(activeTab);
     setIsSaving(true);
     setMessage("");
 
@@ -1139,7 +1593,7 @@ export default function AdminPanelScreen() {
           : result.message,
       );
 
-      if (result.ok) {
+      if (result.ok && !wasEditing) {
         resetForm();
       }
 
@@ -1219,41 +1673,108 @@ export default function AdminPanelScreen() {
 
       synced = await upsertRecord("coursePrograms", {
         id,
-        college: form.college,
-        program: form.program,
-        degree: form.degree,
-        overview: form.overview,
+        college: form.college.trim(),
+        program: form.program.trim(),
+        degree: form.degree.trim(),
+        overview: form.overview.trim(),
         tags: courseTags,
       } satisfies CourseProgram);
     }
 
     if (activeTab === "prospectus") {
-      if (!form.programId.trim() || !form.program.trim()) {
+      const linkedProgram =
+        data.coursePrograms.find((program) => program.id === form.programId) ?? null;
+
+      if (!form.programId.trim() || !linkedProgram) {
         setMessage("Choose a program before saving the prospectus.");
         setIsSaving(false);
         return;
       }
 
-      if (!form.yearLevel.trim() || !form.semester.trim()) {
-        setMessage("Choose the year level and semester.");
+      const cleanedTechnicalElectives = technicalElectiveRows
+        .map((elective) => elective.trim())
+        .filter(Boolean);
+      const hasSemesterDraft =
+        Boolean(form.yearLevel.trim()) ||
+        Boolean(form.semester.trim()) ||
+        prospectusSubjects.length > 0;
+
+      if (hasSemesterDraft && (!form.yearLevel.trim() || !form.semester.trim())) {
+        setMessage("Choose the year level and semester, or leave both blank to save only technical electives.");
         setIsSaving(false);
         return;
       }
 
-      if (prospectusSubjects.length === 0) {
-        setMessage("Add at least one subject line for the prospectus.");
+      if (hasSemesterDraft && prospectusSubjects.length === 0) {
+        setMessage("Add at least one subject line for this semester.");
         setIsSaving(false);
         return;
       }
 
-      synced = await upsertRecord("prospectusRecords", {
-        id,
+      const incompleteSubject = prospectusSubjects.some((subject) => {
+        const parsed = parseProspectusSubject(subject);
+
+        return !parsed.code.trim() || !parsed.title.trim();
+      });
+
+      if (hasSemesterDraft && incompleteSubject) {
+        setMessage("Every subject row needs a code and program / subject title.");
+        setIsSaving(false);
+        return;
+      }
+
+      const infoSynced = await upsertRecord("prospectusRecords", {
+        id: buildProspectusInfoRecordId(form.programId),
         programId: form.programId,
-        program: form.program,
-        yearLevel: form.yearLevel,
-        semester: form.semester,
-        subjects: prospectusSubjects,
+        program: linkedProgram.program,
+        yearLevel: prospectusInfoYearLevel,
+        semester: prospectusInfoSemester,
+        summary: undefined,
+        technicalElectives: cleanedTechnicalElectives,
+        subjects: [],
       } satisfies ProspectusRecord);
+
+      if (!hasSemesterDraft) {
+        synced = infoSynced;
+      } else {
+        const infoRecordId = buildProspectusInfoRecordId(form.programId);
+        const editingTermId =
+          editingId && editingId !== infoRecordId ? editingId : null;
+        const duplicateTerm = data.prospectusRecords.find(
+          (record) =>
+            record.programId === form.programId &&
+            record.yearLevel === form.yearLevel &&
+            record.semester === form.semester &&
+            record.id !== editingTermId,
+        );
+
+        if (editingTermId) {
+          id = editingTermId;
+        }
+
+        if (!editingTermId && duplicateTerm) {
+          id = duplicateTerm.id;
+        }
+
+        if (!editingTermId && !duplicateTerm) {
+          id = buildProspectusRecordId(
+            form.programId,
+            form.yearLevel,
+            form.semester,
+          );
+        }
+
+        const termSynced = await upsertRecord("prospectusRecords", {
+          id,
+          programId: form.programId,
+          program: linkedProgram.program,
+          yearLevel: form.yearLevel,
+          semester: form.semester,
+          subjects: prospectusSubjects,
+        } satisfies ProspectusRecord);
+
+        synced = infoSynced && termSynced;
+      }
     }
 
     if (activeTab === "announcements") {
@@ -1271,7 +1792,9 @@ export default function AdminPanelScreen() {
       synced
         ? editingId
           ? "Record updated and synced."
-          : "Record added and synced."
+          : activeTab === "prospectus"
+            ? "Prospectus saved and linked to its course program."
+            : "Record added and synced."
         : editingId
           ? `Supabase did not update this record. ${
               getLastAppDataError() || "Check the schema and connection."
@@ -1280,22 +1803,24 @@ export default function AdminPanelScreen() {
               getLastAppDataError() || "Check the schema and connection."
             }`,
     );
-    resetForm();
+    if (synced && !wasEditing) {
+      resetForm();
+    }
     setIsSaving(false);
   };
 
-  if (session?.role !== "admin") {
+  if (!canUseConsole) {
     return (
       <SecondaryScreenLayout
-        title="Admin Console"
-        description="Only an admin account can manage app content."
+        title="Content Console"
+        description="Only admin and faculty accounts can manage curriculum content."
         scrollEnabled={scrollEnabled}
       >
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Admin access required</Text>
+          <Text style={styles.cardTitle}>Console access required</Text>
           <Text style={styles.cardBody}>
-            Sign in using the fixed admin account. New admin accounts cannot be
-            created from the app.
+            Sign in with the fixed admin account or an MSU faculty email ending
+            in @msumain.edu.ph.
           </Text>
         </View>
       </SecondaryScreenLayout>
@@ -1304,13 +1829,17 @@ export default function AdminPanelScreen() {
 
   return (
     <SecondaryScreenLayout
-      title="Admin Console"
-      description="Add, update, delete, and search app content from one place."
+      title={isFacultyConsole ? "Faculty Console" : "Admin Console"}
+      description={
+        isFacultyConsole
+          ? "Add, update, and search course offerings and prospectus records."
+          : "Add, update, delete, and search app content from one place."
+      }
       scrollEnabled={scrollEnabled}
     >
       <View style={[styles.shell, isWide && styles.shellWide]}>
         <View style={styles.tabRow}>
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const active = activeTab === tab.key;
 
             return (
@@ -1349,6 +1878,70 @@ export default function AdminPanelScreen() {
               </Pressable>
             ) : null}
           </View>
+
+          {activeTab === "courses" && editingId ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.infoCardTitle}>Connected Prospectus</Text>
+              <Text style={styles.infoCardText}>
+                {
+                  getProgramProspectusStats(editingId, data.prospectusRecords)
+                    .recordCount
+                }{" "}
+                term(s) are linked to this program. Saving a program rename updates
+                those linked prospectus records too.
+              </Text>
+            </View>
+          ) : null}
+
+          {activeTab === "prospectus" ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.infoCardTitle}>Prospectus</Text>
+              <Text style={styles.infoCardText}>
+                {selectedProspectusProgram
+                  ? `${selectedProspectusProgram.program} is linked to ${
+                      selectedProspectusStats?.recordCount ?? 0
+                    } term(s) and ${
+                      selectedProspectusStats?.subjectCount ?? 0
+                    } subject line(s).`
+                  : "Choose a course program first. Prospectus terms stay linked to the selected program."}
+              </Text>
+              {selectedProspectusProgram ? (
+                <>
+                  <Text style={styles.infoCardText}>
+                    Technical electives:{" "}
+                    {splitList(form.technicalElectives).length > 0
+                      ? splitList(form.technicalElectives).join(", ")
+                      : "None listed"}
+                  </Text>
+                </>
+              ) : null}
+              {selectedProspectusStats && selectedProspectusStats.terms.length > 0 ? (
+                <View style={styles.linkedTermList}>
+                  {selectedProspectusStats.terms.map((term) => (
+                    <Pressable
+                      key={term.id}
+                      style={styles.linkedTermChip}
+                      onPress={() =>
+                        editItem({
+                          id: term.id,
+                          title: term.label,
+                          subtitle: selectedProspectusProgram?.program ?? "",
+                          body: "",
+                          raw:
+                            data.prospectusRecords.find((record) => record.id === term.id) ??
+                            {},
+                        })
+                      }
+                    >
+                      <Text style={styles.linkedTermChipText}>
+                        {term.label} | {term.subjectCount}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           {activeTab === "locations" ? (
             <View style={styles.mapEditorBlock}>
@@ -1406,31 +1999,60 @@ export default function AdminPanelScreen() {
         </View>
 
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>{tabs.find((tab) => tab.key === activeTab)?.label}</Text>
+          <Text style={styles.listTitle}>{visibleTabs.find((tab) => tab.key === activeTab)?.label}</Text>
           <Text style={styles.listCount}>{listItems.length} record(s)</Text>
         </View>
 
-        <View style={styles.list}>
-          {listItems.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <Text style={styles.cardKicker}>{item.subtitle}</Text>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardBody} numberOfLines={3}>
-                {item.body}
-              </Text>
-              <View style={styles.actionRow}>
-                <Pressable style={styles.editButton} onPress={() => editItem(item)}>
-                  <Ionicons name="create-outline" size={16} color={colors.maroon} />
-                  <Text style={styles.editButtonText}>Edit</Text>
+        {activeTab === "prospectus" ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.programChoiceRow}
+          >
+            {prospectusCollegeOptions.map((college) => {
+              const selected = activeProspectusCollege === college;
+
+              return (
+                <Pressable
+                  key={`prospectus-list-${college}`}
+                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                  onPress={() => setActiveProspectusCollege(college)}
+                >
+                  <Text
+                    style={[
+                      styles.choiceChipText,
+                      selected && styles.choiceChipTextActive,
+                    ]}
+                  >
+                    {college}
+                  </Text>
                 </Pressable>
-                <Pressable style={styles.deleteButton} onPress={() => deleteItem(item)}>
-                  <Ionicons name="trash-outline" size={16} color={colors.surface} />
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {activeTab === "prospectus" ? (
+          <View style={styles.list}>
+            {prospectusCollegeGroups.map((group) => (
+              <View key={group.college} style={styles.collegeGroup}>
+                <View style={styles.collegeGroupHeader}>
+                  <Text style={styles.collegeGroupTitle}>{group.college}</Text>
+                  <Text style={styles.collegeGroupCount}>
+                    {group.items.length} record(s)
+                  </Text>
+                </View>
+                <View style={styles.list}>
+                  {group.items.map((item) => renderRecordCard(item))}
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {listItems.map((item) => renderRecordCard(item))}
+          </View>
+        )}
       </View>
     </SecondaryScreenLayout>
   );
@@ -1498,6 +2120,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+  },
+  infoCard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+    gap: 8,
+  },
+  infoCardTitle: {
+    color: colors.maroonDark,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  infoCardText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  linkedTermList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  linkedTermChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  linkedTermChipText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "800",
   },
   editorTitle: {
     color: colors.maroonDark,
@@ -1598,6 +2259,12 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: "700",
   },
+  programChoiceMeta: {
+    marginTop: 6,
+    color: colors.goldDark,
+    fontSize: 10,
+    fontWeight: "900",
+  },
   readonlyField: {
     minHeight: 46,
     justifyContent: "center",
@@ -1665,8 +2332,164 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  secondaryInlineButton: {
+    minHeight: 40,
+    alignSelf: "flex-start",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  secondaryInlineButtonText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   subjectList: {
     gap: 8,
+  },
+  subjectTableToolbar: {
+    gap: 8,
+  },
+  prospectusInfoTable: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  prospectusInfoTableRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  prospectusInfoLabelCell: {
+    width: 120,
+    color: colors.maroonDark,
+    fontWeight: "900",
+  },
+  prospectusInfoValueCell: {
+    flex: 1,
+    minWidth: 180,
+  },
+  prospectusInfoInput: {
+    minHeight: 28,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  prospectusInfoInputMultiline: {
+    minHeight: 104,
+    textAlignVertical: "top",
+  },
+  prospectusInfoHint: {
+    marginTop: 8,
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  electiveTable: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  electiveNumberCell: {
+    width: 42,
+    color: colors.goldDark,
+    fontWeight: "900",
+  },
+  electiveCodeCell: {
+    width: 110,
+    color: colors.maroonDark,
+    fontWeight: "900",
+  },
+  electiveValueCell: {
+    flex: 1,
+    minWidth: 220,
+  },
+  electiveActionCell: {
+    width: 76,
+    alignItems: "center",
+    borderRightWidth: 0,
+  },
+  subjectTable: {
+    minWidth: 1040,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  subjectTableHeader: {
+    backgroundColor: colors.maroonSoft,
+  },
+  subjectTableRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  subjectTableCell: {
+    minHeight: 44,
+    paddingHorizontal: 9,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  subjectTableInput: {
+    minHeight: 26,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  subjectTableInputCenter: {
+    textAlign: "center",
+  },
+  subjectNumberCell: {
+    width: 42,
+    color: colors.goldDark,
+    fontWeight: "900",
+  },
+  subjectCodeCell: {
+    width: 100,
+    color: colors.maroonDark,
+    fontWeight: "900",
+  },
+  subjectTitleCell: {
+    width: 230,
+  },
+  subjectProgramCell: {
+    width: 280,
+  },
+  subjectSmallCell: {
+    width: 64,
+    textAlign: "center",
+  },
+  subjectReqCell: {
+    width: 150,
+  },
+  subjectImportanceCell: {
+    width: 190,
+  },
+  subjectActionCell: {
+    width: 150,
+    borderRightWidth: 0,
   },
   tagList: {
     flexDirection: "row",
@@ -1712,6 +2535,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontWeight: "700",
+  },
+  subjectItemActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   helperText: {
     color: colors.muted,
@@ -1844,6 +2672,32 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 10,
+  },
+  collegeGroup: {
+    gap: 10,
+  },
+  collegeGroupHeader: {
+    marginTop: 6,
+    paddingHorizontal: 2,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  collegeGroupTitle: {
+    flex: 1,
+    color: colors.maroonDark,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "900",
+  },
+  collegeGroupCount: {
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
   },
   card: {
     padding: 16,

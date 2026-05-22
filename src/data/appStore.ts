@@ -14,12 +14,13 @@ import {
   announcements,
   campusLocations,
   classSchedules,
-  coursePrograms,
   handbookEntries,
   offices,
-  prospectusRecords,
   users,
 } from "./mymsuDatabase";
+import {
+  syncProspectusPrograms,
+} from "./curriculum";
 import {
   isSupabaseConfigured,
   supabaseDeleteRecord,
@@ -52,11 +53,21 @@ const seedData: AppData = {
   offices: cloneArray(offices),
   campusLocations: cloneArray(campusLocations),
   classSchedules: cloneArray(classSchedules),
-  coursePrograms: cloneArray(coursePrograms),
-  prospectusRecords: cloneArray(prospectusRecords),
+  coursePrograms: [],
+  prospectusRecords: [],
   academicEvents: cloneArray(academicEvents),
   announcements: cloneArray(announcements),
 };
+
+function withSyncedProspectusPrograms(data: AppData): AppData {
+  return {
+    ...data,
+    prospectusRecords: syncProspectusPrograms(
+      data.coursePrograms,
+      data.prospectusRecords,
+    ),
+  };
+}
 
 const emptyData: AppData = {
   users: [],
@@ -70,7 +81,9 @@ const emptyData: AppData = {
   announcements: [],
 };
 
-let appData: AppData = isSupabaseConfigured() ? emptyData : seedData;
+let appData: AppData = isSupabaseConfigured()
+  ? withSyncedProspectusPrograms(emptyData)
+  : seedData;
 const listeners = new Set<() => void>();
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 let syncPromise: Promise<boolean> | null = null;
@@ -104,16 +117,18 @@ export function useAppData() {
 }
 
 function replaceAppData(data: AppData) {
+  const mergedData = withSyncedProspectusPrograms(data);
+
   appData = {
-    users: cloneArray(data.users),
-    handbookEntries: cloneArray(data.handbookEntries),
-    offices: cloneArray(data.offices),
-    campusLocations: cloneArray(data.campusLocations),
-    classSchedules: cloneArray(data.classSchedules),
-    coursePrograms: cloneArray(data.coursePrograms),
-    prospectusRecords: cloneArray(data.prospectusRecords),
-    academicEvents: cloneArray(data.academicEvents),
-    announcements: cloneArray(data.announcements),
+    users: cloneArray(mergedData.users),
+    handbookEntries: cloneArray(mergedData.handbookEntries),
+    offices: cloneArray(mergedData.offices),
+    campusLocations: cloneArray(mergedData.campusLocations),
+    classSchedules: cloneArray(mergedData.classSchedules),
+    coursePrograms: cloneArray(mergedData.coursePrograms),
+    prospectusRecords: cloneArray(mergedData.prospectusRecords),
+    academicEvents: cloneArray(mergedData.academicEvents),
+    announcements: cloneArray(mergedData.announcements),
   };
   emit();
 }
@@ -182,16 +197,69 @@ export async function upsertRecord<K extends CollectionKey>(
 ) {
   const previousData = appData;
   const items = appData[key] as (CollectionItem<K> & { id: string })[];
-  const index = items.findIndex((record) => record.id === item.id);
-  const nextItems =
-    index >= 0
-      ? items.map((record) => (record.id === item.id ? item : record))
-      : [item, ...items];
+  let nextData: AppData = appData;
 
-  appData = {
-    ...appData,
-    [key]: nextItems,
-  };
+  if (key === "coursePrograms") {
+    const program = item as CourseProgram;
+    const index = appData.coursePrograms.findIndex(
+      (record) => record.id === program.id,
+    );
+    const nextPrograms =
+      index >= 0
+        ? appData.coursePrograms.map((record) =>
+            record.id === program.id ? program : record,
+          )
+        : [program, ...appData.coursePrograms];
+
+    nextData = withSyncedProspectusPrograms({
+      ...appData,
+      coursePrograms: nextPrograms,
+      prospectusRecords: appData.prospectusRecords.map((record) =>
+        record.programId === program.id
+          ? {
+              ...record,
+              program: program.program,
+            }
+          : record,
+      ),
+    });
+  } else if (key === "prospectusRecords") {
+    const record = item as ProspectusRecord;
+    const linkedProgram = appData.coursePrograms.find(
+      (program) => program.id === record.programId,
+    );
+    const nextRecord = linkedProgram
+      ? { ...record, program: linkedProgram.program }
+      : record;
+    const index = appData.prospectusRecords.findIndex(
+      (current) => current.id === nextRecord.id,
+    );
+    const nextRecords =
+      index >= 0
+        ? appData.prospectusRecords.map((current) =>
+            current.id === nextRecord.id ? nextRecord : current,
+          )
+        : [nextRecord, ...appData.prospectusRecords];
+
+    nextData = withSyncedProspectusPrograms({
+      ...appData,
+      prospectusRecords: nextRecords,
+    });
+    item = nextRecord as CollectionItem<K> & { id: string };
+  } else {
+    const index = items.findIndex((record) => record.id === item.id);
+    const nextItems =
+      index >= 0
+        ? items.map((record) => (record.id === item.id ? item : record))
+        : [item, ...items];
+
+    nextData = {
+      ...appData,
+      [key]: nextItems,
+    };
+  }
+
+  appData = nextData;
   emit();
 
   if (!isSupabaseConfigured()) {
@@ -202,7 +270,25 @@ export async function upsertRecord<K extends CollectionKey>(
   }
 
   try {
-    await supabaseUpsertRecord(key, item);
+    if (key === "coursePrograms") {
+      const program = item as CourseProgram;
+      await supabaseUpsertRecord("coursePrograms", program);
+
+      const linkedProspectus = previousData.prospectusRecords
+        .filter((record) => record.programId === program.id)
+        .map((record) => ({
+          ...record,
+          program: program.program,
+        }));
+
+      await Promise.all(
+        linkedProspectus.map((record) =>
+          supabaseUpsertRecord("prospectusRecords", record),
+        ),
+      );
+    } else {
+      await supabaseUpsertRecord(key, item);
+    }
     await syncAppData();
     lastDataError = "";
     return true;
@@ -223,11 +309,24 @@ export async function upsertRecord<K extends CollectionKey>(
 export async function deleteRecord<K extends CollectionKey>(key: K, id: string) {
   const previousData = appData;
   const items = appData[key] as (CollectionItem<K> & { id: string })[];
+  let nextData: AppData = appData;
 
-  appData = {
-    ...appData,
-    [key]: items.filter((item) => item.id !== id),
-  };
+  if (key === "coursePrograms") {
+    nextData = withSyncedProspectusPrograms({
+      ...appData,
+      coursePrograms: appData.coursePrograms.filter((item) => item.id !== id),
+      prospectusRecords: appData.prospectusRecords.filter(
+        (record) => record.programId !== id,
+      ),
+    });
+  } else {
+    nextData = {
+      ...appData,
+      [key]: items.filter((item) => item.id !== id),
+    };
+  }
+
+  appData = nextData;
   emit();
 
   if (!isSupabaseConfigured()) {
@@ -238,7 +337,20 @@ export async function deleteRecord<K extends CollectionKey>(key: K, id: string) 
   }
 
   try {
-    await supabaseDeleteRecord(key, id);
+    if (key === "coursePrograms") {
+      const linkedProspectusIds = previousData.prospectusRecords
+        .filter((record) => record.programId === id)
+        .map((record) => record.id);
+
+      await Promise.all(
+        linkedProspectusIds.map((recordId) =>
+          supabaseDeleteRecord("prospectusRecords", recordId),
+        ),
+      );
+      await supabaseDeleteRecord("coursePrograms", id);
+    } else {
+      await supabaseDeleteRecord(key, id);
+    }
     await syncAppData();
     lastDataError = "";
     return true;

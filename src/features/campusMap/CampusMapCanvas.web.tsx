@@ -54,6 +54,10 @@ type CampusMapCanvasProps = {
 };
 
 const campusCenter: LatLngTuple = [7.99705, 124.26045];
+const campusMaxBounds: LatLngBoundsExpression = [
+  [CAMPUS_BOUNDS.south, CAMPUS_BOUNDS.west],
+  [CAMPUS_BOUNDS.north, CAMPUS_BOUNDS.east],
+];
 const styleElementId = "mymsu-leaflet-campus-map-styles";
 
 const escapeHtml = (value: string) =>
@@ -80,10 +84,17 @@ const locationToLatLng = (location: CampusLocation): LatLngTuple =>
     : pointToLatLng(location);
 
 const userToLatLng = (marker: UserMarker): LatLngTuple =>
-  marker.insideCampus &&
-  typeof marker.latitude === "number" &&
-  typeof marker.longitude === "number"
-    ? [marker.latitude, marker.longitude]
+  typeof marker.latitude === "number" && typeof marker.longitude === "number"
+    ? [
+        Math.min(
+          Math.max(marker.latitude, CAMPUS_BOUNDS.south),
+          CAMPUS_BOUNDS.north,
+        ),
+        Math.min(
+          Math.max(marker.longitude, CAMPUS_BOUNDS.west),
+          CAMPUS_BOUNDS.east,
+        ),
+      ]
     : pointToLatLng(marker);
 
 const getAllLocationBounds = (locations: CampusLocation[]) =>
@@ -362,8 +373,8 @@ const ensureLeafletStyles = () => {
     }
     .mymsu-leaflet-user {
       position: relative;
-      width: 58px;
-      height: 64px;
+      width: 44px;
+      height: 54px;
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -372,42 +383,44 @@ const ensureLeafletStyles = () => {
       content: "";
       position: absolute;
       left: 50%;
-      top: 7px;
-      width: 76px;
-      height: 76px;
-      margin-left: -38px;
-      border-radius: 38px;
+      top: 5px;
+      width: 58px;
+      height: 58px;
+      margin-left: -29px;
+      border-radius: 29px;
       background: rgba(15, 118, 110, 0.18);
       animation: mymsu-user-pulse 1.7s ease-out infinite;
     }
     .mymsu-leaflet-user-avatar {
       position: relative;
       z-index: 2;
-      width: 48px;
-      height: 48px;
+      width: 38px;
+      height: 38px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 24px;
-      border: 4px solid #fff;
+      border-radius: 19px;
+      border: 3px solid #fff;
       background: #0F766E;
       color: #fff;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 950;
       letter-spacing: 0;
+      box-sizing: border-box;
+      overflow: hidden;
       box-shadow:
-        0 11px 26px rgba(29, 11, 11, 0.32),
-        0 0 0 3px rgba(243, 190, 76, 0.9);
+        0 8px 20px rgba(29, 11, 11, 0.28),
+        0 0 0 2px rgba(243, 190, 76, 0.82);
     }
     .mymsu-leaflet-user-avatar::before {
       content: "";
       position: absolute;
-      top: 8px;
-      width: 15px;
-      height: 15px;
+      top: 7px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 17px 0 7px rgba(255, 255, 255, 0.92);
+      box-shadow: 0 14px 0 6px rgba(255, 255, 255, 0.92);
     }
     .mymsu-leaflet-user-avatar.has-photo::before {
       display: none;
@@ -419,33 +432,35 @@ const ensureLeafletStyles = () => {
       border-radius: 50%;
       object-fit: cover;
     }
-    .mymsu-leaflet-user-avatar span {
+    .mymsu-leaflet-user-label {
       position: absolute;
       left: 50%;
-      bottom: -18px;
+      bottom: -16px;
       transform: translateX(-50%);
-      padding: 3px 7px;
+      padding: 3px 6px;
       border-radius: 999px;
       background: #3A080D;
       border: 2px solid #fff;
       color: #fff;
-      font-size: 10px;
+      font-size: 9px;
+      font-weight: 950;
       line-height: 1;
       white-space: nowrap;
+      z-index: 3;
     }
     .mymsu-leaflet-user-tip {
       position: absolute;
       z-index: 1;
       left: 50%;
-      bottom: 4px;
-      width: 18px;
-      height: 18px;
-      margin-left: -9px;
+      bottom: 7px;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
       transform: rotate(45deg);
       background: #0F766E;
-      border-right: 4px solid #fff;
-      border-bottom: 4px solid #fff;
-      box-shadow: 5px 5px 12px rgba(29, 11, 11, 0.18);
+      border-right: 3px solid #fff;
+      border-bottom: 3px solid #fff;
+      box-shadow: 4px 4px 10px rgba(29, 11, 11, 0.16);
     }
     @keyframes mymsu-user-pulse {
       from {
@@ -519,14 +534,14 @@ const createLocationIcon = (
 const createUserIcon = (leaflet: LeafletModule, avatarUrl?: string) =>
   leaflet.divIcon({
     className: "mymsu-leaflet-user-icon",
-    iconAnchor: [29, 62],
-    iconSize: [58, 64],
+    iconAnchor: [22, 52],
+    iconSize: [44, 54],
     html: `
       <div class="mymsu-leaflet-user">
         <div class="mymsu-leaflet-user-avatar${avatarUrl ? " has-photo" : ""}">
           ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" />` : ""}
-          <span>YOU</span>
         </div>
+        <span class="mymsu-leaflet-user-label">YOU</span>
         <div class="mymsu-leaflet-user-tip"></div>
       </div>
     `,
@@ -569,6 +584,17 @@ export default function CampusMapCanvas({
   const movementTrailRef = React.useRef<LatLngTuple[]>([]);
   const movementLineRef = React.useRef<Polyline | null>(null);
   const userPulseRef = React.useRef<CircleMarker | null>(null);
+  const lastHandledResetSignalRef = React.useRef(resetSignal);
+  const previousSelectedLocationIdRef = React.useRef<string | null | undefined>(
+    undefined,
+  );
+  const onMapGestureStartRef = React.useRef(onMapGestureStart);
+  const onMapGestureEndRef = React.useRef(onMapGestureEnd);
+  const mapInteractionActiveRef = React.useRef(false);
+  const userCameraOverrideRef = React.useRef(false);
+  const mapInteractionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const latestBoundsRef = React.useRef<LatLngBoundsExpression>(
     getAllLocationBounds(visibleLocations),
   );
@@ -586,6 +612,32 @@ export default function CampusMapCanvas({
     latestBoundsRef.current = allBounds;
   }, [allBounds]);
 
+  React.useEffect(() => {
+    onMapGestureStartRef.current = onMapGestureStart;
+    onMapGestureEndRef.current = onMapGestureEnd;
+  }, [onMapGestureEnd, onMapGestureStart]);
+
+  const startMapInteraction = React.useCallback(() => {
+    if (mapInteractionTimerRef.current) {
+      clearTimeout(mapInteractionTimerRef.current);
+    }
+
+    mapInteractionActiveRef.current = true;
+    userCameraOverrideRef.current = true;
+    onMapGestureStartRef.current?.();
+  }, []);
+
+  const endMapInteraction = React.useCallback(() => {
+    if (mapInteractionTimerRef.current) {
+      clearTimeout(mapInteractionTimerRef.current);
+    }
+
+    mapInteractionTimerRef.current = setTimeout(() => {
+      mapInteractionActiveRef.current = false;
+      onMapGestureEndRef.current?.();
+    }, 700);
+  }, []);
+
   const fitCampus = React.useCallback(() => {
     const map = mapRef.current;
 
@@ -593,8 +645,8 @@ export default function CampusMapCanvas({
       return;
     }
 
-    map.fitBounds(allBounds, { padding: [28, 28], maxZoom: 17 });
-  }, [allBounds, mapReady]);
+    map.fitBounds(latestBoundsRef.current, { padding: [28, 28], maxZoom: 17 });
+  }, [mapReady]);
 
   React.useEffect(() => {
     ensureLeafletStyles();
@@ -623,6 +675,9 @@ export default function CampusMapCanvas({
           attributionControl: false,
           scrollWheelZoom: true,
           bounceAtZoomLimits: false,
+          maxBounds: campusMaxBounds,
+          maxBoundsViscosity: 1,
+          minZoom: 15,
           preferCanvas: true,
         })
         .setView(campusCenter, 16);
@@ -640,6 +695,8 @@ export default function CampusMapCanvas({
         .addTo(map);
 
       mapRef.current = map;
+      map.on("dragstart zoomstart", startMapInteraction);
+      map.on("dragend zoomend", endMapInteraction);
       setMapReady(true);
       setTimeout(() => {
         map?.invalidateSize();
@@ -654,6 +711,9 @@ export default function CampusMapCanvas({
 
     return () => {
       cancelled = true;
+      if (mapInteractionTimerRef.current) {
+        clearTimeout(mapInteractionTimerRef.current);
+      }
       map?.remove();
       mapRef.current = null;
       leafletRef.current = null;
@@ -666,7 +726,7 @@ export default function CampusMapCanvas({
       movementLineRef.current = null;
       userPulseRef.current = null;
     };
-  }, []);
+  }, [endMapInteraction, startMapInteraction]);
 
   React.useEffect(() => {
     const map = mapRef.current;
@@ -706,10 +766,17 @@ export default function CampusMapCanvas({
     }
 
     const marker = markersRef.current.get(selectedLocationId);
+    const previousSelectedLocationId = previousSelectedLocationIdRef.current;
+    previousSelectedLocationIdRef.current = selectedLocationId;
 
     if (marker) {
       marker.openPopup();
-      map.panTo(marker.getLatLng(), { animate: true, duration: 0.45 });
+      if (
+        previousSelectedLocationId !== undefined &&
+        previousSelectedLocationId !== selectedLocationId
+      ) {
+        map.panTo(marker.getLatLng(), { animate: true, duration: 0.45 });
+      }
     }
   }, [mapReady, selectedLocationId]);
 
@@ -750,7 +817,10 @@ export default function CampusMapCanvas({
       lineJoin: "round",
     }).addTo(map);
 
-    if (fittedRouteDestinationRef.current !== destinationKey) {
+    if (
+      fittedRouteDestinationRef.current !== destinationKey &&
+      !mapInteractionActiveRef.current
+    ) {
       map.fitBounds(
         userMarker ? [...latLngs, userToLatLng(userMarker)] : latLngs,
         { padding: [42, 42], maxZoom: 18 },
@@ -842,12 +912,22 @@ export default function CampusMapCanvas({
           }).addTo(map)
         : null;
 
-    if (trackingState === "active") {
+    if (
+      trackingState === "active" &&
+      !mapInteractionActiveRef.current &&
+      !userCameraOverrideRef.current
+    ) {
       map.panTo(latLng, { animate: true, duration: 0.45 });
     }
   }, [mapReady, trackingState, userAvatarUrl, userMarker]);
 
   React.useEffect(() => {
+    if (lastHandledResetSignalRef.current === resetSignal) {
+      return;
+    }
+
+    lastHandledResetSignalRef.current = resetSignal;
+    userCameraOverrideRef.current = false;
     fitCampus();
   }, [fitCampus, resetSignal]);
 
@@ -857,6 +937,8 @@ export default function CampusMapCanvas({
     if (!map) {
       return;
     }
+
+    userCameraOverrideRef.current = false;
 
     if (userMarker) {
       map.setView(userToLatLng(userMarker), 17, { animate: true });
@@ -871,9 +953,9 @@ export default function CampusMapCanvas({
   return (
     <View
       style={styles.mapShell}
-      onTouchStart={onMapGestureStart}
-      onTouchEnd={onMapGestureEnd}
-      onTouchCancel={onMapGestureEnd}
+      onTouchStart={startMapInteraction}
+      onTouchEnd={endMapInteraction}
+      onTouchCancel={endMapInteraction}
     >
       <View style={[styles.mapBoard, compactMap && styles.mapBoardCompact]}>
         <View

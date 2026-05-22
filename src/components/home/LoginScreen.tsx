@@ -80,8 +80,13 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
       }
 
       setMessageType("success");
-      setMessage(`Created ${result.user.role} account.`);
-      onSignIn?.(result.user);
+      if (result.requiresEmailConfirmation === true) {
+        setMessage(result.message);
+        setIsSignUp(false);
+      } else if ("user" in result) {
+        setMessage(`Created ${result.user.role} account.`);
+        onSignIn?.(result.user);
+      }
       setIsSubmitting(false);
       return;
     }
@@ -95,7 +100,9 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
       return;
     }
 
-    onSignIn?.(result.user);
+    if ("user" in result) {
+      onSignIn?.(result.user);
+    }
     setIsSubmitting(false);
   };
 
@@ -163,8 +170,8 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
             <Text style={styles.tagline}>
               {isSignUp
-                ? "Create your account with your @s.msumain.edu.ph email."
-                : "Sign in using your MSU email, username, or admin account."}
+                ? "Create your account with your MSU student or faculty email."
+              : "Sign in using your MSU email, username, ID number, or admin account."}
             </Text>
 
             <Text style={styles.heading}>
@@ -199,7 +206,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder={isSignUp ? "Username" : "Username or email"}
+                  placeholder={isSignUp ? "Username" : "Username, ID number, or email"}
                   placeholderTextColor="#8A6469"
                   value={username}
                   onChangeText={setUsername}
@@ -217,7 +224,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                   />
                   <TextInput
                     style={styles.input}
-                    placeholder="MSU email (@s.msumain.edu.ph)"
+                    placeholder="MSU email (@s.msumain.edu.ph or @msumain.edu.ph)"
                     placeholderTextColor="#8A6469"
                     value={email}
                     onChangeText={setEmail}
@@ -280,7 +287,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
               <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
                 <LinearGradient
-                  colors={[colors.maroon, colors.maroonDark]}
+                  colors={[colors.maroon, "#541018", colors.maroonDark]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.button}
@@ -341,19 +348,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 28,
   },
   card: {
     width: "100%",
     maxWidth: Math.min(440, maxContentWidth),
-    borderRadius: radii.sm,
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 20,
-    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.28)",
+    borderColor: "rgba(255, 255, 255, 0.46)",
     ...(Platform.OS === "web"
       ? { boxShadow: "0px 18px 36px rgba(20, 4, 5, 0.24)" }
       : {
@@ -371,17 +378,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandMark: {
-    width: 18,
-    height: 18,
+    width: 22,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   brandSquare: {
     position: "absolute",
-    width: 12,
-    height: 12,
+    width: 15,
+    height: 15,
     borderWidth: 1.2,
-    borderColor: "#941d2d",
+    borderColor: colors.maroon,
     transform: [{ rotate: "45deg" }],
   },
   brandSquareSmall: {
@@ -391,15 +398,15 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "45deg" }],
   },
   brandText: {
-    color: colors.maroonDark,
-    fontSize: 10,
+    color: colors.maroon,
+    fontSize: 11,
     letterSpacing: 0,
     fontWeight: "800",
   },
   tagline: {
     marginTop: 22,
     textAlign: "center",
-    color: colors.maroonDark,
+    color: colors.muted,
     fontSize: 14,
     lineHeight: 21,
     fontWeight: "500",
@@ -409,8 +416,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     textAlign: "center",
     color: colors.maroonDark,
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "900",
   },
   form: {
     marginTop: 2,
@@ -418,9 +426,9 @@ const styles = StyleSheet.create({
   inputShell: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.sm,
-    minHeight: 44,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    minHeight: 48,
     marginBottom: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
@@ -433,7 +441,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     color: "#341015",
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "600",
     paddingVertical: 0,
   },
   message: {
@@ -454,7 +463,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5EE",
   },
   button: {
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     marginTop: 18,
     ...(Platform.OS === "web"
       ? { boxShadow: "0px 6px 16px rgba(58, 8, 13, 0.2)" }
@@ -473,7 +482,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
-    paddingVertical: 13,
+    paddingVertical: 15,
   },
   buttonText: {
     color: colors.surface,

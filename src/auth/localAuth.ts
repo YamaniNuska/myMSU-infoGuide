@@ -31,6 +31,12 @@ type AuthResult =
   | {
       ok: true;
       user: UserRecord;
+      requiresEmailConfirmation?: false;
+    }
+  | {
+      ok: true;
+      message: string;
+      requiresEmailConfirmation: true;
     }
   | {
       ok: false;
@@ -38,6 +44,8 @@ type AuthResult =
     };
 
 const MSU_STUDENT_DOMAIN = "@s.msumain.edu.ph";
+const MSU_FACULTY_DOMAIN = "@msumain.edu.ph";
+const FIXED_ADMIN_EMAIL = "admin@msumain.edu.ph";
 const PROFILE_AVATAR_BUCKET = "profile-avatars";
 
 let currentUser: UserRecord | null = null;
@@ -48,6 +56,10 @@ const isSignupRole = (role: unknown): role is SignupRole =>
   role === "student" || role === "faculty" || role === "employee";
 const isMsuStudentEmail = (email: string) =>
   normalize(email).endsWith(MSU_STUDENT_DOMAIN);
+const isMsuFacultyEmail = (email: string) =>
+  normalize(email).endsWith(MSU_FACULTY_DOMAIN);
+const isFixedAdminEmail = (email: string) =>
+  normalize(email) === FIXED_ADMIN_EMAIL;
 const optionalString = (value: unknown) =>
   value === null || value === undefined ? undefined : String(value);
 
@@ -102,13 +114,14 @@ function profileFromAuthUser(authUser: SupabaseAuthUser): UserRecord | null {
     isSignupRole(metadata.role) && metadata.role !== "employee"
       ? metadata.role
       : "student";
+  const isFixedAdmin = isFixedAdminEmail(email);
   const resolvedRole = resolveSignupRole(email, requestedRole);
   const username = normalize(metadataUsername || email.split("@")[0]);
 
   return {
     id: authUser.id,
     name: metadataName.trim() || username,
-    role: resolvedRole.ok ? resolvedRole.role : "visitor",
+    role: isFixedAdmin ? "admin" : resolvedRole.ok ? resolvedRole.role : "visitor",
     username,
     email,
   };
@@ -131,34 +144,32 @@ async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
   return fallbackProfile;
 }
 
-async function findProfileByIdentifier(identifier: string) {
-  const cleanIdentifier = normalize(identifier);
-
-  if (cleanIdentifier.includes("@")) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("email", cleanIdentifier)
-      .maybeSingle();
-
-    if (error) {
-      throw error;
-    }
-
-    return data ? toPublicUser(data) : null;
-  }
-
+async function findProfileByField(field: string, value: string) {
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
-    .eq("username", cleanIdentifier)
-    .maybeSingle();
+    .eq(field, value)
+    .limit(1);
 
   if (error) {
     throw error;
   }
 
-  return data ? toPublicUser(data) : null;
+  return data[0] ? toPublicUser(data[0]) : null;
+}
+
+async function findProfileByIdentifier(identifier: string) {
+  const cleanIdentifier = normalize(identifier);
+
+  if (cleanIdentifier.includes("@")) {
+    return findProfileByField("email", cleanIdentifier);
+  }
+
+  return (
+    (await findProfileByField("username", cleanIdentifier)) ??
+    (await findProfileByField("id_number", cleanIdentifier)) ??
+    (await findProfileByField("student_id", cleanIdentifier))
+  );
 }
 
 async function getProfileById(id: string) {
@@ -362,24 +373,66 @@ function resolveSignupRole(
 ): { ok: true; role: PublicUserRole } | { ok: false; message: string } {
   const cleanEmail = normalize(email);
 
-  if (requestedRole === "admin") {
+  if (requestedRole === "admin" || isFixedAdminEmail(cleanEmail)) {
     return {
       ok: false,
-      message: "Admin account creation is disabled. Use an existing Supabase admin account.",
+      message: "Admin account creation is disabled. Use the existing fixed admin account.",
     };
   }
 
   if (isMsuStudentEmail(cleanEmail)) {
     return {
       ok: true,
-      role: requestedRole === "faculty" ? "faculty" : "student",
+      role: "student",
+    };
+  }
+
+  if (isMsuFacultyEmail(cleanEmail)) {
+    return {
+      ok: true,
+      role: "faculty",
     };
   }
 
   return {
     ok: false,
-    message: "Use your MSU student email ending in @s.msumain.edu.ph.",
+    message:
+      "Use your MSU student email ending in @s.msumain.edu.ph or faculty email ending in @msumain.edu.ph.",
   };
+}
+
+const roleFromInstitutionEmail = (email: string): UserRole | null => {
+  const cleanEmail = normalize(email);
+
+  if (isFixedAdminEmail(cleanEmail)) {
+    return "admin";
+  }
+
+  if (isMsuStudentEmail(cleanEmail)) {
+    return "student";
+  }
+
+  if (isMsuFacultyEmail(cleanEmail)) {
+    return "faculty";
+  }
+
+  return null;
+};
+
+async function syncDetectedRole(profile: UserRecord) {
+  const detectedRole = roleFromInstitutionEmail(profile.email);
+
+  if (!detectedRole || profile.role === "admin" || profile.role === detectedRole) {
+    return profile;
+  }
+
+  const nextProfile = {
+    ...profile,
+    role: detectedRole,
+  };
+
+  await saveProfile(nextProfile);
+  return nextProfile;
 }
 
 function validatePassword(password: string) {
@@ -423,7 +476,9 @@ export async function restoreAuthSession() {
     const profile = await ensureProfileForAuthUser(data.user);
 
     if (profile) {
-      setSignedInUser(profile);
+      const roleSyncedProfile = await syncDetectedRole(profile);
+      setSignedInUser(roleSyncedProfile);
+      return roleSyncedProfile;
     }
 
     return profile;
@@ -465,7 +520,7 @@ export async function signIn(
       return {
         ok: false,
         message:
-          "Use your email address for the first sign-in. After the profile is restored, username sign-in will work.",
+          "Use your email address for the first sign-in. After the profile is restored, username or ID number sign-in will work.",
       };
     }
 
@@ -493,11 +548,12 @@ export async function signIn(
       };
     }
 
-    setSignedInUser(signedInProfile);
+    const roleSyncedProfile = await syncDetectedRole(signedInProfile);
+    setSignedInUser(roleSyncedProfile);
 
     return {
       ok: true,
-      user: signedInProfile,
+      user: roleSyncedProfile,
     };
   } catch (error) {
     return {
@@ -594,11 +650,13 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
     };
 
     await saveProfile(user);
-    setSignedInUser(user);
+    await supabase.auth.signOut();
 
     return {
       ok: true,
-      user,
+      requiresEmailConfirmation: true,
+      message:
+        "Account created. Please confirm your email before signing in.",
     };
   } catch (error) {
     return {

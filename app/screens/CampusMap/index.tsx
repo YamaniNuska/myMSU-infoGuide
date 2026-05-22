@@ -580,7 +580,6 @@ export default function CampusMapScreen({ onBack }: CampusMapScreenProps) {
       description="Explore MSU Main Campus colleges, offices, student services, and landmarks."
       onBack={handleBack}
       scrollEnabled={!mapInteractionActive}
-      showMobileScrollHandle
     >
         <Animated.View
           style={[
