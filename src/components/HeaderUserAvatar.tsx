@@ -20,6 +20,7 @@ type HeaderUserAvatarProps = {
   user?: UserRecord | null;
   light?: boolean;
   lowered?: boolean;
+  showName?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -32,13 +33,11 @@ const getInitials = (name?: string) => {
   return (parts[0]?.[0] ?? "U") + (parts[1]?.[0] ?? "");
 };
 
-const getUsernameLabel = (user: UserRecord) =>
-  user.username ? `@${user.username}` : user.name;
-
 export default function HeaderUserAvatar({
   user,
   light = false,
   lowered = false,
+  showName = true,
   style,
 }: HeaderUserAvatarProps) {
   const router = useRouter();
@@ -55,7 +54,12 @@ export default function HeaderUserAvatar({
       accessibilityLabel="Open profile"
       activeOpacity={0.82}
       onPress={() => router.push("/profile")}
-      style={[styles.container, lowered && styles.lowered, style]}
+      style={[
+        styles.container,
+        !showName && styles.containerIconOnly,
+        lowered && styles.lowered,
+        style,
+      ]}
     >
       <View style={[styles.button, light && styles.buttonLight]}>
         {activeUser.avatarUrl ? (
@@ -72,12 +76,14 @@ export default function HeaderUserAvatar({
           </View>
         )}
       </View>
-      <Text
-        style={[styles.username, light && styles.usernameLight]}
-        numberOfLines={1}
-      >
-        {getUsernameLabel(activeUser)}
-      </Text>
+      {showName ? (
+        <Text
+          style={[styles.username, light && styles.usernameLight]}
+          numberOfLines={1}
+        >
+          {activeUser.name}
+        </Text>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -86,6 +92,9 @@ const styles = StyleSheet.create({
   container: {
     width: 82,
     alignItems: "center",
+  },
+  containerIconOnly: {
+    width: 44,
   },
   button: {
     width: 44,
@@ -103,7 +112,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.42)",
   },
   lowered: {
-    marginTop: 14,
+    marginTop: 20,
   },
   image: {
     width: "100%",

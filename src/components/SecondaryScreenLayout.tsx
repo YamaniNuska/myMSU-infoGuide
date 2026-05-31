@@ -129,6 +129,8 @@ export default function SecondaryScreenLayout({
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
+            <View pointerEvents="none" style={styles.headerGoldLine} />
+            <View pointerEvents="none" style={styles.headerGlassPlate} />
             <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
               <View style={styles.headerTopRow}>
                 <TouchableOpacity
@@ -139,8 +141,8 @@ export default function SecondaryScreenLayout({
                   <Ionicons name="arrow-back" size={20} color="#ffffff" />
                   <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
+                <HeaderUserAvatar light showName={false} style={styles.headerAvatar} />
               </View>
-              <HeaderUserAvatar light lowered style={styles.headerAvatar} />
 
               <View style={styles.titleBlock}>
                 <Text style={styles.title}>{title}</Text>
@@ -153,6 +155,7 @@ export default function SecondaryScreenLayout({
         <ScrollView
           ref={scrollViewRef}
           scrollEnabled={scrollEnabled}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, isWide && styles.contentWide]}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -247,20 +250,41 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   header: {
+    position: "relative",
+    overflow: "hidden",
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomLeftRadius: radii.lg,
-    borderBottomRightRadius: radii.lg,
+    paddingBottom: 15,
+    borderBottomLeftRadius: radii.md,
+    borderBottomRightRadius: radii.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.10)",
+    borderBottomColor: "rgba(216, 178, 74, 0.18)",
     ...shadow,
+  },
+  headerGoldLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 3,
+    backgroundColor: colors.gold,
+    opacity: 0.92,
+  },
+  headerGlassPlate: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 12,
+    height: 58,
+    borderRadius: radii.md,
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(216, 178, 74, 0.12)",
   },
   headerInner: {
     width: "100%",
     alignSelf: "center",
     position: "relative",
-    paddingRight: 92,
   },
   headerInnerWide: {
     maxWidth: maxContentWidth,
@@ -268,26 +292,25 @@ const styles = StyleSheet.create({
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 6,
   },
   headerAvatar: {
-    position: "absolute",
-    top: 28,
-    right: 0,
+    flexShrink: 0,
   },
   backButton: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 2,
-    minHeight: 38,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
+    gap: 5,
+    minHeight: 34,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.11)",
+    backgroundColor: "rgba(255, 255, 255, 0.10)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    borderColor: "rgba(216, 178, 74, 0.22)",
   },
   backText: {
     color: colors.surface,
@@ -296,18 +319,23 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     maxWidth: 760,
+    paddingTop: 8,
+    paddingBottom: 4,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
   },
   title: {
     color: colors.surface,
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: "900",
   },
   description: {
-    marginTop: 6,
-    color: "rgba(255, 255, 255, 0.78)",
-    fontSize: 13,
-    lineHeight: 19,
+    marginTop: 4,
+    color: "rgba(255, 255, 255, 0.76)",
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: "600",
   },
   content: {

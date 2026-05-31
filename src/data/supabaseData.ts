@@ -9,6 +9,7 @@ import type {
   HandbookEntry,
   OfficeRecord,
   ProspectusRecord,
+  TechnicalElective,
   UserRecord,
 } from "./mymsuDatabase";
 
@@ -29,6 +30,34 @@ export const tableByCollection: Record<CollectionKey, string> = {
 const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
 const optionalString = (value: unknown) =>
   value === null || value === undefined ? undefined : String(value);
+const toTechnicalElective = (value: unknown): TechnicalElective => {
+  if (value && typeof value === "object") {
+    const row = value as Record<string, unknown>;
+
+    return {
+      code: String(row.code ?? "").trim(),
+      title: String(row.title ?? "").trim(),
+    };
+  }
+
+  const trimmed = String(value ?? "").trim();
+
+  if (trimmed.includes("|")) {
+    const [code = "", ...titleParts] = trimmed.split("|");
+
+    return {
+      code: code.trim(),
+      title: titleParts.join("|").trim(),
+    };
+  }
+
+  const codeMatch = trimmed.match(/^([A-Z]{2,}\s?\d+[A-Z]?)\s+(.+)$/i);
+
+  return {
+    code: codeMatch ? codeMatch[1].trim() : "",
+    title: codeMatch ? codeMatch[2].trim() : trimmed,
+  };
+};
 
 const toUser = (row: DbRecord): UserRecord => ({
   id: String(row.id),
@@ -115,7 +144,9 @@ const toProspectusRecord = (row: DbRecord): ProspectusRecord => ({
   yearLevel: String(row.year_level ?? ""),
   semester: String(row.semester ?? ""),
   summary: optionalString(row.summary),
-  technicalElectives: asArray(row.technical_electives) as string[],
+  technicalElectives: asArray(row.technical_electives)
+    .map(toTechnicalElective)
+    .filter((elective) => elective.code || elective.title),
   subjects: asArray(row.subjects) as string[],
 });
 

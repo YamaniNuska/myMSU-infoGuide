@@ -64,7 +64,7 @@ export const softShadow =
       };
 
 export const maxContentWidth = 1120;
-export const bottomTabClearance = 148;
+export const bottomTabClearance = 96;
 
 export function getColumnCount(width: number) {
   if (width >= 1100) {

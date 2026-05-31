@@ -77,7 +77,7 @@ const profileFormFromUser = (user: UserRecord): ProfileForm => ({
 
 const getEditableProfileFields = (role: UserRole): ProfileFieldConfig[] => {
   const baseFields: ProfileFieldConfig[] = [
-    { key: "name", label: "Display name", placeholder: "Your full name" },
+    { key: "name", label: "Name / username", placeholder: "Your name" },
   ];
 
   if (role === "student") {
@@ -147,7 +147,7 @@ const getEditableProfileFields = (role: UserRole): ProfileFieldConfig[] => {
 const getProfileDetailItems = (user: UserRecord) => {
   if (user.role === "student") {
     return [
-      ["Display name", user.name],
+      ["Name / username", user.name],
       ["ID Number", user.idNumber],
       ["College", user.college],
       ["Program", user.program],
@@ -160,7 +160,7 @@ const getProfileDetailItems = (user: UserRecord) => {
 
   if (user.role === "faculty" || user.role === "employee") {
     return [
-      ["Display name", user.name],
+      ["Name / username", user.name],
       ["Office / Department", user.college],
       ["Phone", user.phone],
       ["Address", user.address],
@@ -169,7 +169,7 @@ const getProfileDetailItems = (user: UserRecord) => {
   }
 
   return [
-    ["Display name", user.name],
+    ["Name / username", user.name],
     ["Phone", user.phone],
     ["Bio", user.bio],
   ];
@@ -365,10 +365,6 @@ export default function ProfileScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Account Access</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.label}>Username</Text>
-                <Text style={styles.value}>{user.username}</Text>
-              </View>
               <View style={styles.detailRow}>
                 <Text style={styles.label}>Role</Text>
                 <Text style={styles.value}>{user.role}</Text>

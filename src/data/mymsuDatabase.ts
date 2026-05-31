@@ -300,6 +300,11 @@ export type CourseProgram = {
   tags: string[];
 };
 
+export type TechnicalElective = {
+  code: string;
+  title: string;
+};
+
 export type ProspectusRecord = {
   id: string;
   programId: string;
@@ -307,7 +312,7 @@ export type ProspectusRecord = {
   yearLevel: string;
   semester: string;
   summary?: string;
-  technicalElectives?: string[];
+  technicalElectives?: TechnicalElective[];
   subjects: string[];
 };
 
@@ -2317,11 +2322,17 @@ export const classSchedules: ClassScheduleRecord[] = [
 export const databaseTables = [
   "auth.users",
   "profiles",
+  "colleges",
   "handbook_entries",
+  "handbook_entry_offices",
   "administrative_offices",
+  "office_services",
   "campus_locations",
+  "campus_location_links",
+  "admin_contact_messages",
   "class_schedules",
   "notifications",
+  "notification_recipients",
   "course_offerings",
   "prospectus_records",
   "academic_calendar",

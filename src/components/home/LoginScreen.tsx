@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   Animated,
   Easing,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -19,6 +20,8 @@ import {
 } from "../../auth/localAuth";
 import { UserRecord } from "../../data/mymsuDatabase";
 import { colors, maxContentWidth, radii } from "../../theme";
+
+const appLogo = require("../../../assets/images/mymsu-infoguide-logo.png");
 
 type LoginScreenProps = {
   onSignIn?: (user: UserRecord) => void;
@@ -67,7 +70,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
 
       const result = await signUp({
         name,
-        username,
+        username: name,
         email,
         password,
       });
@@ -161,17 +164,14 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
             ]}
           >
             <View style={styles.brandRow}>
-              <View style={styles.brandMark}>
-                <View style={styles.brandSquare} />
-                <View style={styles.brandSquareSmall} />
-              </View>
+              <Image source={appLogo} style={styles.brandLogo} resizeMode="contain" />
               <Text style={styles.brandText}>myMSU-infoGuide</Text>
             </View>
 
             <Text style={styles.tagline}>
               {isSignUp
                 ? "Create your account with your MSU student or faculty email."
-              : "Sign in using your MSU email, username, ID number, or admin account."}
+              : "Sign in using your MSU email, name, ID number, or admin account."}
             </Text>
 
             <Text style={styles.heading}>
@@ -179,24 +179,6 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
             </Text>
 
             <View style={styles.form}>
-              {isSignUp ? (
-                <View style={styles.inputShell}>
-                  <FontAwesome5
-                    name="user-alt"
-                    size={14}
-                    color="#4B1118"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Full name"
-                    placeholderTextColor="#8A6469"
-                    value={name}
-                    onChangeText={setName}
-                  />
-                </View>
-              ) : null}
-
               <View style={styles.inputShell}>
                 <FontAwesome5
                   name="user-alt"
@@ -206,11 +188,11 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder={isSignUp ? "Username" : "Username, ID number, or email"}
+                  placeholder={isSignUp ? "Display name / username" : "Name, ID number, or email"}
                   placeholderTextColor="#8A6469"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
+                  value={isSignUp ? name : username}
+                  onChangeText={isSignUp ? setName : setUsername}
+                  autoCapitalize={isSignUp ? "words" : "none"}
                 />
               </View>
 
@@ -353,11 +335,11 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: Math.min(440, maxContentWidth),
+    maxWidth: Math.min(420, maxContentWidth),
     borderRadius: radii.lg,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 22,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 20,
     backgroundColor: "rgba(255, 255, 255, 0.96)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.46)",
@@ -372,52 +354,43 @@ const styles = StyleSheet.create({
         }),
   },
   brandRow: {
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  brandMark: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandSquare: {
-    position: "absolute",
-    width: 15,
-    height: 15,
-    borderWidth: 1.2,
-    borderColor: colors.maroon,
-    transform: [{ rotate: "45deg" }],
-  },
-  brandSquareSmall: {
-    width: 5,
-    height: 5,
-    backgroundColor: "#F7CCD2",
-    transform: [{ rotate: "45deg" }],
+  brandLogo: {
+    width: 38,
+    height: 38,
   },
   brandText: {
     color: colors.maroon,
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 0,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   tagline: {
-    marginTop: 22,
+    marginTop: 18,
     textAlign: "center",
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: "500",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
   },
   heading: {
-    marginTop: 16,
-    marginBottom: 18,
+    marginTop: 13,
+    marginBottom: 16,
     textAlign: "center",
     color: colors.maroonDark,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "900",
   },
   form: {
@@ -427,9 +400,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    minHeight: 48,
-    marginBottom: 12,
+    borderRadius: radii.md,
+    minHeight: 46,
+    marginBottom: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: colors.line,
@@ -463,8 +436,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5EE",
   },
   button: {
-    borderRadius: radii.lg,
-    marginTop: 18,
+    borderRadius: radii.md,
+    marginTop: 14,
     ...(Platform.OS === "web"
       ? { boxShadow: "0px 6px 16px rgba(58, 8, 13, 0.2)" }
       : {
@@ -482,7 +455,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
-    paddingVertical: 15,
+    paddingVertical: 14,
   },
   buttonText: {
     color: colors.surface,
@@ -490,12 +463,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   footer: {
-    marginTop: 22,
+    marginTop: 18,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     flexWrap: "wrap",
-    paddingTop: 26,
+    paddingTop: 20,
   },
   footerMuted: {
     color: colors.maroonDark,

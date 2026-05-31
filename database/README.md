@@ -10,10 +10,16 @@ The app uses:
 
 - Supabase Auth for sign in and sign up
 - `profiles` for public user profile data
+- `colleges` as the parent lookup for degree programs and user academic data
 - Supabase tables for handbook, offices, campus map, class schedules,
   announcements, course offerings, prospectus records, and academic calendar
+- Join/relationship tables for handbook-office links, nearby campus locations,
+  per-office services, and per-user notification recipients
+- `admin_contact_messages` for in-app messages sent to administrative offices
 - Structured class schedule columns for `schedule_date`, `start_time`,
-  `end_time`, `reminder_minutes`, `reminder_at`, and `notification_id`
+  `end_time`, `program_id`, `location_id`, `reminder_minutes`, `reminder_at`,
+  local reminder `notification_id`, and optional announcement link
+  `announcement_id`
 
 The policies in `schema.sql` are intentionally permissive for the capstone
 prototype so the Expo app can seed and edit data with the publishable key.

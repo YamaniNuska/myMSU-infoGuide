@@ -5,6 +5,7 @@ import { EventEmitter as LocationEventEmitter } from "expo-location";
 import { Tabs } from "expo-router";
 import * as React from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { restoreAuthSession } from "../src/auth/localAuth";
 import { startAppDataSync } from "../src/data/appStore";
 import { colors } from "../src/theme";
@@ -25,6 +26,8 @@ if (Platform.OS === "web" && LocationEventEmitter) {
 }
 
 export default function RootLayout() {
+  const insets = useSafeAreaInsets();
+
   React.useEffect(() => {
     const stopAppDataSync = startAppDataSync();
 
@@ -47,31 +50,24 @@ export default function RootLayout() {
           marginTop: 2,
         },
         tabBarItemStyle: {
-          paddingVertical: 9,
+          paddingTop: 7,
+          paddingBottom: 4,
         },
         tabBarStyle: {
-          position: "absolute",
-          left: Platform.OS === "web" ? 16 : 0,
-          right: Platform.OS === "web" ? 16 : 0,
-          bottom: 0,
-          height: Platform.OS === "ios" ? 84 : Platform.OS === "web" ? 66 : 74,
+          height: 58 + Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
+          paddingBottom: Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
-          borderWidth: 1,
+          borderTopWidth: 1,
           borderColor: colors.line,
-          borderRadius: Platform.OS === "web" ? 22 : 0,
-          borderTopLeftRadius: Platform.OS === "web" ? 22 : 22,
-          borderTopRightRadius: Platform.OS === "web" ? 22 : 22,
-          borderBottomLeftRadius: 0,
-          borderBottomRightRadius: 0,
+          borderRadius: 0,
           ...(Platform.OS === "web"
-            ? { boxShadow: "0px 8px 22px rgba(29, 11, 11, 0.14)" }
+            ? { boxShadow: "0px -3px 12px rgba(29, 11, 11, 0.08)" }
             : {
                 shadowColor: "#1D0B0B",
-                shadowOpacity: 0.12,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 8 },
-                elevation: 10,
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: -2 },
+                elevation: 4,
               }),
         },
       }}

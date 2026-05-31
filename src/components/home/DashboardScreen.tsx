@@ -362,6 +362,23 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
     }
   };
 
+  const handleSearchResultPress = (type: string) => {
+    const destinations: Record<string, string> = {
+      "Campus Map": "campusMap",
+      Office: "adminInfo",
+      Handbook: "handbook",
+      Program: "courseOffer",
+      Calendar: "academicCalendar",
+      Announcement: "notification",
+      "Class Schedule": "classSchedule",
+    };
+    const destination = destinations[type];
+
+    if (destination) {
+      onNavigate?.(destination);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Animated.View
@@ -386,6 +403,8 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
+          <View pointerEvents="none" style={styles.headerGoldLine} />
+          <View pointerEvents="none" style={styles.headerGlassPlate} />
           <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
           <View style={styles.headerTop}>
             <View style={styles.headerCopy}>
@@ -461,13 +480,18 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
           <View style={styles.searchResults}>
             <Text style={styles.sectionTitle}>Search Results</Text>
             {searchResults.map((result) => (
-              <View key={`${result.type}-${result.id}`} style={styles.resultCard}>
+              <TouchableOpacity
+                key={`${result.type}-${result.id}`}
+                style={styles.resultCard}
+                activeOpacity={0.82}
+                onPress={() => handleSearchResultPress(result.type)}
+              >
                 <Text style={styles.resultType}>{result.type}</Text>
                 <Text style={styles.resultTitle}>{result.title}</Text>
                 <Text style={styles.resultBody} numberOfLines={3}>
                   {result.body}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
             {searchResults.length === 0 ? (
               <Text style={styles.noResultsText}>
@@ -595,12 +619,34 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   header: {
-    paddingHorizontal: 18,
-    paddingTop: 54,
-    paddingBottom: 24,
-    borderBottomLeftRadius: radii.lg,
-    borderBottomRightRadius: radii.lg,
+    position: "relative",
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingTop: 36,
+    paddingBottom: 14,
+    borderBottomLeftRadius: radii.md,
+    borderBottomRightRadius: radii.md,
     ...shadow,
+  },
+  headerGoldLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 3,
+    backgroundColor: colors.gold,
+    opacity: 0.92,
+  },
+  headerGlassPlate: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    top: 34,
+    height: 74,
+    borderRadius: radii.md,
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(216, 178, 74, 0.12)",
   },
   headerInner: {
     width: "100%",
@@ -613,38 +659,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 16,
-    marginBottom: 18,
+    gap: 10,
+    marginBottom: 9,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
   },
   headerCopy: {
     flex: 1,
     minWidth: 0,
   },
   appName: {
-    fontSize: 12,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(216,178,74,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(216,178,74,0.24)",
+    fontSize: 10,
     color: colors.gold,
-    fontWeight: "800",
+    fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 0,
   },
   greeting: {
-    marginTop: 4,
-    fontSize: 28,
-    lineHeight: 34,
+    marginTop: 5,
+    fontSize: 21,
+    lineHeight: 26,
     color: colors.surface,
     fontWeight: "900",
   },
   subtitle: {
-    marginTop: 3,
-    fontSize: 14,
+    marginTop: 1,
+    fontSize: 11,
     color: "rgba(255,255,255,0.82)",
     fontWeight: "600",
   },
   notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.sm,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    width: 38,
+    height: 38,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(255,255,255,0.14)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -662,16 +718,16 @@ const styles = StyleSheet.create({
     borderColor: colors.maroon,
   },
   searchContainer: {
-    minHeight: 50,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    paddingHorizontal: 14,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.42)",
-    ...softShadow,
+    ...shadow,
   },
   searchInput: {
     flex: 1,
@@ -694,14 +750,15 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   searchResults: {
-    gap: 10,
+    gap: 8,
   },
   resultCard: {
-    padding: 14,
+    padding: 12,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
+    ...softShadow,
   },
   resultType: {
     color: colors.goldDark,
@@ -727,16 +784,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   handbook: {
-    minHeight: 112,
+    minHeight: 92,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    padding: 18,
+    padding: 15,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 14,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     ...shadow,
   },
   handbookCopy: {
@@ -744,12 +801,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   handbookTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: colors.maroonDark,
     fontWeight: "800",
   },
   handbookText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.muted,
     marginTop: 5,
     lineHeight: 19,
@@ -762,24 +819,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
   },
   cardWrapper: {
     minWidth: 0,
   },
   card: {
-    minHeight: 136,
+    minHeight: 112,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    padding: 14,
+    padding: 12,
     alignItems: "center",
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     justifyContent: "center",
     ...softShadow,
   },
   cardText: {
-    marginTop: 12,
+    marginTop: 9,
     fontSize: 13,
     color: colors.maroonDark,
     textAlign: "center",
@@ -794,9 +851,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.sm,
+    width: 42,
+    height: 42,
+    borderRadius: radii.md,
     backgroundColor: colors.maroon,
     alignItems: "center",
     justifyContent: "center",
@@ -805,8 +862,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    padding: 16,
-    borderRadius: radii.lg,
+    padding: 14,
+    borderRadius: radii.md,
     backgroundColor: colors.maroonDark,
     borderWidth: 1,
     borderColor: "rgba(216,178,74,0.25)",
@@ -848,8 +905,8 @@ const styles = StyleSheet.create({
   },
   listCard: {
     backgroundColor: colors.surface,
-    padding: 15,
-    borderRadius: radii.lg,
+    padding: 13,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.line,
     ...softShadow,
@@ -859,12 +916,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listIconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.sm,
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: 12,
   },
   listTextContainer: {
     flex: 1,

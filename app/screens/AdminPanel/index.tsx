@@ -41,6 +41,7 @@ import {
   HandbookEntry,
   OfficeRecord,
   ProspectusRecord,
+  TechnicalElective,
 } from "../../../src/data/mymsuDatabase";
 import { colors, maxContentWidth, radii, shadow } from "../../../src/theme";
 
@@ -207,8 +208,7 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "subjects", label: "Subjects, comma separated", multiline: true },
   ],
   students: [
-    { key: "name", label: "Student name" },
-    { key: "username", label: "Username" },
+    { key: "name", label: "Student name / username" },
     { key: "email", label: "Email" },
     { key: "password", label: "Password" },
   ],
@@ -294,12 +294,26 @@ const splitList = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const stringifyListItem = (value: unknown) => {
+  if (
+    value &&
+    typeof value === "object" &&
+    ("code" in value || "title" in value)
+  ) {
+    return getTechnicalElectiveLabel(parseTechnicalElective(value as TechnicalElective));
+  }
+
+  return String(value ?? "");
+};
+
 const joinList = (value: unknown) =>
-  Array.isArray(value) ? value.join(", ") : "";
+  Array.isArray(value)
+    ? value.map(stringifyListItem).filter(Boolean).join(", ")
+    : "";
 
 const toStringList = (value: unknown) =>
   Array.isArray(value)
-    ? value.map((item) => String(item))
+    ? value.map(stringifyListItem).filter(Boolean)
     : splitList(String(value ?? ""));
 
 const defaultProspectusSubjectDraft: ProspectusSubjectDraft = {
@@ -308,8 +322,8 @@ const defaultProspectusSubjectDraft: ProspectusSubjectDraft = {
   units: "3",
   lec: "3",
   lab: "0",
-  prereq: "None",
-  coreq: "None",
+  prereq: "",
+  coreq: "",
   importance: "standard",
 };
 
@@ -320,10 +334,20 @@ const formatProspectusSubject = (draft: ProspectusSubjectDraft) =>
     `Units: ${draft.units.trim() || "0"}`,
     `Lec: ${draft.lec.trim() || "0"}`,
     `Lab: ${draft.lab.trim() || "0"}`,
-    `Prereq: ${draft.prereq.trim() ? draft.prereq : "None"}`,
-    `Coreq: ${draft.coreq.trim() ? draft.coreq : "None"}`,
+    `Prereq: ${draft.prereq}`,
+    `Coreq: ${draft.coreq}`,
     `Importance: ${draft.importance.trim() || "standard"}`,
   ].join(" | ");
+
+const formatProspectusSubjectForSave = (subject: string) => {
+  const draft = parseProspectusSubjectDraft(subject);
+
+  return formatProspectusSubject({
+    ...draft,
+    prereq: draft.prereq.trim() || "None",
+    coreq: draft.coreq.trim() || "None",
+  });
+};
 
 const stripTableSeparatorPadding = (value: string) => {
   let nextValue = value;
@@ -361,25 +385,55 @@ const parseProspectusSubjectDraft = (subject: string): ProspectusSubjectDraft =>
     units: getDraftSubjectValue(parts, "Units") || "0",
     lec: getDraftSubjectValue(parts, "Lec") || "0",
     lab: getDraftSubjectValue(parts, "Lab") || "0",
-    prereq: getDraftSubjectValue(parts, "Prereq") || "None",
-    coreq: getDraftSubjectValue(parts, "Coreq") || "None",
+    prereq: getDraftSubjectValue(parts, "Prereq"),
+    coreq: getDraftSubjectValue(parts, "Coreq"),
     importance: getDraftSubjectValue(parts, "Importance").trim() || "standard",
   };
 };
 
-const parseTechnicalElective = (value: string) => {
+const getTechnicalElectiveLabel = (elective: TechnicalElective) =>
+  [elective.code.trim(), elective.title.trim()].filter(Boolean).join(" | ");
+
+const parseTechnicalElective = (
+  value: string | TechnicalElective,
+): TechnicalElective => {
+  if (typeof value !== "string") {
+    return {
+      code: value.code?.trim() ?? "",
+      title: value.title?.trim() ?? "",
+    };
+  }
+
   const trimmed = value.trim();
-  const [first = "", ...rest] = trimmed.split(/\s+/);
-  const looksLikeCode = /^[A-Z]{2,}\s?\d+[A-Z]?$/i.test(first);
+
+  if (trimmed.includes("|")) {
+    const [code = "", ...titleParts] = trimmed.split("|");
+
+    return {
+      code: stripTableSeparatorPadding(code),
+      title: stripTableSeparatorPadding(titleParts.join("|")),
+    };
+  }
+
+  const codeMatch = trimmed.match(/^([A-Z]{2,}\s?\d+[A-Z]?)\s+(.+)$/i);
 
   return {
-    code: looksLikeCode ? first : "",
-    title: looksLikeCode ? rest.join(" ") : trimmed,
+    code: codeMatch ? codeMatch[1].trim() : "",
+    title: codeMatch ? codeMatch[2].trim() : trimmed,
   };
 };
 
-const formatTechnicalElective = (code: string, title: string) =>
-  [code.trim(), title.trim()].filter(Boolean).join(" ");
+const formatTechnicalElectiveDraft = (code: string, title: string) =>
+  `${code} | ${title}`;
+
+const formatTechnicalElectiveForSave = (value: string) => {
+  const parsed = parseTechnicalElective(value);
+
+  return {
+    code: parsed.code.trim(),
+    title: parsed.title.trim(),
+  };
+};
 
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
@@ -675,9 +729,16 @@ export default function AdminPanelScreen() {
       ...current,
       programId,
       program: program?.program ?? current.program,
-      technicalElectives: nextTechnicalElectives.join(", "),
+      technicalElectives: nextTechnicalElectives
+        .map((elective) => getTechnicalElectiveLabel(parseTechnicalElective(elective)))
+        .filter(Boolean)
+        .join(", "),
     }));
-    setTechnicalElectiveRows(nextTechnicalElectives);
+    setTechnicalElectiveRows(
+      nextTechnicalElectives
+        .map((elective) => getTechnicalElectiveLabel(parseTechnicalElective(elective)))
+        .filter(Boolean),
+    );
   };
 
   const setProspectusSubjectRows = (
@@ -702,7 +763,15 @@ export default function AdminPanelScreen() {
 
   const setTechnicalElectiveRowList = (nextElectives: string[]) => {
     setTechnicalElectiveRows(nextElectives);
-    updateField("technicalElectives", nextElectives.join(", "));
+    updateField(
+      "technicalElectives",
+      nextElectives
+        .map((elective) =>
+          getTechnicalElectiveLabel(formatTechnicalElectiveForSave(elective)),
+        )
+        .filter(Boolean)
+        .join(", "),
+    );
   };
 
   const updateProspectusSubjectRow = (
@@ -774,7 +843,7 @@ export default function AdminPanelScreen() {
 
       const parsed = parseTechnicalElective(elective);
 
-      return formatTechnicalElective(
+      return formatTechnicalElectiveDraft(
         patch.code ?? parsed.code,
         patch.title ?? parsed.title,
       );
@@ -1083,8 +1152,8 @@ export default function AdminPanelScreen() {
               <Text style={styles.inlineAddButtonText}>Add Row</Text>
             </Pressable>
             <Text style={styles.helperText}>
-              Edit subjects directly in the table. Use None when there is no
-              prerequisite or co-requisite.
+              Edit subjects directly in the table. Leave prerequisites or
+              co-requisites blank when there are none.
             </Text>
           </View>
 
@@ -1172,10 +1241,15 @@ export default function AdminPanelScreen() {
                         <TextInput
                           style={styles.subjectTableInput}
                           value={parsed.prereq}
+                          onFocus={() => {
+                            if (parsed.prereq.trim().toLowerCase() === "none") {
+                              updateProspectusSubjectRow(index, { prereq: "" });
+                            }
+                          }}
                           onChangeText={(value) =>
                             updateProspectusSubjectRow(index, { prereq: value })
                           }
-                          placeholder="None"
+                          placeholder="Optional"
                           placeholderTextColor="#998B8B"
                         />
                       </View>
@@ -1183,10 +1257,15 @@ export default function AdminPanelScreen() {
                         <TextInput
                           style={styles.subjectTableInput}
                           value={parsed.coreq}
+                          onFocus={() => {
+                            if (parsed.coreq.trim().toLowerCase() === "none") {
+                              updateProspectusSubjectRow(index, { coreq: "" });
+                            }
+                          }}
                           onChangeText={(value) =>
                             updateProspectusSubjectRow(index, { coreq: value })
                           }
-                          placeholder="None"
+                          placeholder="Optional"
                           placeholderTextColor="#998B8B"
                         />
                       </View>
@@ -1392,8 +1471,8 @@ export default function AdminPanelScreen() {
                           mapItem(
                             item,
                             item.name,
-                            item.username,
-                            `${item.email} | ${item.role}`,
+                            item.email,
+                            item.role,
                           ),
                         )
                     : data.announcements.map((item) =>
@@ -1482,7 +1561,12 @@ export default function AdminPanelScreen() {
         ...nextForm,
         technicalElectives:
           nextForm.technicalElectives ||
-          (meta?.technicalElectives ?? []).join(", "),
+          (meta?.technicalElectives ?? [])
+            .map((elective) =>
+              getTechnicalElectiveLabel(parseTechnicalElective(elective)),
+            )
+            .filter(Boolean)
+            .join(", "),
       };
 
       setProspectusSubjects(toStringList(item.raw.subjects));
@@ -1577,7 +1661,7 @@ export default function AdminPanelScreen() {
     if (activeTab === "students") {
       const payload = {
         name: form.name,
-        username: form.username,
+        username: form.name,
         email: form.email,
         password: form.password || "student123",
       };
@@ -1692,8 +1776,8 @@ export default function AdminPanelScreen() {
       }
 
       const cleanedTechnicalElectives = technicalElectiveRows
-        .map((elective) => elective.trim())
-        .filter(Boolean);
+        .map(formatTechnicalElectiveForSave)
+        .filter((elective) => elective.code || elective.title);
       const hasSemesterDraft =
         Boolean(form.yearLevel.trim()) ||
         Boolean(form.semester.trim()) ||
@@ -1770,7 +1854,7 @@ export default function AdminPanelScreen() {
           program: linkedProgram.program,
           yearLevel: form.yearLevel,
           semester: form.semester,
-          subjects: prospectusSubjects,
+          subjects: prospectusSubjects.map(formatProspectusSubjectForSave),
         } satisfies ProspectusRecord);
 
         synced = infoSynced && termSynced;
@@ -1838,7 +1922,11 @@ export default function AdminPanelScreen() {
       scrollEnabled={scrollEnabled}
     >
       <View style={[styles.shell, isWide && styles.shellWide]}>
-        <View style={styles.tabRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabRow}
+        >
           {visibleTabs.map((tab) => {
             const active = activeTab === tab.key;
 
@@ -1854,7 +1942,7 @@ export default function AdminPanelScreen() {
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         <View style={styles.searchBox}>
           <Ionicons name="search" size={20} color={colors.maroon} />
@@ -2034,7 +2122,7 @@ export default function AdminPanelScreen() {
 
         {activeTab === "prospectus" ? (
           <View style={styles.list}>
-            {prospectusCollegeGroups.map((group) => (
+            {prospectusCollegeGroups.length > 0 ? prospectusCollegeGroups.map((group) => (
               <View key={group.college} style={styles.collegeGroup}>
                 <View style={styles.collegeGroupHeader}>
                   <Text style={styles.collegeGroupTitle}>{group.college}</Text>
@@ -2046,11 +2134,25 @@ export default function AdminPanelScreen() {
                   {group.items.map((item) => renderRecordCard(item))}
                 </View>
               </View>
-            ))}
+            )) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No matching records</Text>
+                <Text style={styles.emptyBody}>
+                  Add a record above or adjust the search filter.
+                </Text>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.list}>
-            {listItems.map((item) => renderRecordCard(item))}
+            {listItems.length > 0 ? listItems.map((item) => renderRecordCard(item)) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No matching records</Text>
+                <Text style={styles.emptyBody}>
+                  Add a record above or adjust the search filter.
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -2067,10 +2169,12 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
+    paddingRight: 16,
   },
   tab: {
+    minHeight: 42,
+    justifyContent: "center",
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderRadius: radii.pill,
@@ -2117,6 +2221,7 @@ const styles = StyleSheet.create({
   },
   editorHeader: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
@@ -2175,13 +2280,15 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   field: {
-    width: "100%",
+    flexBasis: "100%",
+    flexGrow: 1,
   },
   fieldHalf: {
-    width: "48.5%",
+    flexBasis: 320,
+    flexGrow: 1,
   },
   fieldWide: {
-    width: "100%",
+    flexBasis: "100%",
   },
   fieldLabel: {
     color: colors.muted,
@@ -2213,6 +2320,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   choiceChip: {
+    minHeight: 40,
+    justifyContent: "center",
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderRadius: radii.pill,
@@ -2352,6 +2461,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   subjectTableToolbar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: 8,
   },
   prospectusInfoTable: {
@@ -2572,6 +2684,7 @@ const styles = StyleSheet.create({
   },
   datePickerTitle: {
     flex: 1,
+    minWidth: 0,
     color: colors.maroonDark,
     fontSize: 13,
     fontWeight: "900",
@@ -2656,6 +2769,7 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
@@ -2724,6 +2838,25 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     lineHeight: 20,
+  },
+  emptyCard: {
+    padding: 18,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  emptyTitle: {
+    color: colors.maroonDark,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  emptyBody: {
+    marginTop: 6,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
   },
   actionRow: {
     flexDirection: "row",

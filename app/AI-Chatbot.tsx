@@ -170,6 +170,7 @@ export default function AI({ onBack }: AIScreenProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const scrollRef = React.useRef<ScrollView>(null);
+  const inputRef = React.useRef("");
 
   React.useEffect(() => {
     Animated.timing(entry, {
@@ -188,8 +189,13 @@ export default function AI({ onBack }: AIScreenProps) {
     return () => clearTimeout(timeout);
   }, [messages, isLoading]);
 
+  const handleInputChange = (value: string) => {
+    inputRef.current = value;
+    setInput(value);
+  };
+
   const sendMessage = async (rawText?: string) => {
-    const content = (rawText ?? input).trim();
+    const content = (rawText ?? inputRef.current).trim();
 
     if (!content || isLoading) {
       return;
@@ -203,6 +209,7 @@ export default function AI({ onBack }: AIScreenProps) {
 
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
+    inputRef.current = "";
     setInput("");
     setIsLoading(true);
     setErrorMessage(null);
@@ -325,7 +332,7 @@ export default function AI({ onBack }: AIScreenProps) {
             </Text>
           </View>
 
-          <HeaderUserAvatar lowered style={styles.headerAvatar} />
+          <HeaderUserAvatar showName={false} style={styles.headerAvatar} />
         </View>
 
         <ScrollView
@@ -428,7 +435,7 @@ export default function AI({ onBack }: AIScreenProps) {
             placeholder="Message myMSU-Guide AI..."
             placeholderTextColor="#9D8A8A"
             value={input}
-            onChangeText={setInput}
+            onChangeText={handleInputChange}
             multiline
             onKeyPress={handleComposerKeyPress}
           />
@@ -462,9 +469,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
     paddingHorizontal: 16,
-    paddingRight: 106,
-    paddingTop: 18,
-    paddingBottom: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
     backgroundColor: colors.surface,
@@ -477,17 +483,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.maroon,
-    marginTop: 16,
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 12,
-    marginTop: 16,
   },
   headerAvatar: {
-    position: "absolute",
-    top: 10,
-    right: 12,
+    flexShrink: 0,
+    marginLeft: 10,
   },
   headerTitle: {
     fontSize: 18,
@@ -550,6 +554,8 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "84%",
+    flexShrink: 1,
+    minWidth: 0,
     borderRadius: radii.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -565,6 +571,8 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   messageText: {
+    flexShrink: 1,
+    flexWrap: "wrap",
     fontSize: 14,
     lineHeight: 21,
   },

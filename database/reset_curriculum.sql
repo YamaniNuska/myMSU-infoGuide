@@ -1,14 +1,13 @@
--- Reset curriculum data to the two supported live programs.
--- Run this after schema.sql when you want to remove old course/prospectus rows.
+-- Refresh curriculum program records for the two supported live programs.
+-- Run this after schema.sql when you want to make sure the program rows exist.
 --
 -- This keeps curriculum content in Supabase instead of hardcoding it in the app.
--- Add the detailed term-by-term subjects from the PDFs through the Faculty/Admin
--- Console so future edits stay database-backed.
-
-DELETE FROM public.prospectus_records;
-DELETE FROM public.course_offerings;
+-- Detailed term-by-term prospectus rows live in public.prospectus_records and
+-- are imported separately from the PDF source files. This script intentionally
+-- does not delete those live records.
 
 ALTER TABLE public.course_offerings
+  ADD COLUMN IF NOT EXISTS college_id TEXT,
   DROP COLUMN IF EXISTS summary,
   DROP COLUMN IF EXISTS technical_electives;
 
@@ -16,8 +15,25 @@ ALTER TABLE public.prospectus_records
   ADD COLUMN IF NOT EXISTS summary TEXT,
   ADD COLUMN IF NOT EXISTS technical_electives JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+INSERT INTO public.colleges (id, name, description)
+VALUES
+  (
+    'coe',
+    'College of Engineering',
+    'Academic college that offers engineering programs.'
+  ),
+  (
+    'cics',
+    'College of Information and Computing Sciences',
+    'Academic college that offers computing and information systems programs.'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description;
+
 INSERT INTO public.course_offerings (
   id,
+  college_id,
   college,
   program,
   degree,
@@ -27,6 +43,7 @@ INSERT INTO public.course_offerings (
 VALUES
   (
     'coe-bsee-2018',
+    'coe',
     'College of Engineering',
     'Bachelor of Science in Electrical Engineering',
     'BSEE',
@@ -35,6 +52,7 @@ VALUES
   ),
   (
     'cics-bsit-dbs',
+    'cics',
     'College of Information and Computing Sciences',
     'BS-IT (DBs)',
     'BSIT-DBS',
@@ -42,6 +60,7 @@ VALUES
     '["cics", "it", "database", "database systems", "dbs"]'::jsonb
   )
 ON CONFLICT (id) DO UPDATE SET
+  college_id = EXCLUDED.college_id,
   college = EXCLUDED.college,
   program = EXCLUDED.program,
   degree = EXCLUDED.degree,

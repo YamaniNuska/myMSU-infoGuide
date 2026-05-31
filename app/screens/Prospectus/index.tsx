@@ -11,6 +11,7 @@ import {
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import { useAppData } from "../../../src/data/appStore";
 import { isProspectusTermRecord } from "../../../src/data/curriculum";
+import type { TechnicalElective } from "../../../src/data/mymsuDatabase";
 import { colors, maxContentWidth, radii, shadow } from "../../../src/theme";
 
 type ProspectusScreenProps = {
@@ -28,6 +29,12 @@ type ParsedSubject = {
   prereq: string;
   coreq: string;
   importance?: "foundation" | "gateway" | "dependent" | "standard";
+};
+
+type ParsedTechnicalElective = {
+  raw: string;
+  code: string;
+  title: string;
 };
 
 type ProspectusView =
@@ -90,6 +97,41 @@ const parseSubject = (subject: string): ParsedSubject => {
       importance === "standard"
         ? importance
         : undefined,
+  };
+};
+
+const parseTechnicalElective = (
+  value: string | TechnicalElective,
+): ParsedTechnicalElective => {
+  if (typeof value !== "string") {
+    const code = value.code?.trim() ?? "";
+    const title = value.title?.trim() ?? "";
+
+    return {
+      raw: [code, title].filter(Boolean).join(" | "),
+      code,
+      title,
+    };
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.includes("|")) {
+    const [code = "", ...titleParts] = trimmed.split("|");
+
+    return {
+      raw: value,
+      code: code.trim(),
+      title: titleParts.join("|").trim(),
+    };
+  }
+
+  const codeMatch = trimmed.match(/^([A-Z]{2,}\s?\d+[A-Z]?)\s+(.+)$/i);
+
+  return {
+    raw: value,
+    code: codeMatch ? codeMatch[1].trim() : "",
+    title: codeMatch ? codeMatch[2].trim() : trimmed,
   };
 };
 
@@ -256,10 +298,21 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
     (total, term) => total + term.priorityCount,
     0,
   );
-  const technicalElectives =
-    activeProspectusMeta?.technicalElectives?.filter((elective) =>
-      elective.trim(),
-    ) ?? [];
+  const technicalElectives = React.useMemo(
+    () =>
+      ((activeProspectusMeta?.technicalElectives ?? []) as Array<
+        string | TechnicalElective
+      >).filter((elective) => {
+        const parsed = parseTechnicalElective(elective);
+
+        return parsed.code || parsed.title;
+      }),
+    [activeProspectusMeta?.technicalElectives],
+  );
+  const parsedTechnicalElectives = React.useMemo(
+    () => technicalElectives.map(parseTechnicalElective),
+    [technicalElectives],
+  );
   const programGraphTerms = React.useMemo(
     () =>
       parsedTerms.map((term, termIndex) => ({
@@ -391,6 +444,54 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
     ),
     160,
   );
+  const technicalElectiveTable = technicalElectives.length > 0 ? (
+    <View style={styles.summarySection}>
+      <View style={styles.summaryPanel}>
+        <Text style={styles.electiveTitle}>Offered Technical Electives</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.electiveTableScroller}
+        >
+          <View style={styles.electiveTable}>
+            <View style={[styles.tableRow, styles.tableHeaderRow]}>
+              <Text style={[styles.tableHeaderText, styles.electiveIndexCell]}>
+                #
+              </Text>
+              <Text style={[styles.tableHeaderText, styles.electiveCodeCell]}>
+                Course No.
+              </Text>
+              <Text style={[styles.tableHeaderText, styles.electiveTitleCell]}>
+                Descriptive Title
+              </Text>
+            </View>
+
+            {parsedTechnicalElectives.map((elective, index) => (
+              <View
+                key={`${elective.raw}-${index}`}
+                style={[
+                  styles.tableRow,
+                  index === parsedTechnicalElectives.length - 1 &&
+                    styles.electiveTableLastRow,
+                  index % 2 === 1 && styles.tableRowAlt,
+                ]}
+              >
+                <Text style={[styles.tableNumberText, styles.electiveIndexCell]}>
+                  {index + 1}
+                </Text>
+                <Text style={[styles.tableCodeText, styles.electiveCodeCell]}>
+                  {elective.code || "TBA"}
+                </Text>
+                <Text style={[styles.tableBodyText, styles.electiveTitleCell]}>
+                  {elective.title || elective.raw}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    </View>
+  ) : null;
 
   return (
     <SecondaryScreenLayout
@@ -505,20 +606,9 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         </View>
       ) : null}
 
-      {activeView === "electives" && technicalElectives.length > 0 ? (
-        <View style={styles.summarySection}>
-          <View style={styles.summaryPanel}>
-            <Text style={styles.electiveTitle}>Offered Technical Electives</Text>
-            <View style={styles.electiveGrid}>
-              {technicalElectives.map((elective) => (
-                <View key={elective} style={styles.electiveChip}>
-                  <Text style={styles.electiveText}>{elective}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {activeView === "semester" ? technicalElectiveTable : null}
+
+      {activeView === "electives" ? technicalElectiveTable : null}
 
       {activeView === "semester" ? (
         <View style={styles.termStack}>
@@ -1135,23 +1225,42 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     textTransform: "uppercase",
   },
-  electiveGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+  electiveTableScroller: {
+    paddingBottom: 2,
   },
-  electiveChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  electiveTable: {
+    minWidth: 560,
+    overflow: "hidden",
     borderRadius: radii.sm,
-    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.line,
+    backgroundColor: colors.surface,
   },
-  electiveText: {
-    color: colors.ink,
-    fontSize: 12,
-    fontWeight: "800",
+  electiveTableLastRow: {
+    borderBottomWidth: 0,
+  },
+  electiveIndexCell: {
+    width: 58,
+    justifyContent: "center",
+    textAlign: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  electiveCodeCell: {
+    width: 136,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  electiveTitleCell: {
+    width: 364,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   legendPanel: {
     width: "100%",

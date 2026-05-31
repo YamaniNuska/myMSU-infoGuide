@@ -52,6 +52,7 @@ let currentUser: UserRecord | null = null;
 const listeners = new Set<() => void>();
 
 const normalize = (value: string) => value.trim().toLowerCase();
+const usernameFromName = (name: string) => normalize(name);
 const isSignupRole = (role: unknown): role is SignupRole =>
   role === "student" || role === "faculty" || role === "employee";
 const isMsuStudentEmail = (email: string) =>
@@ -102,8 +103,6 @@ function profileFromAuthUser(authUser: SupabaseAuthUser): UserRecord | null {
   }
 
   const metadata = authUser.user_metadata as Record<string, unknown>;
-  const metadataUsername =
-    typeof metadata.username === "string" ? metadata.username : "";
   const metadataName =
     typeof metadata.name === "string"
       ? metadata.name
@@ -116,7 +115,7 @@ function profileFromAuthUser(authUser: SupabaseAuthUser): UserRecord | null {
       : "student";
   const isFixedAdmin = isFixedAdminEmail(email);
   const resolvedRole = resolveSignupRole(email, requestedRole);
-  const username = normalize(metadataUsername || email.split("@")[0]);
+  const username = usernameFromName(metadataName || email.split("@")[0]);
 
   return {
     id: authUser.id,
@@ -264,6 +263,7 @@ export async function updateProfileDetails(
   const nextUser: UserRecord = {
     ...currentUser,
     name,
+    username: usernameFromName(name),
     idNumber: cleanOptional(patch.idNumber),
     avatarUrl: cleanOptional(patch.avatarUrl),
     college: cleanOptional(patch.college),
@@ -507,7 +507,7 @@ export async function signIn(
   if (!cleanIdentifier || !cleanPassword) {
     return {
       ok: false,
-      message: "Enter your username/email and password.",
+      message: "Enter your name/email and password.",
     };
   }
 
@@ -520,7 +520,7 @@ export async function signIn(
       return {
         ok: false,
         message:
-          "Use your email address for the first sign-in. After the profile is restored, username or ID number sign-in will work.",
+          "Use your email address for the first sign-in. After the profile is restored, name or ID number sign-in will work.",
       };
     }
 
@@ -577,11 +577,11 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
   }
 
   const name = input.name.trim();
-  const username = input.username.trim();
+  const username = usernameFromName(name);
   const email = normalize(input.email);
   const password = input.password.trim();
 
-  if (!name || !username || !email || !password) {
+  if (!name || !email || !password) {
     return {
       ok: false,
       message: "Complete all sign-up fields.",
@@ -609,7 +609,7 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
     if (existingProfile) {
       return {
         ok: false,
-        message: "Username is already registered.",
+        message: "Name / username is already registered.",
       };
     }
 
@@ -628,7 +628,7 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
       options: {
         data: {
           name,
-          username: normalize(username),
+          username,
           role: resolvedRole.role,
         },
       },
@@ -645,7 +645,7 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
       id: data.user.id,
       name,
       role: resolvedRole.role,
-      username: normalize(username),
+      username,
       email,
     };
 
@@ -699,11 +699,11 @@ export async function createStudentAccount(input: {
   }
 
   const name = input.name.trim();
-  const username = input.username.trim();
+  const username = usernameFromName(name);
   const email = normalize(input.email);
   const password = input.password.trim();
 
-  if (!name || !username || !email || !password) {
+  if (!name || !email || !password) {
     return {
       ok: false,
       message: "Complete all student account fields.",
@@ -738,7 +738,7 @@ export async function createStudentAccount(input: {
     if (existingProfile) {
       return {
         ok: false,
-        message: "Username is already registered.",
+        message: "Name / username is already registered.",
       };
     }
 
@@ -758,7 +758,7 @@ export async function createStudentAccount(input: {
       options: {
         data: {
           name,
-          username: normalize(username),
+          username,
           role: "student",
         },
       },
@@ -782,7 +782,7 @@ export async function createStudentAccount(input: {
       id: data.user.id,
       name,
       role: "student",
-      username: normalize(username),
+      username,
       email,
     };
 
@@ -840,7 +840,7 @@ export async function updateStudentAccount(
     id,
     name: patch.name.trim(),
     role: "student",
-    username: normalize(patch.username),
+    username: usernameFromName(patch.name),
     email: nextEmail,
   };
 

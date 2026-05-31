@@ -127,14 +127,16 @@ export default function HandbookScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
+        <View pointerEvents="none" style={styles.headerGoldLine} />
+        <View pointerEvents="none" style={styles.headerGlassPlate} />
         <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
           <View style={styles.headerTopRow}>
             <Pressable style={styles.backButton} onPress={handleBack}>
               <Ionicons name="arrow-back" size={20} color={colors.surface} />
               <Text style={styles.backText}>Back</Text>
             </Pressable>
+            <HeaderUserAvatar light showName={false} style={styles.headerAvatar} />
           </View>
-          <HeaderUserAvatar light lowered style={styles.headerAvatar} />
 
           <View style={styles.headerTitleRow}>
             <View style={styles.headerIcon}>
@@ -318,21 +320,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   header: {
+    position: "relative",
+    overflow: "hidden",
     zIndex: 2,
     elevation: 4,
     paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 14,
-    borderBottomLeftRadius: radii.sm,
-    borderBottomRightRadius: radii.sm,
+    paddingTop: 8,
+    paddingBottom: 15,
+    borderBottomLeftRadius: radii.md,
+    borderBottomRightRadius: radii.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(216, 178, 74, 0.18)",
+  },
+  headerGoldLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 3,
+    backgroundColor: colors.gold,
+    opacity: 0.92,
+  },
+  headerGlassPlate: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    top: 48,
+    height: 72,
+    borderRadius: radii.md,
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(216, 178, 74, 0.12)",
   },
   headerInner: {
     width: "100%",
     alignSelf: "center",
     position: "relative",
-    paddingRight: 92,
   },
   headerInnerWide: {
     maxWidth: maxContentWidth,
@@ -340,25 +363,24 @@ const styles = StyleSheet.create({
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 6,
   },
   headerAvatar: {
-    position: "absolute",
-    top: 28,
-    right: 0,
+    flexShrink: 0,
   },
   backButton: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 2,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.13)",
+    backgroundColor: "rgba(255, 255, 255, 0.10)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(216, 178, 74, 0.22)",
   },
   backText: {
     color: colors.surface,
@@ -368,16 +390,22 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 11,
     marginTop: 0,
+    paddingVertical: 8,
+    paddingLeft: 11,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
   },
   headerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.sm,
+    width: 42,
+    height: 42,
+    borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(216, 178, 74, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(216, 178, 74, 0.28)",
   },
   headerCopy: {
     flex: 1,
@@ -385,12 +413,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.surface,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: "900",
   },
   headerSubtitle: {
-    marginTop: 5,
-    color: "rgba(255,255,255,0.84)",
+    marginTop: 3,
+    color: "rgba(255,255,255,0.78)",
     fontSize: 12,
     lineHeight: 17,
   },
@@ -399,10 +428,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 14,
+    marginTop: 12,
     paddingHorizontal: 14,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(216,178,74,0.35)",
+    ...shadow,
   },
   searchInput: {
     flex: 1,

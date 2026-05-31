@@ -1,6 +1,7 @@
 import { useNavigation, useRouter, type Href } from "expo-router";
 import { useLayoutEffect, useState } from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthSession } from "../src/auth/localAuth";
 import { UserRecord } from "../src/data/mymsuDatabase";
 import DashboardScreen from "../src/components/home/DashboardScreen";
@@ -24,32 +25,6 @@ const ROUTES: Record<string, Href> = {
 
 type FlowStep = "welcome" | "login" | "home";
 
-const homeTabBarStyle = {
-  position: "absolute" as const,
-  left: Platform.OS === "web" ? 16 : 0,
-  right: Platform.OS === "web" ? 16 : 0,
-  bottom: 0,
-  height: Platform.OS === "ios" ? 84 : Platform.OS === "web" ? 66 : 74,
-  backgroundColor: colors.surface,
-  borderTopWidth: 0,
-  borderWidth: 1,
-  borderColor: colors.line,
-  borderRadius: Platform.OS === "web" ? 22 : 0,
-  borderTopLeftRadius: Platform.OS === "web" ? 22 : 22,
-  borderTopRightRadius: Platform.OS === "web" ? 22 : 22,
-  borderBottomLeftRadius: 0,
-  borderBottomRightRadius: 0,
-  ...(Platform.OS === "web"
-    ? { boxShadow: "0px 8px 22px rgba(29, 11, 11, 0.14)" }
-    : {
-        shadowColor: "#1D0B0B",
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 10,
-      }),
-};
-
 const hiddenTabBarStyle = {
   display: "none" as const,
 };
@@ -57,16 +32,35 @@ const hiddenTabBarStyle = {
 export default function Index() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const currentUser = useAuthSession();
   const [step, setStep] = useState<FlowStep>(() =>
     currentUser ? "home" : "welcome",
   );
 
   useLayoutEffect(() => {
+    const homeTabBarStyle = {
+      height: 58 + Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
+      paddingBottom: Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderColor: colors.line,
+      borderRadius: 0,
+      ...(Platform.OS === "web"
+        ? { boxShadow: "0px -3px 12px rgba(29, 11, 11, 0.08)" }
+        : {
+            shadowColor: "#1D0B0B",
+            shadowOpacity: 0.06,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: -2 },
+            elevation: 4,
+          }),
+    };
+
     navigation.setOptions({
       tabBarStyle: step === "home" && currentUser ? homeTabBarStyle : hiddenTabBarStyle,
     });
-  }, [currentUser, navigation, step]);
+  }, [currentUser, insets.bottom, navigation, step]);
 
   const handleNavigate = (destination: string) => {
     const route = ROUTES[destination];
