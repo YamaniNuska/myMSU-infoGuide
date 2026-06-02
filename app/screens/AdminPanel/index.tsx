@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as DocumentPicker from "expo-document-picker";
 import React from "react";
 import {
   Image,
@@ -33,6 +34,11 @@ import {
   prospectusInfoSemester,
   prospectusInfoYearLevel,
 } from "../../../src/data/curriculum";
+import {
+  formatBytes,
+  getLocationImageLimitBytes,
+  supabaseUploadLocationImage,
+} from "../../../src/data/supabaseData";
 import AdminLocationMapPicker from "../../../src/features/campusMap/AdminLocationMapPicker";
 import {
   AcademicEvent,
@@ -653,6 +659,8 @@ export default function AdminPanelScreen() {
   const [query, setQuery] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isUploadingLocationImage, setIsUploadingLocationImage] =
+    React.useState(false);
   const [isSavingCalendarHeader, setIsSavingCalendarHeader] = React.useState(false);
   const [calendarHeaderDraft, setCalendarHeaderDraft] =
     React.useState<CalendarHeaderDraft>(defaultCalendarHeader);
@@ -777,6 +785,50 @@ export default function AdminPanelScreen() {
 
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handlePickLocationImage = async () => {
+    setIsUploadingLocationImage(true);
+    setMessage("");
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "image/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const maxBytes = getLocationImageLimitBytes();
+
+      if (asset.size && asset.size > maxBytes) {
+        setMessage(`Location image must be smaller than ${formatBytes(maxBytes)}.`);
+        return;
+      }
+
+      const publicUrl = await supabaseUploadLocationImage({
+        locationId: editingId ?? form.name ?? undefined,
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+        size: asset.size,
+      });
+
+      updateField("image", publicUrl);
+      setMessage("Location image uploaded. Save the location to keep it.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to upload that location image.",
+      );
+    } finally {
+      setIsUploadingLocationImage(false);
+    }
   };
 
   const toggleField = (key: string) => {
@@ -1016,6 +1068,36 @@ export default function AdminPanelScreen() {
     </View>
   );
 
+  const renderPopupChoiceField = (
+    key: string,
+    label: string,
+    options: readonly string[],
+    placeholder = "Select",
+  ) => (
+    <PopupSelect
+      label={label}
+      value={form[key] ?? ""}
+      options={options.map((option) => ({ value: option, label: option }))}
+      onChange={(value) => updateField(key, value)}
+      placeholder={placeholder}
+      compact
+    />
+  );
+
+  const renderProspectusCollegeSelect = (label: string) => (
+    <PopupSelect
+      label={label}
+      value={activeProspectusCollege}
+      options={prospectusCollegeOptions.map((college) => ({
+        value: college,
+        label: college,
+      }))}
+      onChange={setActiveProspectusCollege}
+      placeholder="Choose a college"
+      compact
+    />
+  );
+
   const renderFieldInput = (field: FieldConfig) => {
     if (activeTab === "calendar" && field.key === "tableRows") {
       const sectionActive = form.tableSection === "true";
@@ -1156,11 +1238,28 @@ export default function AdminPanelScreen() {
             </View>
           )}
           <View style={styles.locationImageControls}>
+            <Pressable
+              style={[
+                styles.secondaryInlineButton,
+                isUploadingLocationImage && styles.saveButtonDisabled,
+              ]}
+              onPress={handlePickLocationImage}
+              disabled={isUploadingLocationImage}
+            >
+              <Ionicons
+                name="cloud-upload-outline"
+                size={16}
+                color={colors.maroon}
+              />
+              <Text style={styles.secondaryInlineButtonText}>
+                {isUploadingLocationImage ? "Uploading..." : "Upload Photo"}
+              </Text>
+            </Pressable>
             <TextInput
               style={[styles.input, styles.locationImageInput]}
               value={form.image ?? ""}
               onChangeText={(value) => updateField("image", value)}
-              placeholder="Paste image URL for the location info panel"
+              placeholder="Or paste image URL for the location info panel"
               placeholderTextColor="#998B8B"
               autoCapitalize="none"
             />
@@ -1205,7 +1304,12 @@ export default function AdminPanelScreen() {
     if (activeTab === "courses" && field.key === "college") {
       return (
         <View style={styles.choiceStack}>
-          {renderChoiceField("college", courseCollegeOptions)}
+          {renderPopupChoiceField(
+            "college",
+            "College choices",
+            courseCollegeOptions,
+            "Choose a college",
+          )}
           <TextInput
             style={styles.input}
             value={form.college ?? ""}
@@ -1239,32 +1343,7 @@ export default function AdminPanelScreen() {
 
       return (
         <View style={styles.choiceStack}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.programChoiceRow}
-          >
-            {prospectusCollegeOptions.map((college) => {
-              const selected = activeProspectusCollege === college;
-
-              return (
-                <Pressable
-                  key={college}
-                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                  onPress={() => setActiveProspectusCollege(college)}
-                >
-                  <Text
-                    style={[
-                      styles.choiceChipText,
-                      selected && styles.choiceChipTextActive,
-                    ]}
-                  >
-                    {college}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          {renderProspectusCollegeSelect("College choices")}
 
           {activeProspectusPrograms.length > 0 ? (
             <ScrollView
@@ -2701,34 +2780,9 @@ export default function AdminPanelScreen() {
           </View>
         </View>
 
-        {activeTab === "prospectus" ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.programChoiceRow}
-          >
-            {prospectusCollegeOptions.map((college) => {
-              const selected = activeProspectusCollege === college;
-
-              return (
-                <Pressable
-                  key={`prospectus-list-${college}`}
-                  style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                  onPress={() => setActiveProspectusCollege(college)}
-                >
-                  <Text
-                    style={[
-                      styles.choiceChipText,
-                      selected && styles.choiceChipTextActive,
-                    ]}
-                  >
-                    {college}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
+        {activeTab === "prospectus"
+          ? renderProspectusCollegeSelect("Filter by college")
+          : null}
 
         {activeTab === "prospectus" ? (
           <View style={styles.list}>

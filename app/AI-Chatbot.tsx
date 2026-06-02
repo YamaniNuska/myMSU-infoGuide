@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { getLiveAssistantAnswer } from "../src/data/appStore";
-import { bottomTabClearance, colors, radii, shadow } from "../src/theme";
+import { colors, radii, shadow } from "../src/theme";
 import { buildSystemPrompt } from "../src/data/msuKnowledge";
 import HeaderUserAvatar from "../src/components/HeaderUserAvatar";
 
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   chatContent: {
     padding: 16,
-    paddingBottom: bottomTabClearance,
+    paddingBottom: 18,
   },
   heroCard: {
     borderRadius: radii.lg,
@@ -612,8 +612,8 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: Platform.OS === "ios" ? 22 : 14,
-    marginBottom: Platform.OS === "ios" ? 92 : 86,
+    paddingBottom: Platform.OS === "ios" ? 14 : 10,
+    marginBottom: Platform.OS === "ios" ? 10 : 8,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: colors.surface,

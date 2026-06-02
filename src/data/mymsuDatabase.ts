@@ -297,6 +297,7 @@ export type CourseProgram = {
   program: string;
   degree: string;
   overview: string;
+  prospectusUrl?: string;
   tags: string[];
 };
 
@@ -324,6 +325,12 @@ export type AcademicEvent = {
   type: "enrollment" | "classes" | "event" | "deadline" | "exam";
   audience: string;
   details: string;
+  tableActivity?: string;
+  firstSemester?: string;
+  secondSemester?: string;
+  summer?: string;
+  tableHighlight?: boolean;
+  tableSection?: boolean;
 };
 
 export type AnnouncementRecord = {

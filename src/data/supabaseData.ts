@@ -134,6 +134,7 @@ const toCourseProgram = (row: DbRecord): CourseProgram => ({
   program: String(row.program ?? ""),
   degree: String(row.degree ?? ""),
   overview: String(row.overview ?? ""),
+  prospectusUrl: optionalString(row.prospectus_url),
   tags: asArray(row.tags) as string[],
 });
 
@@ -158,6 +159,12 @@ const toAcademicEvent = (row: DbRecord): AcademicEvent => ({
   type: (row.type as AcademicEvent["type"]) ?? "event",
   audience: String(row.audience ?? ""),
   details: String(row.details ?? ""),
+  tableActivity: optionalString(row.table_activity),
+  firstSemester: optionalString(row.first_semester),
+  secondSemester: optionalString(row.second_semester),
+  summer: optionalString(row.summer),
+  tableHighlight: Boolean(row.table_highlight),
+  tableSection: Boolean(row.table_section),
 });
 
 const toAnnouncement = (row: DbRecord): AnnouncementRecord => ({
@@ -259,6 +266,7 @@ const fromAppRecord = (key: CollectionKey, item: AppData[CollectionKey][number])
         program: program.program,
         degree: program.degree,
         overview: program.overview,
+        prospectus_url: program.prospectusUrl ?? null,
         tags: program.tags,
       };
     }
@@ -285,6 +293,12 @@ const fromAppRecord = (key: CollectionKey, item: AppData[CollectionKey][number])
         type: event.type,
         audience: event.audience,
         details: event.details,
+        table_activity: event.tableActivity ?? null,
+        first_semester: event.firstSemester ?? null,
+        second_semester: event.secondSemester ?? null,
+        summer: event.summer ?? null,
+        table_highlight: event.tableHighlight ?? false,
+        table_section: event.tableSection ?? false,
       };
     }
     case "announcements": {
@@ -325,10 +339,31 @@ async function upsertRowWithSchemaFallback(
     return;
   }
 
-  if (table === "academic_calendar" && isMissingColumnError(error, "event_date")) {
+  if (table === "academic_calendar") {
+    const optionalCalendarColumns = [
+      "event_date",
+      "table_activity",
+      "first_semester",
+      "second_semester",
+      "summer",
+      "table_highlight",
+      "table_section",
+    ];
+    const missingColumn = optionalCalendarColumns.find((column) =>
+      isMissingColumnError(error, column),
+    );
+
+    if (!missingColumn) {
+      throw error;
+    }
+
+    const retryRecord = optionalCalendarColumns.reduce(
+      (current, column) => omitKey(current, column),
+      record,
+    );
     const retry = await supabase
       .from(table)
-      .upsert(omitKey(record, "event_date"), { onConflict });
+      .upsert(retryRecord, { onConflict });
 
     if (!retry.error) {
       return;
@@ -373,7 +408,9 @@ async function verifyDeletedRow(table: string, id: string) {
 }
 
 async function selectRows<T>(table: string, mapper: (row: DbRecord) => T) {
-  const { data, error } = await supabase.from(table).select("*");
+  const query = supabase.from(table).select("*");
+  const { data, error } =
+    table === "academic_calendar" ? await query.order("id") : await query;
 
   if (error) {
     throw error;
@@ -405,6 +442,14 @@ export type AdminContactAttachmentInput = {
   mimeType?: string | null;
 };
 
+export type LocationImageUploadInput = {
+  locationId?: string;
+  name?: string;
+  uri: string;
+  size?: number | null;
+  mimeType?: string | null;
+};
+
 export type AdminContactMessageRecord = {
   id: string;
   officeId?: string;
@@ -428,6 +473,8 @@ export type AdminContactEmailInput = AdminContactMessageInput & {
 
 const ADMIN_CONTACT_ATTACHMENT_BUCKET = "admin-contact-files";
 const MAX_ADMIN_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+const LOCATION_IMAGE_BUCKET = "location-images";
+const MAX_LOCATION_IMAGE_BYTES = 10 * 1024 * 1024;
 const EMAIL_API_URL = process.env.EXPO_PUBLIC_EMAIL_API_URL?.trim() ?? "";
 
 const sanitizeFileName = (value: string) =>
@@ -452,6 +499,10 @@ const getEmailApiUrl = () => {
 
 export function getAdminAttachmentLimitBytes() {
   return MAX_ADMIN_ATTACHMENT_BYTES;
+}
+
+export function getLocationImageLimitBytes() {
+  return MAX_LOCATION_IMAGE_BYTES;
 }
 
 export function formatBytes(bytes: number) {
@@ -510,6 +561,52 @@ export async function supabaseUploadAdminContactAttachment(
     mimeType: attachment.mimeType ?? blob.type ?? "application/octet-stream",
     sizeBytes: attachment.size ?? blob.size,
   };
+}
+
+export async function supabaseUploadLocationImage(input: LocationImageUploadInput) {
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase is not configured. Add the Supabase URL and publishable key to upload location images.",
+    );
+  }
+
+  if (input.size && input.size > MAX_LOCATION_IMAGE_BYTES) {
+    throw new Error(
+      `Location image must be smaller than ${formatBytes(MAX_LOCATION_IMAGE_BYTES)}.`,
+    );
+  }
+
+  const response = await fetch(input.uri);
+  const blob = await response.blob();
+
+  if (blob.size > MAX_LOCATION_IMAGE_BYTES) {
+    throw new Error(
+      `Location image must be smaller than ${formatBytes(MAX_LOCATION_IMAGE_BYTES)}.`,
+    );
+  }
+
+  const extension =
+    input.name?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ||
+    input.mimeType?.split("/").pop()?.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() ||
+    "jpg";
+  const locationSlug = sanitizeFileName(input.locationId || "new-location");
+  const path = `${locationSlug}/location-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage
+    .from(LOCATION_IMAGE_BUCKET)
+    .upload(path, blob, {
+      contentType: input.mimeType ?? blob.type ?? "image/jpeg",
+      upsert: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage
+    .from(LOCATION_IMAGE_BUCKET)
+    .getPublicUrl(path);
+
+  return data.publicUrl;
 }
 
 export async function supabaseCreateAdminContactMessage(
@@ -716,12 +813,40 @@ export async function supabaseUpsertRecords<K extends CollectionKey>(
     return;
   }
 
-  if (key === "academicEvents" && isMissingColumnError(error, "event_date")) {
+  if (
+    key === "academicEvents" &&
+    [
+      "event_date",
+      "table_activity",
+      "first_semester",
+      "second_semester",
+      "summer",
+      "table_highlight",
+      "table_section",
+    ].some((column) => isMissingColumnError(error, column))
+  ) {
+    const optionalCalendarColumns = [
+      "event_date",
+      "table_activity",
+      "first_semester",
+      "second_semester",
+      "summer",
+      "table_highlight",
+      "table_section",
+    ];
     const retry = await supabase
       .from(table)
-      .upsert(records.map((record) => omitKey(record, "event_date")), {
-        onConflict: "id",
-      });
+      .upsert(
+        records.map((record) =>
+          optionalCalendarColumns.reduce(
+            (current, column) => omitKey(current, column),
+            record,
+          ),
+        ),
+        {
+          onConflict: "id",
+        },
+      );
 
     if (!retry.error) {
       return;

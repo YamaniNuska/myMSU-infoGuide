@@ -1,17 +1,19 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
+import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
 import { useAppData } from "../../../src/data/appStore";
 import { getProgramProspectusStats } from "../../../src/data/curriculum";
-import { colors, getCardWidth, getColumnCount, radii, shadow } from "../../../src/theme";
-import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
+import { colors, radii, softShadow } from "../../../src/theme";
 
 type CourseOfferScreenProps = {
   onBack?: () => void;
@@ -21,13 +23,23 @@ export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
   const [query, setQuery] = React.useState("");
   const [activeCollege, setActiveCollege] = React.useState("All");
   const { coursePrograms, prospectusRecords } = useAppData();
+  const router = useRouter();
   const { width } = useWindowDimensions();
-  const columns = getColumnCount(width);
+  const isWide = width >= 820;
 
   const colleges = React.useMemo(
     () => ["All", ...Array.from(new Set(coursePrograms.map((item) => item.college)))],
     [coursePrograms],
   );
+
+  const collegeCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    coursePrograms.forEach((program) => {
+      counts.set(program.college, (counts.get(program.college) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [coursePrograms]);
 
   React.useEffect(() => {
     if (!colleges.includes(activeCollege)) {
@@ -35,21 +47,34 @@ export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
     }
   }, [activeCollege, colleges]);
 
-  const filteredPrograms = coursePrograms.filter((program) => {
-    const matchesCollege =
-      activeCollege === "All" || program.college === activeCollege;
-    const searchable = [
-      program.college,
-      program.program,
-      program.degree,
-      program.overview,
-      ...program.tags,
-    ]
-      .join(" ")
-      .toLowerCase();
+  const filteredPrograms = React.useMemo(
+    () =>
+      coursePrograms.filter((program) => {
+        const matchesCollege =
+          activeCollege === "All" || program.college === activeCollege;
+        const searchable = [
+          program.college,
+          program.program,
+          program.degree,
+          program.overview,
+          ...program.tags,
+        ]
+          .join(" ")
+          .toLowerCase();
 
-    return matchesCollege && searchable.includes(query.trim().toLowerCase());
-  });
+        return matchesCollege && searchable.includes(query.trim().toLowerCase());
+      }),
+    [activeCollege, coursePrograms, query],
+  );
+
+  const readyCount = React.useMemo(
+    () =>
+      filteredPrograms.filter(
+        (program) =>
+          getProgramProspectusStats(program.id, prospectusRecords).recordCount > 0,
+      ).length,
+    [filteredPrograms, prospectusRecords],
+  );
 
   return (
     <SecondaryScreenLayout
@@ -57,136 +82,197 @@ export default function CourseOfferScreen({ onBack }: CourseOfferScreenProps) {
       description="Browse colleges, degree programs, and student-facing program summaries."
       onBack={onBack}
     >
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={20} color={colors.maroon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search program, college, degree..."
-          placeholderTextColor="#8B7D7D"
-          value={query}
-          onChangeText={setQuery}
-        />
-        {query ? (
-          <Pressable onPress={() => setQuery("")}>
-            <Ionicons name="close-circle" size={20} color="#B5A8A8" />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={styles.filterRow}>
-        {colleges.map((college) => {
-          const isActive = activeCollege === college;
-
-          return (
-            <Pressable
-              key={college}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
-              onPress={() => setActiveCollege(college)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  isActive && styles.filterChipTextActive,
-                ]}
-                numberOfLines={1}
-              >
-                {college === "All" ? "All Colleges" : college}
-              </Text>
+      <View style={styles.controlPanel}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color={colors.maroon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search program, college, or degree"
+            placeholderTextColor="#8B7D7D"
+            value={query}
+            onChangeText={setQuery}
+          />
+          {query ? (
+            <Pressable onPress={() => setQuery("")}>
+              <Ionicons name="close-circle" size={19} color="#B5A8A8" />
             </Pressable>
-          );
-        })}
-      </View>
+          ) : null}
+        </View>
 
-      <View style={styles.grid}>
-        {filteredPrograms.map((program) => {
-          const stats = getProgramProspectusStats(program.id, prospectusRecords);
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroller}
+        >
+          {colleges.map((college) => {
+            const isActive = activeCollege === college;
+            const count =
+              college === "All"
+                ? coursePrograms.length
+                : collegeCounts.get(college) ?? 0;
 
-          return (
-            <View
-              key={program.id}
-              style={[
-                styles.programCard,
-                { width: getCardWidth(columns) },
-                columns === 2 && styles.programCardMobile,
-              ]}
-            >
-              <View style={styles.cardTopRow}>
-                <View style={styles.degreeBadge}>
-                  <Text style={styles.degreeText}>{program.degree}</Text>
-                </View>
-                <View
+            return (
+              <Pressable
+                key={college}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                onPress={() => setActiveCollege(college)}
+              >
+                <Text
                   style={[
-                    styles.statusBadge,
-                    stats.recordCount > 0
-                      ? styles.statusBadgeReady
-                      : styles.statusBadgeEmpty,
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {college === "All" ? "All" : college}
+                </Text>
+                <Text
+                  style={[
+                    styles.filterChipCount,
+                    isActive && styles.filterChipTextActive,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      stats.recordCount > 0
-                        ? styles.statusTextReady
-                        : styles.statusTextEmpty,
-                    ]}
-                  >
-                    {stats.recordCount > 0 ? "Prospectus Ready" : "No Prospectus"}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.programTitle}>{program.program}</Text>
-              <Text style={styles.collegeText}>{program.college}</Text>
-              <Text style={styles.overview}>{program.overview}</Text>
-
-              <View style={styles.curriculumStatsRow}>
-                <View style={styles.curriculumStat}>
-                  <Text style={styles.curriculumStatValue}>{stats.recordCount}</Text>
-                  <Text style={styles.curriculumStatLabel}>Terms</Text>
-                </View>
-                <View style={styles.curriculumStat}>
-                  <Text style={styles.curriculumStatValue}>{stats.subjectCount}</Text>
-                  <Text style={styles.curriculumStatLabel}>Subjects</Text>
-                </View>
-                <View style={styles.curriculumStat}>
-                  <Text style={styles.curriculumStatValue}>{stats.totalUnits}</Text>
-                  <Text style={styles.curriculumStatLabel}>Units</Text>
-                </View>
-              </View>
-
-              <View style={styles.tagRow}>
-                {program.tags.map((tag) => (
-                  <Text key={tag} style={styles.tag}>
-                    {tag}
-                  </Text>
-                ))}
-              </View>
-            </View>
-          );
-        })}
+                  {count}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {filteredPrograms.length === 0 ? (
+      <View style={styles.resultHeader}>
+        <View>
+          <Text style={styles.resultTitle}>
+            {activeCollege === "All" ? "All Programs" : activeCollege}
+          </Text>
+          <Text style={styles.resultMeta}>
+            {filteredPrograms.length} result{filteredPrograms.length === 1 ? "" : "s"} /{" "}
+            {readyCount} with prospectus
+          </Text>
+        </View>
+      </View>
+
+      {filteredPrograms.length > 0 ? (
+        <View style={styles.programList}>
+          {filteredPrograms.map((program) => {
+            const stats = getProgramProspectusStats(program.id, prospectusRecords);
+            const hasProspectusRecords = stats.recordCount > 0;
+
+            return (
+              <View
+                key={program.id}
+                style={[styles.programItem, isWide && styles.programItemWide]}
+              >
+                <View style={styles.programMain}>
+                  <View style={styles.eyebrowRow}>
+                    <Text style={styles.degreeText}>{program.degree}</Text>
+                    <View style={styles.eyebrowDivider} />
+                    <Text style={styles.collegeText} numberOfLines={1}>
+                      {program.college}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.programTitle}>{program.program}</Text>
+                  <Text style={styles.overview} numberOfLines={isWide ? 2 : 3}>
+                    {program.overview}
+                  </Text>
+                </View>
+
+                <View style={[styles.programAside, isWide && styles.programAsideWide]}>
+                  <View style={styles.statStrip}>
+                    <View style={styles.statBlock}>
+                      <Text style={styles.statValue}>{stats.recordCount}</Text>
+                      <Text style={styles.statLabel}>Terms</Text>
+                    </View>
+                    <View style={styles.statBlock}>
+                      <Text style={styles.statValue}>{stats.subjectCount}</Text>
+                      <Text style={styles.statLabel}>Subjects</Text>
+                    </View>
+                    <View style={styles.statBlock}>
+                      <Text style={styles.statValue}>{stats.totalUnits}</Text>
+                      <Text style={styles.statLabel}>Units</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.actionRow}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        hasProspectusRecords && styles.statusPillReady,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.statusDot,
+                          hasProspectusRecords && styles.statusDotReady,
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.statusText,
+                          hasProspectusRecords && styles.statusTextReady,
+                        ]}
+                      >
+                        {hasProspectusRecords
+                          ? "Prospectus Ready"
+                          : "Prospectus Not Ready"}
+                      </Text>
+                    </View>
+
+                    {hasProspectusRecords ? (
+                      <Pressable
+                        style={styles.openButton}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/screens/Prospectus",
+                            params: { programId: program.id },
+                          })
+                        }
+                      >
+                        <Ionicons
+                          name="reader-outline"
+                          size={15}
+                          color={colors.surface}
+                        />
+                        <Text style={styles.openButtonText}>View</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No program found</Text>
           <Text style={styles.emptyText}>
-            Try a broader search or switch to All Colleges.
+            Try a broader search or choose another college.
           </Text>
         </View>
-      ) : null}
+      )}
     </SecondaryScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  controlPanel: {
+    gap: 12,
+    padding: 12,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#EFE6DE",
+    ...softShadow,
+  },
   searchBox: {
-    minHeight: 52,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     borderRadius: radii.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FBFAF8",
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -196,167 +282,204 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 14,
   },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+  filterScroller: {
+    gap: 8,
+    paddingRight: 12,
   },
   filterChip: {
-    maxWidth: "100%",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: 210,
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.line,
   },
   filterChipActive: {
-    backgroundColor: colors.maroon,
-    borderColor: colors.maroon,
+    backgroundColor: colors.maroonDark,
+    borderColor: colors.maroonDark,
   },
   filterChipText: {
+    flexShrink: 1,
     color: colors.maroonDark,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   filterChipTextActive: {
     color: colors.surface,
   },
-  grid: {
+  filterChipCount: {
+    color: colors.goldDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  resultHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    paddingTop: 2,
   },
-  programCard: {
-    minHeight: 260,
-    padding: 16,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    ...shadow,
+  resultTitle: {
+    color: colors.maroonDark,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "900",
   },
-  programCardMobile: {
-    width: "100%",
-  },
-  degreeBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: radii.pill,
-    backgroundColor: "#F9F0DA",
-  },
-  degreeText: {
-    color: colors.maroon,
+  resultMeta: {
+    marginTop: 3,
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "800",
+    textTransform: "uppercase",
   },
-  cardTopRow: {
+  programList: {
+    gap: 10,
+  },
+  programItem: {
+    gap: 14,
+    padding: 15,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#EFE6DE",
+    ...softShadow,
+  },
+  programItemWide: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  programMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eyebrowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  degreeText: {
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  eyebrowDivider: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.line,
+  },
+  collegeText: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  programTitle: {
+    marginTop: 6,
+    color: colors.maroonDark,
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "900",
+  },
+  overview: {
+    marginTop: 7,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  programAside: {
+    gap: 12,
+  },
+  programAsideWide: {
+    width: 320,
+  },
+  statStrip: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  statBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 9,
+    borderRadius: radii.sm,
+    backgroundColor: "#FBFAF8",
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+  },
+  statValue: {
+    color: colors.maroonDark,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  statLabel: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  actionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  statusBadge: {
+  statusPill: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
     paddingHorizontal: 10,
-    paddingVertical: 7,
     borderRadius: radii.pill,
-    borderWidth: 1,
-  },
-  statusBadgeReady: {
-    backgroundColor: "#EAF8F4",
-    borderColor: "#B5DDD0",
-  },
-  statusBadgeEmpty: {
     backgroundColor: colors.surfaceMuted,
-    borderColor: colors.line,
+  },
+  statusPillReady: {
+    backgroundColor: colors.tealSoft,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.muted,
+  },
+  statusDotReady: {
+    backgroundColor: colors.teal,
   },
   statusText: {
+    color: colors.muted,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   statusTextReady: {
     color: colors.teal,
   },
-  statusTextEmpty: {
-    color: colors.muted,
-  },
-  programTitle: {
-    marginTop: 14,
-    color: colors.maroonDark,
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: "800",
-  },
-  collegeText: {
-    marginTop: 6,
-    color: colors.goldDark,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  overview: {
-    marginTop: 12,
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  summaryText: {
-    marginTop: 10,
-    color: colors.maroonDark,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: "800",
-  },
-  curriculumStatsRow: {
+  openButton: {
+    minHeight: 36,
     flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-  },
-  curriculumStat: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  curriculumStatValue: {
-    color: colors.maroonDark,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  curriculumStatLabel: {
-    marginTop: 2,
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-  tag: {
-    overflow: "hidden",
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 13,
     borderRadius: radii.pill,
-    backgroundColor: colors.maroonSoft,
-    color: colors.maroonDark,
-    fontSize: 11,
-    fontWeight: "700",
+    backgroundColor: colors.maroon,
+  },
+  openButtonText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: "900",
   },
   emptyState: {
     alignItems: "center",
     padding: 24,
-    borderRadius: radii.sm,
+    borderRadius: radii.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,

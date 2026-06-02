@@ -6,6 +6,22 @@ Run `database/schema.sql` in the Supabase SQL editor before opening the app.
 After the tables exist, the app will seed its built-in content from
 `src/data/mymsuDatabase.ts` into Supabase when it sees an empty database.
 
+To load the official Academic Calendar, School Year 2025-2026 from the scanned
+registrar table, run `database/seed_academic_calendar_2025_2026.sql` in the
+Supabase SQL editor after `schema.sql`. The Academic Calendar screen reads those
+rows from `public.academic_calendar`; the official table is not hardcoded in the
+React screen.
+
+To load the MSU Main Campus course directory, run
+`database/seed_msu_prospectus_courses.sql` in the Supabase SQL editor after
+`schema.sql`. The Course Offerings screen reads those rows from
+`public.course_offerings`; the imported course list is not hardcoded in the UI.
+
+To fill the Prospectus screen with imported semester-by-semester subjects, run
+`database/seed_msu_prospectus_records.sql` after the course seed. Those rows are
+stored in `public.prospectus_records`, so the prospectus content is database
+data instead of a directed download link.
+
 The app uses:
 
 - Supabase Auth for sign in and sign up

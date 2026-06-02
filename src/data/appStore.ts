@@ -475,6 +475,7 @@ export function searchLiveKnowledgeBase(rawQuery: string, limit = 8) {
         program.program,
         program.degree,
         program.overview,
+        program.prospectusUrl ?? "",
         ...program.tags,
       ])
     ) {

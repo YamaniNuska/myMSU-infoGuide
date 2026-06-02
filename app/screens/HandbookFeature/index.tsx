@@ -127,8 +127,6 @@ export default function HandbookScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <View pointerEvents="none" style={styles.headerGoldLine} />
-        <View pointerEvents="none" style={styles.headerGlassPlate} />
         <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
           <View style={styles.headerTopRow}>
             <Pressable style={styles.backButton} onPress={handleBack}>
@@ -329,28 +327,6 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
     borderBottomLeftRadius: radii.md,
     borderBottomRightRadius: radii.md,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(216, 178, 74, 0.18)",
-  },
-  headerGoldLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 3,
-    backgroundColor: colors.gold,
-    opacity: 0.92,
-  },
-  headerGlassPlate: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    top: 48,
-    height: 72,
-    borderRadius: radii.md,
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
-    borderWidth: 1,
-    borderColor: "rgba(216, 178, 74, 0.12)",
   },
   headerInner: {
     width: "100%",
@@ -380,7 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: "rgba(255, 255, 255, 0.10)",
     borderWidth: 1,
-    borderColor: "rgba(216, 178, 74, 0.22)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
   },
   backText: {
     color: colors.surface,
@@ -393,9 +369,6 @@ const styles = StyleSheet.create({
     gap: 11,
     marginTop: 0,
     paddingVertical: 8,
-    paddingLeft: 11,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
   },
   headerIcon: {
     width: 42,
@@ -403,9 +376,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(216, 178, 74, 0.16)",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(216, 178, 74, 0.28)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
   },
   headerCopy: {
     flex: 1,
@@ -433,7 +406,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(216,178,74,0.35)",
+    borderColor: "rgba(255,255,255,0.28)",
     ...shadow,
   },
   searchInput: {

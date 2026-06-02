@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
   Pressable,
@@ -42,6 +43,13 @@ type ProspectusView =
   | "graph"
   | "traditional"
   | "electives";
+
+type ProgramOption = {
+  id: string;
+  title: string;
+  subtitle: string;
+  label: string;
+};
 
 const graphColumnWidth = 250;
 const graphColumnGap = 18;
@@ -170,9 +178,10 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   const [activeProgramId, setActiveProgramId] = React.useState("");
   const [activeView, setActiveView] = React.useState<ProspectusView>("semester");
   const { coursePrograms, prospectusRecords } = useAppData();
+  const params = useLocalSearchParams<{ programId?: string }>();
   const { width } = useWindowDimensions();
   const compact = width < 760;
-  const programOptions = React.useMemo(() => {
+  const programOptions = React.useMemo<ProgramOption[]>(() => {
     const courseOptions = coursePrograms
       .filter((program) =>
         prospectusRecords.some((record) => record.programId === program.id) ||
@@ -207,13 +216,25 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
   }, [coursePrograms, prospectusRecords]);
 
   React.useEffect(() => {
+    const requestedProgramId =
+      typeof params.programId === "string" ? params.programId : "";
+
+    if (
+      requestedProgramId &&
+      programOptions.some((program) => program.id === requestedProgramId) &&
+      activeProgramId !== requestedProgramId
+    ) {
+      setActiveProgramId(requestedProgramId);
+      return;
+    }
+
     if (
       programOptions.length > 0 &&
       !programOptions.some((program) => program.id === activeProgramId)
     ) {
       setActiveProgramId(programOptions[0].id);
     }
-  }, [activeProgramId, programOptions]);
+  }, [activeProgramId, params.programId, programOptions]);
 
   const visibleRecords = React.useMemo(
     () =>
@@ -1102,10 +1123,12 @@ const styles = StyleSheet.create({
   },
   statRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   statPill: {
     flex: 1,
+    minWidth: 86,
     minHeight: 62,
     justifyContent: "center",
     paddingHorizontal: 12,
