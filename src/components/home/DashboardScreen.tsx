@@ -403,8 +403,6 @@ export default function Dashboard({ user, onNavigate }: DashboardScreenProps) {
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <View pointerEvents="none" style={styles.headerGoldLine} />
-          <View pointerEvents="none" style={styles.headerGlassPlate} />
           <View style={[styles.headerInner, isWide && styles.headerInnerWide]}>
           <View style={styles.headerTop}>
             <View style={styles.headerCopy}>
@@ -628,26 +626,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radii.md,
     ...shadow,
   },
-  headerGoldLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 3,
-    backgroundColor: colors.gold,
-    opacity: 0.92,
-  },
-  headerGlassPlate: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    top: 34,
-    height: 74,
-    borderRadius: radii.md,
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
-    borderWidth: 1,
-    borderColor: "rgba(216, 178, 74, 0.12)",
-  },
   headerInner: {
     width: "100%",
     alignSelf: "center",
@@ -661,9 +639,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     marginBottom: 9,
-    paddingLeft: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
   },
   headerCopy: {
     flex: 1,
@@ -674,11 +649,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(216,178,74,0.14)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(216,178,74,0.24)",
+    borderColor: "rgba(255,255,255,0.18)",
     fontSize: 10,
-    color: colors.gold,
+    color: colors.surface,
     fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 0,
@@ -866,7 +841,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.maroonDark,
     borderWidth: 1,
-    borderColor: "rgba(216,178,74,0.25)",
+    borderColor: "rgba(255,255,255,0.16)",
     ...shadow,
   },
   alertTextWrap: {

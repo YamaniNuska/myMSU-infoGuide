@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -55,6 +56,8 @@ type AdminTab =
   | "students"
   | "announcements";
 
+type RecordViewMode = "cards" | "table";
+
 type FieldConfig = {
   key: string;
   label: string;
@@ -78,6 +81,15 @@ type ProspectusSubjectDraft = {
   prereq: string;
   coreq: string;
   importance: string;
+};
+
+type CalendarHeaderDraft = {
+  schoolYearLabel: string;
+  officeLabel: string;
+  title: string;
+  firstSemester: string;
+  secondSemester: string;
+  summer: string;
 };
 
 const tabs: { key: AdminTab; label: string }[] = [
@@ -114,6 +126,22 @@ const calendarTypeOptions: AcademicEvent["type"][] = [
   "deadline",
   "exam",
 ];
+const calendarTableColumns = [
+  { key: "tableActivity", title: "Activity", width: 360 },
+  { key: "firstSemester", title: "First Semester", width: 220 },
+  { key: "secondSemester", title: "Second Semester", width: 220 },
+  { key: "summer", title: "Summer", width: 170 },
+] as const;
+const calendarHeaderRecordId = "cal-2025-2026-header";
+const calendarHeaderActivityToken = "__calendar_header__";
+const defaultCalendarHeader: CalendarHeaderDraft = {
+  schoolYearLabel: "Academic Calendar, School Year 2025-2026",
+  officeLabel: "Office of the University Registrar",
+  title: "Academic Calendar, School Year 2025-2026",
+  firstSemester: "August - December 2025",
+  secondSemester: "January - May 2026",
+  summer: "June - July 2026",
+};
 const announcementPriorityOptions: AnnouncementRecord["priority"][] = [
   "high",
   "normal",
@@ -164,6 +192,7 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "type", label: "Type" },
     { key: "audience", label: "Audience" },
     { key: "details", label: "Details", multiline: true },
+    { key: "tableRows", label: "Table view row", multiline: true },
   ],
   offices: [
     { key: "name", label: "Office name" },
@@ -193,6 +222,7 @@ const fieldConfigs: Record<AdminTab, FieldConfig[]> = {
     { key: "program", label: "Program" },
     { key: "degree", label: "Degree" },
     { key: "overview", label: "Overview", multiline: true },
+    { key: "prospectusUrl", label: "Prospectus URL, optional" },
     { key: "tags", label: "Tags, comma separated" },
   ],
   prospectus: [
@@ -234,6 +264,12 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
     type: "event",
     audience: "All users",
     details: "",
+    tableActivity: "",
+    firstSemester: "",
+    secondSemester: "",
+    summer: "",
+    tableHighlight: "",
+    tableSection: "",
   },
   offices: {
     name: "",
@@ -263,6 +299,7 @@ const defaultForm: Record<AdminTab, Record<string, string>> = {
     program: "",
     degree: "",
     overview: "",
+    prospectusUrl: "",
     tags: "",
   },
   prospectus: {
@@ -503,7 +540,11 @@ function DateSelectField({
   React.useEffect(() => {
     if (isDateKey(value)) {
       const date = new Date(`${value}T00:00:00`);
-      setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+      const timeout = setTimeout(() => {
+        setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+      }, 0);
+
+      return () => clearTimeout(timeout);
     }
   }, [value]);
 
@@ -612,6 +653,9 @@ export default function AdminPanelScreen() {
   const [query, setQuery] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isSavingCalendarHeader, setIsSavingCalendarHeader] = React.useState(false);
+  const [calendarHeaderDraft, setCalendarHeaderDraft] =
+    React.useState<CalendarHeaderDraft>(defaultCalendarHeader);
   const [prospectusSubjects, setProspectusSubjects] = React.useState<string[]>([]);
   const [technicalElectiveRows, setTechnicalElectiveRows] = React.useState<string[]>([]);
   const [courseTagDraft, setCourseTagDraft] = React.useState("");
@@ -619,6 +663,8 @@ export default function AdminPanelScreen() {
   const [activeProspectusCollege, setActiveProspectusCollege] = React.useState(
     allProspectusCollegeOption,
   );
+  const [recordViewMode, setRecordViewMode] =
+    React.useState<RecordViewMode>("table");
   const [scrollEnabled, setScrollEnabled] = React.useState(true);
   const canUseConsole = session?.role === "admin" || session?.role === "faculty";
   const isFacultyConsole = session?.role === "faculty";
@@ -630,6 +676,33 @@ export default function AdminPanelScreen() {
     [isFacultyConsole],
   );
   const canDeleteRecords = session?.role === "admin";
+
+  const calendarHeaderRecord = React.useMemo(
+    () =>
+      data.academicEvents.find(
+        (event) =>
+          event.id === calendarHeaderRecordId ||
+          event.tableActivity === calendarHeaderActivityToken,
+      ) ?? null,
+    [data.academicEvents],
+  );
+
+  React.useEffect(() => {
+    setCalendarHeaderDraft({
+      schoolYearLabel:
+        calendarHeaderRecord?.details || defaultCalendarHeader.schoolYearLabel,
+      officeLabel:
+        calendarHeaderRecord?.audience || defaultCalendarHeader.officeLabel,
+      title: calendarHeaderRecord?.title || defaultCalendarHeader.title,
+      firstSemester:
+        calendarHeaderRecord?.firstSemester ||
+        defaultCalendarHeader.firstSemester,
+      secondSemester:
+        calendarHeaderRecord?.secondSemester ||
+        defaultCalendarHeader.secondSemester,
+      summer: calendarHeaderRecord?.summer || defaultCalendarHeader.summer,
+    });
+  }, [calendarHeaderRecord]);
 
   const courseCollegeOptions = React.useMemo(
     () =>
@@ -702,23 +775,63 @@ export default function AdminPanelScreen() {
     }
   }, [isFacultyConsole]);
 
-  React.useEffect(() => {
-    if (isFacultyConsole && !facultyTabs.includes(activeTab)) {
-      setTab("courses");
-    }
-  }, [activeTab, isFacultyConsole, setTab]);
-
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  React.useEffect(() => {
-    if (activeTab !== "courses") {
+  const toggleField = (key: string) => {
+    setForm((current) => ({
+      ...current,
+      [key]: current[key] === "true" ? "" : "true",
+    }));
+  };
+
+  const updateCalendarHeaderField = (
+    key: keyof CalendarHeaderDraft,
+    value: string,
+  ) => {
+    setCalendarHeaderDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveCalendarHeader = async () => {
+    if (isSavingCalendarHeader) {
       return;
     }
 
-    setCourseTags(splitList(form.tags));
-  }, [activeTab, form.tags]);
+    setIsSavingCalendarHeader(true);
+    const synced = await upsertRecord("academicEvents", {
+      id: calendarHeaderRecordId,
+      title: calendarHeaderDraft.title.trim() || defaultCalendarHeader.title,
+      dateLabel: "Calendar header",
+      type: "event",
+      audience:
+        calendarHeaderDraft.officeLabel.trim() ||
+        defaultCalendarHeader.officeLabel,
+      details:
+        calendarHeaderDraft.schoolYearLabel.trim() ||
+        defaultCalendarHeader.schoolYearLabel,
+      tableActivity: calendarHeaderActivityToken,
+      firstSemester:
+        calendarHeaderDraft.firstSemester.trim() ||
+        defaultCalendarHeader.firstSemester,
+      secondSemester:
+        calendarHeaderDraft.secondSemester.trim() ||
+        defaultCalendarHeader.secondSemester,
+      summer:
+        calendarHeaderDraft.summer.trim() || defaultCalendarHeader.summer,
+      tableHighlight: false,
+      tableSection: false,
+    } satisfies AcademicEvent);
+
+    setMessage(
+      synced
+        ? "Calendar table header updated and synced."
+        : `Supabase did not update the calendar header. ${
+            getLastAppDataError() || "Check the schema and connection."
+          }`,
+    );
+    setIsSavingCalendarHeader(false);
+  };
 
   const selectProspectusProgram = (programId: string) => {
     const program = data.coursePrograms.find((item) => item.id === programId);
@@ -904,6 +1017,166 @@ export default function AdminPanelScreen() {
   );
 
   const renderFieldInput = (field: FieldConfig) => {
+    if (activeTab === "calendar" && field.key === "tableRows") {
+      const sectionActive = form.tableSection === "true";
+      const highlightActive = form.tableHighlight === "true";
+
+      return (
+        <View style={styles.calendarTableEditor}>
+          <View style={styles.subjectTableToolbar}>
+            <Text style={styles.helperText}>
+              Fill this table row when the record should appear in the Academic
+              Calendar table view. Leave it blank to save only a dated month
+              event.
+            </Text>
+            <View style={styles.calendarTableToggleRow}>
+              <Pressable
+                style={[
+                  styles.calendarTableToggle,
+                  sectionActive && styles.calendarTableToggleActive,
+                ]}
+                onPress={() => toggleField("tableSection")}
+              >
+                <Ionicons
+                  name={sectionActive ? "checkbox" : "square-outline"}
+                  size={17}
+                  color={sectionActive ? colors.surface : colors.maroonDark}
+                />
+                <Text
+                  style={[
+                    styles.calendarTableToggleText,
+                    sectionActive && styles.calendarTableToggleTextActive,
+                  ]}
+                >
+                  Section row
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.calendarTableToggle,
+                  highlightActive && styles.calendarTableToggleActive,
+                ]}
+                onPress={() => toggleField("tableHighlight")}
+              >
+                <Ionicons
+                  name={highlightActive ? "checkbox" : "square-outline"}
+                  size={17}
+                  color={highlightActive ? colors.surface : colors.maroonDark}
+                />
+                <Text
+                  style={[
+                    styles.calendarTableToggleText,
+                    highlightActive && styles.calendarTableToggleTextActive,
+                  ]}
+                >
+                  Highlight row
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.calendarEditorTable}>
+              <View style={[styles.calendarEditorRow, styles.calendarEditorHeader]}>
+                {calendarTableColumns.map((column) => (
+                  <Text
+                    key={column.key}
+                    style={[
+                      styles.calendarEditorCell,
+                      { width: column.width },
+                      column.key === "summer" && styles.calendarEditorLastCell,
+                    ]}
+                  >
+                    {column.title}
+                  </Text>
+                ))}
+              </View>
+              <View
+                style={[
+                  styles.calendarEditorRow,
+                  sectionActive && styles.calendarEditorSectionRow,
+                  highlightActive && styles.calendarEditorHighlightRow,
+                ]}
+              >
+                {calendarTableColumns.map((column) => (
+                  <View
+                    key={column.key}
+                    style={[
+                      styles.calendarEditorCell,
+                      { width: column.width },
+                      column.key === "summer" && styles.calendarEditorLastCell,
+                    ]}
+                  >
+                    <TextInput
+                      style={[
+                        styles.calendarEditorInput,
+                        column.key === "tableActivity" && styles.calendarEditorActivityInput,
+                        sectionActive && styles.calendarEditorSectionInput,
+                      ]}
+                      value={form[column.key] ?? ""}
+                      onChangeText={(value) => updateField(column.key, value)}
+                      placeholder={
+                        column.key === "tableActivity"
+                          ? "Activity / official table row"
+                          : column.key === "firstSemester"
+                            ? "Mon, 11 Aug"
+                            : column.key === "secondSemester"
+                              ? "Mon, 26 Jan"
+                              : "Mon, 08 Jun"
+                      }
+                      placeholderTextColor="#998B8B"
+                      multiline
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      );
+    }
+
+    if (activeTab === "locations" && field.key === "image") {
+      const imageUrl = form.image.trim();
+
+      return (
+        <View style={styles.locationImageEditor}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.locationImagePreview}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.locationImagePlaceholder}>
+              <Ionicons name="image-outline" size={34} color={colors.muted} />
+              <Text style={styles.locationImagePlaceholderText}>
+                This is the picture shown in the location info panel.
+              </Text>
+            </View>
+          )}
+          <View style={styles.locationImageControls}>
+            <TextInput
+              style={[styles.input, styles.locationImageInput]}
+              value={form.image ?? ""}
+              onChangeText={(value) => updateField("image", value)}
+              placeholder="Paste image URL for the location info panel"
+              placeholderTextColor="#998B8B"
+              autoCapitalize="none"
+            />
+            {imageUrl ? (
+              <Pressable
+                style={styles.secondaryInlineButton}
+                onPress={() => updateField("image", "")}
+              >
+                <Text style={styles.secondaryInlineButtonText}>Clear Image</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      );
+    }
+
     if (field.key === "eventDate") {
       return (
         <DateSelectField
@@ -1396,7 +1669,20 @@ export default function AdminPanelScreen() {
           )
         : activeTab === "calendar"
           ? data.academicEvents.map((item) =>
-              mapItem(item, item.title, item.dateLabel, item.details),
+              mapItem(
+                item,
+                item.tableActivity || item.title,
+                item.tableActivity ? "Table view row" : item.dateLabel,
+                item.tableActivity
+                  ? [
+                      item.firstSemester,
+                      item.secondSemester,
+                      item.summer,
+                    ]
+                      .filter(Boolean)
+                      .join(" | ")
+                  : item.details,
+              ),
             )
           : activeTab === "offices"
             ? data.offices.map((item) =>
@@ -1417,7 +1703,9 @@ export default function AdminPanelScreen() {
                       item,
                       item.program,
                       item.college,
-                      `${item.overview} Linked prospectus terms: ${
+                      `${item.overview} ${
+                        item.prospectusUrl ? `Prospectus: ${item.prospectusUrl}. ` : ""
+                      }Linked prospectus terms: ${
                         getProgramProspectusStats(item.id, data.prospectusRecords)
                           .recordCount
                       }.`,
@@ -1536,6 +1824,168 @@ export default function AdminPanelScreen() {
       </View>
     </View>
   );
+
+  const renderRecordTable = (items: ListItem[]) => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.recordTable}>
+        <View style={[styles.recordTableRow, styles.recordTableHeader]}>
+          <Text style={[styles.recordTableCell, styles.recordTitleCell]}>
+            Record
+          </Text>
+          <Text style={[styles.recordTableCell, styles.recordMetaCell]}>
+            Category
+          </Text>
+          <Text style={[styles.recordTableCell, styles.recordBodyCell]}>
+            Details
+          </Text>
+          <Text style={[styles.recordTableCell, styles.recordActionCell]}>
+            Actions
+          </Text>
+        </View>
+        {items.map((item) => (
+          <View
+            key={item.id}
+            style={[
+              styles.recordTableRow,
+              editingId === item.id && styles.recordTableRowActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.recordTableCell,
+                styles.recordTitleCell,
+                styles.recordTitleText,
+              ]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={[styles.recordTableCell, styles.recordMetaCell]}
+              numberOfLines={2}
+            >
+              {item.subtitle}
+            </Text>
+            <Text
+              style={[styles.recordTableCell, styles.recordBodyCell]}
+              numberOfLines={3}
+            >
+              {item.body}
+            </Text>
+            <View style={[styles.recordTableCell, styles.recordActionCell]}>
+              <Pressable style={styles.tableIconButton} onPress={() => editItem(item)}>
+                <Ionicons name="create-outline" size={17} color={colors.maroon} />
+              </Pressable>
+              {canDeleteRecords ? (
+                <Pressable
+                  style={[styles.tableIconButton, styles.tableDeleteButton]}
+                  onPress={() => deleteItem(item)}
+                >
+                  <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  const renderCalendarRecordTable = (items: ListItem[]) => {
+    const tableItems = items.filter((item) =>
+      String(item.raw.tableActivity ?? "").trim(),
+    );
+
+    if (tableItems.length === 0) {
+      return (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No table rows yet</Text>
+          <Text style={styles.emptyBody}>
+            Fill the large table editor above and save it to publish an Academic
+            Calendar table row.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.calendarRecordsTable}>
+        <View style={[styles.calendarRecordsRow, styles.calendarRecordsHeader]}>
+          {calendarTableColumns.map((column) => (
+            <Text
+              key={column.key}
+              style={[
+                styles.calendarRecordsCell,
+                { width: column.width },
+                column.key === "summer" && styles.calendarRecordsSummerCell,
+              ]}
+            >
+              {column.title}
+            </Text>
+          ))}
+          <Text style={[styles.calendarRecordsCell, styles.calendarRecordsActionCell]}>
+            Actions
+          </Text>
+        </View>
+        {tableItems.map((item) => {
+          const raw = item.raw as Partial<AcademicEvent>;
+          const section = Boolean(raw.tableSection);
+          const highlight = Boolean(raw.tableHighlight);
+
+          return (
+            <View
+              key={item.id}
+              style={[
+                styles.calendarRecordsRow,
+                section && styles.calendarRecordsSectionRow,
+                highlight && styles.calendarRecordsHighlightRow,
+                editingId === item.id && styles.calendarRecordsActiveRow,
+              ]}
+            >
+              {calendarTableColumns.map((column) => (
+                <Text
+                  key={column.key}
+                  style={[
+                    styles.calendarRecordsCell,
+                    styles.calendarRecordsText,
+                    { width: column.width },
+                    column.key === "tableActivity" && styles.calendarRecordsActivityText,
+                    column.key === "summer" && styles.calendarRecordsSummerCell,
+                    section && styles.calendarRecordsSectionText,
+                  ]}
+                  numberOfLines={3}
+                >
+                  {String(raw[column.key] ?? "")}
+                </Text>
+              ))}
+              <View style={[styles.calendarRecordsCell, styles.calendarRecordsActionCell]}>
+                <Pressable style={styles.tableIconButton} onPress={() => editItem(item)}>
+                  <Ionicons name="create-outline" size={17} color={colors.maroon} />
+                </Pressable>
+                {canDeleteRecords ? (
+                  <Pressable
+                    style={[styles.tableIconButton, styles.tableDeleteButton]}
+                    onPress={() => deleteItem(item)}
+                  >
+                    <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      </ScrollView>
+    );
+  };
+
+  const renderRecordCollection = (items: ListItem[]) =>
+    activeTab === "calendar" && recordViewMode === "table"
+      ? renderCalendarRecordTable(items)
+      : recordViewMode === "table"
+      ? renderRecordTable(items)
+      : items.map((item) => renderRecordCard(item));
 
   const resetForm = () => {
     setEditingId(null);
@@ -1699,8 +2149,9 @@ export default function AdminPanelScreen() {
 
     if (activeTab === "calendar") {
       const eventDate = form.eventDate.trim();
+      const tableActivity = form.tableActivity.trim();
 
-      if (!isDateKey(eventDate)) {
+      if (!tableActivity && !isDateKey(eventDate)) {
         setMessage("Select a valid event date.");
         setIsSaving(false);
         return;
@@ -1708,12 +2159,26 @@ export default function AdminPanelScreen() {
 
       synced = await upsertRecord("academicEvents", {
         id,
-        title: form.title,
-        eventDate,
-        dateLabel: formatDateLabel(eventDate),
+        title: tableActivity || form.title,
+        eventDate: tableActivity ? undefined : eventDate,
+        dateLabel: tableActivity
+          ? [
+              form.firstSemester.trim(),
+              form.secondSemester.trim(),
+              form.summer.trim(),
+            ]
+              .filter(Boolean)
+              .join(" | ") || "Table view row"
+          : formatDateLabel(eventDate),
         type: form.type as AcademicEvent["type"],
         audience: form.audience,
         details: form.details,
+        tableActivity: tableActivity || undefined,
+        firstSemester: form.firstSemester.trim() || undefined,
+        secondSemester: form.secondSemester.trim() || undefined,
+        summer: form.summer.trim() || undefined,
+        tableHighlight: form.tableHighlight === "true",
+        tableSection: form.tableSection === "true",
       } satisfies AcademicEvent);
     }
 
@@ -1761,6 +2226,7 @@ export default function AdminPanelScreen() {
         program: form.program.trim(),
         degree: form.degree.trim(),
         overview: form.overview.trim(),
+        prospectusUrl: form.prospectusUrl.trim() || undefined,
         tags: courseTags,
       } satisfies CourseProgram);
     }
@@ -1967,6 +2433,109 @@ export default function AdminPanelScreen() {
             ) : null}
           </View>
 
+          {activeTab === "calendar" ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.infoCardTitle}>Academic Calendar Table</Text>
+              <Text style={styles.infoCardText}>
+                {editingId
+                  ? "You are editing the selected table row. Change the cells, use Section for bold divider rows or Highlight for yellow rows, then press Update."
+                  : "Edit the official table one row at a time. Save the header here, then fill the row cells below and press Add."}
+              </Text>
+              <View style={styles.calendarHeaderEditor}>
+                <View style={styles.inlineFieldRow}>
+                  <View style={styles.calendarHeaderFieldWide}>
+                    <Text style={styles.inlineFieldLabel}>School year label</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.schoolYearLabel}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("schoolYearLabel", value)
+                      }
+                      placeholder="Academic Calendar, School Year 2025-2026"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                  <View style={styles.calendarHeaderFieldWide}>
+                    <Text style={styles.inlineFieldLabel}>Registrar header</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.officeLabel}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("officeLabel", value)
+                      }
+                      placeholder="Office of the University Registrar"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                </View>
+                <View style={styles.inlineFieldRow}>
+                  <View style={styles.calendarHeaderFieldWide}>
+                    <Text style={styles.inlineFieldLabel}>Table title</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.title}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("title", value)
+                      }
+                      placeholder="Academic Calendar, School Year 2025-2026"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                </View>
+                <View style={styles.inlineFieldRow}>
+                  <View style={styles.calendarHeaderField}>
+                    <Text style={styles.inlineFieldLabel}>First semester subtitle</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.firstSemester}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("firstSemester", value)
+                      }
+                      placeholder="August - December 2025"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                  <View style={styles.calendarHeaderField}>
+                    <Text style={styles.inlineFieldLabel}>Second semester subtitle</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.secondSemester}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("secondSemester", value)
+                      }
+                      placeholder="January - May 2026"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                  <View style={styles.calendarHeaderField}>
+                    <Text style={styles.inlineFieldLabel}>Summer subtitle</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={calendarHeaderDraft.summer}
+                      onChangeText={(value) =>
+                        updateCalendarHeaderField("summer", value)
+                      }
+                      placeholder="June - July 2026"
+                      placeholderTextColor="#998B8B"
+                    />
+                  </View>
+                </View>
+                <Pressable
+                  style={[
+                    styles.secondaryInlineButton,
+                    isSavingCalendarHeader && styles.saveButtonDisabled,
+                  ]}
+                  onPress={saveCalendarHeader}
+                  disabled={isSavingCalendarHeader}
+                >
+                  <Text style={styles.secondaryInlineButtonText}>
+                    {isSavingCalendarHeader ? "Saving Header..." : "Save Header"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
           {activeTab === "courses" && editingId ? (
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>Connected Prospectus</Text>
@@ -2043,6 +2612,8 @@ export default function AdminPanelScreen() {
                   category: form.category,
                   mapX: toMapPercent(form.mapX, 50),
                   mapY: toMapPercent(form.mapY, 50),
+                  latitude: toOptionalNumber(form.latitude),
+                  longitude: toOptionalNumber(form.longitude),
                 }}
                 onDraftMove={(position) => {
                   updateField("mapX", position.mapX.toFixed(1));
@@ -2062,8 +2633,15 @@ export default function AdminPanelScreen() {
                 key={field.key}
                 style={[
                   styles.field,
-                  field.multiline && styles.fieldWide,
-                  isWide && !field.multiline && styles.fieldHalf,
+                  (field.multiline ||
+                    (activeTab === "calendar" && field.key === "tableRows") ||
+                    (activeTab === "locations" && field.key === "image")) &&
+                    styles.fieldWide,
+                  isWide &&
+                    !field.multiline &&
+                    !(activeTab === "calendar" && field.key === "tableRows") &&
+                    !(activeTab === "locations" && field.key === "image") &&
+                    styles.fieldHalf,
                 ]}
               >
                 <Text style={styles.fieldLabel}>{field.label}</Text>
@@ -2087,8 +2665,40 @@ export default function AdminPanelScreen() {
         </View>
 
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>{visibleTabs.find((tab) => tab.key === activeTab)?.label}</Text>
-          <Text style={styles.listCount}>{listItems.length} record(s)</Text>
+          <View style={styles.listHeaderCopy}>
+            <Text style={styles.listTitle}>{visibleTabs.find((tab) => tab.key === activeTab)?.label}</Text>
+            <Text style={styles.listCount}>{listItems.length} record(s)</Text>
+          </View>
+          <View style={styles.viewModeToggle}>
+            {(["table", "cards"] as const).map((mode) => {
+              const active = recordViewMode === mode;
+
+              return (
+                <Pressable
+                  key={mode}
+                  style={[
+                    styles.viewModeButton,
+                    active && styles.viewModeButtonActive,
+                  ]}
+                  onPress={() => setRecordViewMode(mode)}
+                >
+                  <Ionicons
+                    name={mode === "table" ? "grid-outline" : "albums-outline"}
+                    size={16}
+                    color={active ? colors.surface : colors.maroonDark}
+                  />
+                  <Text
+                    style={[
+                      styles.viewModeButtonText,
+                      active && styles.viewModeButtonTextActive,
+                    ]}
+                  >
+                    {mode === "table" ? "Table" : "Cards"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {activeTab === "prospectus" ? (
@@ -2131,7 +2741,7 @@ export default function AdminPanelScreen() {
                   </Text>
                 </View>
                 <View style={styles.list}>
-                  {group.items.map((item) => renderRecordCard(item))}
+                  {renderRecordCollection(group.items)}
                 </View>
               </View>
             )) : (
@@ -2145,7 +2755,7 @@ export default function AdminPanelScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {listItems.length > 0 ? listItems.map((item) => renderRecordCard(item)) : (
+            {listItems.length > 0 ? renderRecordCollection(listItems) : (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>No matching records</Text>
                 <Text style={styles.emptyBody}>
@@ -2311,6 +2921,55 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     textAlignVertical: "top",
   },
+  calendarHeaderEditor: {
+    gap: 10,
+    marginTop: 14,
+  },
+  calendarHeaderField: {
+    flexBasis: 220,
+    flexGrow: 1,
+  },
+  calendarHeaderFieldWide: {
+    flexBasis: 320,
+    flexGrow: 1,
+  },
+  locationImageEditor: {
+    gap: 10,
+  },
+  locationImagePreview: {
+    width: "100%",
+    height: 190,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  locationImagePlaceholder: {
+    minHeight: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderStyle: "dashed",
+  },
+  locationImagePlaceholderText: {
+    maxWidth: 320,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  locationImageControls: {
+    gap: 10,
+  },
+  locationImageInput: {
+    minHeight: 46,
+  },
   choiceRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2465,6 +3124,98 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
+  },
+  calendarTableEditor: {
+    gap: 10,
+  },
+  calendarTableToggleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  calendarTableToggle: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 11,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  calendarTableToggleActive: {
+    backgroundColor: colors.maroon,
+    borderColor: colors.maroon,
+  },
+  calendarTableToggleText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  calendarTableToggleTextActive: {
+    color: colors.surface,
+  },
+  calendarEditorTable: {
+    minWidth: 970,
+    borderWidth: 1,
+    borderColor: "#2C2424",
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  calendarEditorHeader: {
+    backgroundColor: colors.surfaceMuted,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2C2424",
+  },
+  calendarEditorRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: 52,
+    borderBottomWidth: 1,
+    borderBottomColor: "#D8D0CB",
+  },
+  calendarEditorSectionRow: {
+    backgroundColor: "#F3EEE7",
+  },
+  calendarEditorHighlightRow: {
+    backgroundColor: "#FFF4A8",
+  },
+  calendarEditorCell: {
+    minHeight: 52,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRightWidth: 1,
+    borderRightColor: "#2C2424",
+    color: colors.maroonDark,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "900",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  calendarEditorLastCell: {
+    borderRightWidth: 0,
+  },
+  calendarEditorInput: {
+    minHeight: 44,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    color: colors.ink,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+    textAlignVertical: "top",
+  },
+  calendarEditorActivityInput: {
+    fontWeight: "800",
+  },
+  calendarEditorSectionInput: {
+    color: colors.maroonDark,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   prospectusInfoTable: {
     borderWidth: 1,
@@ -2774,6 +3525,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  listHeaderCopy: {
+    flex: 1,
+    minWidth: 180,
+  },
   listTitle: {
     color: colors.maroonDark,
     fontSize: 18,
@@ -2784,8 +3539,166 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  viewModeToggle: {
+    flexDirection: "row",
+    gap: 6,
+    padding: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  viewModeButton: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 11,
+    borderRadius: radii.pill,
+  },
+  viewModeButtonActive: {
+    backgroundColor: colors.maroon,
+  },
+  viewModeButtonText: {
+    color: colors.maroonDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  viewModeButtonTextActive: {
+    color: colors.surface,
+  },
   list: {
     gap: 10,
+  },
+  recordTable: {
+    minWidth: 920,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  recordTableHeader: {
+    backgroundColor: colors.maroonSoft,
+  },
+  recordTableRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  recordTableRowActive: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  recordTableCell: {
+    minHeight: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  recordTitleCell: {
+    width: 260,
+  },
+  recordMetaCell: {
+    width: 190,
+  },
+  recordBodyCell: {
+    width: 340,
+  },
+  recordActionCell: {
+    width: 128,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRightWidth: 0,
+  },
+  recordTitleText: {
+    color: colors.maroonDark,
+    fontWeight: "900",
+  },
+  tableIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.maroonSoft,
+  },
+  tableDeleteButton: {
+    backgroundColor: "#FCE8E6",
+  },
+  calendarRecordsTable: {
+    minWidth: 1098,
+    borderWidth: 1,
+    borderColor: "#2C2424",
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  calendarRecordsHeader: {
+    backgroundColor: colors.surfaceMuted,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2C2424",
+  },
+  calendarRecordsRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: "#D8D0CB",
+  },
+  calendarRecordsSectionRow: {
+    backgroundColor: "#F3EEE7",
+  },
+  calendarRecordsHighlightRow: {
+    backgroundColor: "#FFF4A8",
+  },
+  calendarRecordsActiveRow: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.maroon,
+  },
+  calendarRecordsCell: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRightWidth: 1,
+    borderRightColor: "#2C2424",
+    color: colors.maroonDark,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "900",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  calendarRecordsText: {
+    color: colors.ink,
+    fontWeight: "700",
+    textAlign: "left",
+    textTransform: "none",
+  },
+  calendarRecordsActivityText: {
+    fontWeight: "800",
+  },
+  calendarRecordsSectionText: {
+    color: colors.maroonDark,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  calendarRecordsSummerCell: {
+    borderRightWidth: 1,
+  },
+  calendarRecordsActionCell: {
+    width: 128,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRightWidth: 0,
   },
   collegeGroup: {
     gap: 10,

@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import SecondaryScreenLayout from "../../../src/components/SecondaryScreenLayout";
+import { useAppData } from "../../../src/data/appStore";
 import { colors, radii, shadow } from "../../../src/theme";
 
 type AcademicCalendarScreenProps = {
@@ -42,185 +43,15 @@ type OfficialCalendarEvent = {
   kind: "enrollment" | "classes" | "exam" | "deadline" | "event";
 };
 
+const calendarHeaderRecordId = "cal-2025-2026-header";
+const calendarHeaderActivityToken = "__calendar_header__";
+
 const tableColumns = [
   { key: "activity", title: "Activity", width: 360 },
-  { key: "firstSemester", title: "First Semester", subtitle: "August - December 2025", width: 210 },
-  { key: "secondSemester", title: "Second Semester", subtitle: "January - May 2026", width: 210 },
-  { key: "summer", title: "Summer", subtitle: "June - July 2026", width: 170 },
+  { key: "firstSemester", title: "First Semester", width: 210 },
+  { key: "secondSemester", title: "Second Semester", width: 210 },
+  { key: "summer", title: "Summer", width: 170 },
 ] as const;
-
-const academicTableRows: TableRow[] = [
-  {
-    activity: "System Admission and Scholarship Examination (SASE) / Special College Entrance Test (CET)",
-    firstSemester: "Per OVPAA & Adm. schedule",
-    secondSemester: "Per OVPAA & Adm. schedule",
-  },
-  {
-    activity: "Review/update the syllabus, assess student record status, and formulate a detailed semester plan",
-    firstSemester: "Mon, 21 Jul - Fri, 25 Jul",
-    secondSemester: "Mon, 05 Jan - Fri, 09 Jan",
-    summer: "Mon, 01 Jun - Fri, 05 Jun",
-  },
-  {
-    activity: "Enrollment for Freshmen/New Students",
-    firstSemester: "Mon, 28 Jul - Fri, 01 Aug",
-    secondSemester: "Mon, 12 Jan - Fri, 16 Jan",
-  },
-  {
-    activity: "Enrollment for Old Students",
-    firstSemester: "Mon, 04 Aug - Fri, 08 Aug",
-    secondSemester: "Mon, 19 Jan - Fri, 23 Jan",
-  },
-  {
-    activity: "Last Day for Validation of Enrollment and Billing Forms (EBF)",
-    firstSemester: "Mon, 11 Aug",
-    secondSemester: "Mon, 26 Jan",
-  },
-  {
-    activity: "Start of Classes",
-    firstSemester: "Mon, 11 Aug",
-    secondSemester: "Mon, 26 Jan",
-    summer: "Mon, 08 Jun",
-    highlight: true,
-  },
-  {
-    activity: "Late Registration with Fines",
-    firstSemester: "Mon, 11 Aug - Fri, 15 Aug",
-    secondSemester: "Mon, 26 Jan - Fri, 30 Jan",
-  },
-  {
-    activity: "Change/Add Matriculation and Validation Period",
-    firstSemester: "Mon, 11 Aug - Fri, 15 Aug",
-    secondSemester: "Mon, 26 Jan - Fri, 30 Jan",
-  },
-  {
-    activity: "General Convocation & College Orientation Program",
-    firstSemester: "Per DSA schedule",
-  },
-  {
-    activity: "64th MSU Founding Anniversary",
-    firstSemester: "Mon, 01 Sep",
-  },
-  {
-    activity: "Graduation candidate tentative list deadline",
-    firstSemester: "Fri, 12 Sep",
-    secondSemester: "Fri, 27 Feb",
-  },
-  {
-    activity: "First Preliminary / Departmental Examinations",
-    section: true,
-  },
-  {
-    activity: "English",
-    firstSemester: "Mon, 15 Sep (AM)",
-    secondSemester: "Mon, 02 Mar (AM)",
-  },
-  {
-    activity: "Philosophy",
-    firstSemester: "Mon, 15 Sep (PM)",
-    secondSemester: "Mon, 02 Mar (PM)",
-  },
-  {
-    activity: "Mathematics",
-    firstSemester: "Tue, 16 Sep (Whole Day)",
-    secondSemester: "Tue, 03 Mar (Whole Day)",
-  },
-  {
-    activity: "All other subjects",
-    firstSemester: "Wed, 17 Sep (PM) - Sat, 20 Sep",
-    secondSemester: "Wed, 04 Mar (PM) - Sat, 07 Mar",
-  },
-  {
-    activity: "Special Committee of MSU Main Campus Council Meeting",
-    firstSemester: "Wed, 01 Oct",
-    secondSemester: "Wed, 11 Mar",
-    highlight: true,
-  },
-  {
-    activity: "Period of Dropping of Subjects",
-    firstSemester: "Mon, 22 Sep - Fri, 10 Oct",
-    secondSemester: "Mon, 16 Mar - Fri, 03 Apr",
-  },
-  {
-    activity: "MSU Main Campus Council Meeting",
-    firstSemester: "Wed, 29 Oct",
-    secondSemester: "Mon, 06 Apr",
-    highlight: true,
-  },
-  {
-    activity: "Midterm / Departmental Examinations",
-    section: true,
-    summer: "Wed, 25 Jun - Sat, 27 Jun",
-  },
-  {
-    activity: "English",
-    firstSemester: "Mon, 03 Nov (AM)",
-    secondSemester: "Mon, 13 Apr (AM)",
-  },
-  {
-    activity: "Philosophy",
-    firstSemester: "Mon, 03 Nov (PM)",
-    secondSemester: "Mon, 13 Apr (PM)",
-  },
-  {
-    activity: "Mathematics",
-    firstSemester: "Tue, 04 Nov (Whole Day)",
-    secondSemester: "Tue, 14 Apr (Whole Day)",
-  },
-  {
-    activity: "All other subjects",
-    firstSemester: "Thu, 06 Nov - Sat, 08 Nov",
-    secondSemester: "Thu, 16 Apr - Sat, 18 Apr",
-  },
-  {
-    activity: "Pre-enrollment Period for the Next Semester",
-    firstSemester: "Mon, 17 Nov - Fri, 21 Nov",
-    secondSemester: "Mon, 27 Apr - Wed, 29 Apr",
-  },
-  {
-    activity: "Last day for Filing of Leave of Absence",
-    firstSemester: "Fri, 21 Nov",
-    secondSemester: "Fri, 08 May",
-  },
-  {
-    activity: "End of Classes",
-    firstSemester: "Fri, 05 Dec",
-    secondSemester: "Fri, 22 May",
-    summer: "Fri, 10 Jul",
-    highlight: true,
-  },
-  {
-    activity: "Final / Departmental Examinations",
-    section: true,
-    summer: "Mon, 13 Jul - Fri, 17 Jul",
-  },
-  {
-    activity: "Christmas Vacation / Semestral Break",
-    firstSemester: "Mon, 22 Dec 2025 - Fri, 02 Jan 2026",
-    secondSemester: "Mon, 01 Jun - Fri, 17 Jul",
-  },
-  {
-    activity: "Deadline for Submission of Grades - Graduating",
-    firstSemester: "Mon, 05 Jan 2026",
-    secondSemester: "Mon, 08 Jun 2026",
-    summer: "Wed, 29 Jul",
-  },
-  {
-    activity: "Deadline for Submission of Grades - Non-Graduating",
-    firstSemester: "Fri, 09 Jan 2026",
-    secondSemester: "Fri, 12 Jun 2026",
-  },
-  {
-    activity: "Pre-Commencement Exercises",
-    firstSemester: "Mon, 09 Feb 2026",
-    secondSemester: "Mon, 27 Jul 2026",
-  },
-  {
-    activity: "Commencement Proper",
-    firstSemester: "Tue, 10 Feb 2026",
-    secondSemester: "Tue, 28 Jul 2026",
-  },
-];
 
 const kindIcons: Record<OfficialCalendarEvent["kind"], keyof typeof Ionicons.glyphMap> = {
   enrollment: "create-outline",
@@ -366,7 +197,7 @@ const classifyActivity = (activity: string): OfficialCalendarEvent["kind"] => {
   return "event";
 };
 
-const officialCalendarEvents: OfficialCalendarEvent[] = academicTableRows.flatMap((row, rowIndex) => {
+const buildEventsFromTableRows = (rows: TableRow[]) => rows.flatMap((row, rowIndex) => {
   if (row.section) {
     return [];
   }
@@ -399,10 +230,79 @@ export default function AcademicCalendarScreen({
 }: AcademicCalendarScreenProps) {
   const [activeView, setActiveView] = React.useState<CalendarView>("month");
   const [tableZoom, setTableZoom] = React.useState(0.78);
+  const { academicEvents } = useAppData();
   const { width } = useWindowDimensions();
   const isWide = width >= 820;
   const todayKey = React.useMemo(() => getDateKey(new Date()), []);
-  const initialDateKey = officialCalendarEvents[0]?.dateKey ?? todayKey;
+  const headerRecord = React.useMemo(
+    () =>
+      academicEvents.find(
+        (event) =>
+          event.id === calendarHeaderRecordId ||
+          event.tableActivity === calendarHeaderActivityToken,
+      ),
+    [academicEvents],
+  );
+  const tableHeader = React.useMemo(
+    () => ({
+      schoolYearLabel: headerRecord?.details || "Academic Calendar",
+      officeLabel: headerRecord?.audience || "Office of the University Registrar",
+      title: headerRecord?.title || "Academic Calendar",
+      firstSemester: headerRecord?.firstSemester || "",
+      secondSemester: headerRecord?.secondSemester || "",
+      summer: headerRecord?.summer || "",
+    }),
+    [headerRecord],
+  );
+  const adminTableRows = React.useMemo<TableRow[]>(
+    () =>
+      academicEvents
+        .filter(
+          (event) =>
+            event.id !== calendarHeaderRecordId &&
+            event.tableActivity?.trim() &&
+            event.tableActivity !== calendarHeaderActivityToken,
+        )
+        .map((event) => ({
+          activity: event.tableActivity?.trim() || event.title,
+          firstSemester: event.firstSemester,
+          secondSemester: event.secondSemester,
+          summer: event.summer,
+          highlight: event.tableHighlight,
+          section: event.tableSection,
+        })),
+    [academicEvents],
+  );
+  const tableRows = adminTableRows;
+  const tableEvents = React.useMemo(
+    () => buildEventsFromTableRows(tableRows),
+    [tableRows],
+  );
+  const standaloneEvents = React.useMemo<OfficialCalendarEvent[]>(
+    () =>
+      academicEvents
+        .filter(
+          (event) =>
+            event.id !== calendarHeaderRecordId &&
+            event.tableActivity !== calendarHeaderActivityToken &&
+            !event.tableActivity?.trim() &&
+            event.eventDate,
+        )
+        .map((event) => ({
+          id: event.id,
+          title: event.title,
+          semester: event.audience || "App Calendar",
+          dateLabel: event.dateLabel,
+          dateKey: event.eventDate ?? "",
+          kind: event.type,
+        })),
+    [academicEvents],
+  );
+  const calendarEvents = React.useMemo(
+    () => [...tableEvents, ...standaloneEvents],
+    [standaloneEvents, tableEvents],
+  );
+  const initialDateKey = calendarEvents[0]?.dateKey ?? todayKey;
   const initialDate = new Date(`${initialDateKey}T00:00:00`);
   const [visibleMonth, setVisibleMonth] = React.useState(
     () => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1),
@@ -412,24 +312,24 @@ export default function AcademicCalendarScreen({
   const eventsByDate = React.useMemo(() => {
     const grouped = new Map<string, OfficialCalendarEvent[]>();
 
-    officialCalendarEvents.forEach((event) => {
+    calendarEvents.forEach((event) => {
       grouped.set(event.dateKey, [...(grouped.get(event.dateKey) ?? []), event]);
     });
 
     return grouped;
-  }, []);
+  }, [calendarEvents]);
 
   const selectedEvents = eventsByDate.get(selectedDate) ?? [];
   const monthEventCount = React.useMemo(() => {
     const year = visibleMonth.getFullYear();
     const month = visibleMonth.getMonth();
 
-    return officialCalendarEvents.filter((event) => {
+    return calendarEvents.filter((event) => {
       const date = new Date(`${event.dateKey}T00:00:00`);
 
       return date.getFullYear() === year && date.getMonth() === month;
     }).length;
-  }, [visibleMonth]);
+  }, [calendarEvents, visibleMonth]);
 
   const days = React.useMemo(() => {
     const firstDay = visibleMonth.getDay();
@@ -469,7 +369,7 @@ export default function AcademicCalendarScreen({
     >
       <View style={styles.viewToolbar}>
         <View style={styles.toolbarTitleBlock}>
-          <Text style={styles.toolbarEyebrow}>SY 2025-2026</Text>
+          <Text style={styles.toolbarEyebrow}>{tableHeader.schoolYearLabel}</Text>
           <Text style={styles.toolbarTitle}>
             {activeView === "month" ? "Month View" : "Official Table"}
           </Text>
@@ -660,8 +560,8 @@ export default function AcademicCalendarScreen({
               <Ionicons name="document-text-outline" size={21} color={colors.surface} />
             </View>
             <View style={styles.tableHeaderCopy}>
-              <Text style={styles.tableEyebrow}>Office of the University Registrar</Text>
-              <Text style={styles.tableTitle}>Academic Calendar, School Year 2025-2026</Text>
+              <Text style={styles.tableEyebrow}>{tableHeader.officeLabel}</Text>
+              <Text style={styles.tableTitle}>{tableHeader.title}</Text>
             </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -691,7 +591,7 @@ export default function AcademicCalendarScreen({
                     >
                       {column.title}
                     </Text>
-                    {"subtitle" in column ? (
+                    {column.key !== "activity" ? (
                       <Text
                         style={[
                           styles.tableHeadSubtext,
@@ -701,51 +601,65 @@ export default function AcademicCalendarScreen({
                           },
                         ]}
                       >
-                        {column.subtitle}
+                        {column.key === "firstSemester"
+                          ? tableHeader.firstSemester
+                          : column.key === "secondSemester"
+                            ? tableHeader.secondSemester
+                            : column.key === "summer"
+                              ? tableHeader.summer
+                              : ""}
                       </Text>
                     ) : null}
                   </View>
                 ))}
               </View>
-              {academicTableRows.map((row, index) => (
-                <View
-                  key={`${row.activity}-${index}`}
-                  style={[
-                    styles.tableRow,
-                    row.section && styles.tableSectionRow,
-                    row.highlight && styles.tableHighlightRow,
-                    { minHeight: 38 * tableZoom },
-                  ]}
-                >
-                  {tableColumns.map((column) => (
-                    <View
-                      key={column.key}
-                      style={[
-                        styles.tableCell,
-                        {
-                          width: column.width * tableZoom,
-                          paddingHorizontal: 10 * tableZoom,
-                          paddingVertical: 8 * tableZoom,
-                        },
-                      ]}
-                    >
-                      <Text
+              {tableRows.length > 0 ? (
+                tableRows.map((row, index) => (
+                  <View
+                    key={`${row.activity}-${index}`}
+                    style={[
+                      styles.tableRow,
+                      row.section && styles.tableSectionRow,
+                      row.highlight && styles.tableHighlightRow,
+                      { minHeight: 38 * tableZoom },
+                    ]}
+                  >
+                    {tableColumns.map((column) => (
+                      <View
+                        key={column.key}
                         style={[
-                          styles.tableCellText,
+                          styles.tableCell,
                           {
-                            fontSize: (column.key === "activity" ? 12 : 11) * tableZoom,
-                            lineHeight: 17 * tableZoom,
+                            width: column.width * tableZoom,
+                            paddingHorizontal: 10 * tableZoom,
+                            paddingVertical: 8 * tableZoom,
                           },
-                          column.key === "activity" && styles.tableActivityText,
-                          row.section && styles.tableSectionText,
                         ]}
                       >
-                        {row[column.key] ?? ""}
-                      </Text>
-                    </View>
-                  ))}
+                        <Text
+                          style={[
+                            styles.tableCellText,
+                            {
+                              fontSize: (column.key === "activity" ? 12 : 11) * tableZoom,
+                              lineHeight: 17 * tableZoom,
+                            },
+                            column.key === "activity" && styles.tableActivityText,
+                            row.section && styles.tableSectionText,
+                          ]}
+                        >
+                          {row[column.key] ?? ""}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ))
+              ) : (
+                <View style={styles.tableEmptyRow}>
+                  <Text style={styles.tableEmptyText}>
+                    No official table rows yet. Add Academic Calendar table rows in the Admin Console.
+                  </Text>
                 </View>
-              ))}
+              )}
             </View>
           </ScrollView>
         </View>
@@ -1142,5 +1056,19 @@ const styles = StyleSheet.create({
     color: colors.maroonDark,
     fontWeight: "900",
     textTransform: "uppercase",
+  },
+  tableEmptyRow: {
+    minHeight: 92,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: colors.surface,
+  },
+  tableEmptyText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "800",
+    textAlign: "center",
   },
 });

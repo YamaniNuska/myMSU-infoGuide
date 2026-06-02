@@ -65,6 +65,18 @@ export const softShadow =
 
 export const maxContentWidth = 1120;
 export const bottomTabClearance = 96;
+export const fontFamily = {
+  display: Platform.select({
+    ios: "Georgia",
+    android: "serif",
+    default: "Georgia, serif",
+  }),
+  body: Platform.select({
+    ios: "System",
+    android: "sans-serif",
+    default: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  }),
+};
 
 export function getColumnCount(width: number) {
   if (width >= 1100) {

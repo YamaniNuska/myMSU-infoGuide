@@ -6,7 +6,6 @@ import {
   Animated,
   Easing,
   Image,
-  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -14,7 +13,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { colors, maxContentWidth } from "../../theme";
+import { colors, fontFamily, maxContentWidth } from "../../theme";
 
 type WelcomeScreenProps = {
   onGetStarted?: () => void;
@@ -22,16 +21,8 @@ type WelcomeScreenProps = {
 
 const universityLogo = require("../../../assets/images/msu-logo.webp");
 const floatIconSize = 58;
-const displayFont = Platform.select({
-  ios: "Avenir Next",
-  android: "sans-serif",
-  default: "system-ui",
-});
-const bodyFont = Platform.select({
-  ios: "Avenir",
-  android: "sans-serif",
-  default: "system-ui",
-});
+const displayFont = fontFamily.display;
+const bodyFont = fontFamily.body;
 type Point = { x: number; y: number };
 type MovingPoint = Point & { vx: number; vy: number };
 type RoamingIconMotion = {
@@ -689,71 +680,71 @@ const styles = StyleSheet.create({
     height: 104,
   },
   brandText: {
-    marginTop: 14,
+    marginTop: 16,
     color: colors.surface,
     fontFamily: displayFont,
-    fontSize: 20,
-    fontWeight: "900",
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "800",
     letterSpacing: 0,
   },
   brandSubtext: {
-    marginTop: 4,
-    color: colors.gold,
+    marginTop: 6,
+    color: "rgba(255, 225, 138, 0.96)",
     fontFamily: bodyFont,
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700",
   },
   title: {
-    marginTop: 32,
+    marginTop: 34,
     color: colors.surface,
     fontFamily: displayFont,
-    fontSize: 42,
-    lineHeight: 48,
-    fontWeight: "900",
+    fontSize: 35,
+    lineHeight: 53,
+    fontWeight: "800",
     letterSpacing: 0,
-    textShadowColor: "rgba(0, 0, 0, 0.24)",
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 10,
+    textShadowColor: "rgba(0, 0, 0, 0.28)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   titleCompact: {
     marginTop: 28,
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 39,
+    lineHeight: 47,
   },
   titleNarrowPhone: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 36,
+    lineHeight: 44,
   },
   titleSoft: {
-    color: "rgba(255, 255, 255, 0.96)",
+    color: "rgba(255, 255, 255, 0.98)",
   },
   titleGold: {
-    color: "#FFE18A",
+    color: "#FFE8A8",
     textShadowColor: "rgba(255, 207, 88, 0.35)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
+    textShadowRadius: 10,
   },
   titleMint: {
-    color: "#77F0B0",
+    color: "#A9F7CA",
     textShadowColor: "rgba(69, 212, 131, 0.38)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 16,
+    textShadowRadius: 10,
   },
   titleWarm: {
-    color: "#FFC66D",
+    color: "#FFD59B",
     textShadowColor: "rgba(255, 198, 109, 0.34)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
+    textShadowRadius: 10,
   },
   subtitle: {
-    marginTop: 15,
-    color: "rgba(255, 255, 255, 0.86)",
+    marginTop: 18,
+    color: "rgba(255, 255, 255, 0.93)",
     fontFamily: bodyFont,
-    fontSize: 16,
-    lineHeight: 25,
-    fontWeight: "600",
+    fontSize: 17,
+    lineHeight: 27,
+    fontWeight: "500",
   },
   button: {
     alignSelf: "flex-start",
@@ -767,8 +758,9 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#45D483",
     fontFamily: displayFont,
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "800",
     letterSpacing: 0,
   },
 });
