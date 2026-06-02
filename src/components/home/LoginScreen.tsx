@@ -164,13 +164,15 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
             ]}
           >
             <View style={styles.brandRow}>
-              <Image source={appLogo} style={styles.brandLogo} resizeMode="contain" />
+              <View style={styles.brandLogoShell}>
+                <Image source={appLogo} style={styles.brandLogo} resizeMode="contain" />
+              </View>
               <Text style={styles.brandText}>myMSU-infoGuide</Text>
             </View>
 
             <Text style={styles.tagline}>
               {isSignUp
-                ? "Create your account with your MSU student or faculty email."
+                ? "Create a visitor account with any email, or use your MSU email for student/faculty access."
               : "Sign in using your MSU email, name, ID number, or admin account."}
             </Text>
 
@@ -206,7 +208,7 @@ export default function LoginScreen({ onSignIn }: LoginScreenProps) {
                   />
                   <TextInput
                     style={styles.input}
-                    placeholder="MSU email (@s.msumain.edu.ph or @msumain.edu.ph)"
+                    placeholder="Email address"
                     placeholderTextColor="#8A6469"
                     value={email}
                     onChangeText={setEmail}
@@ -366,9 +368,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  brandLogoShell: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(216, 178, 74, 0.58)",
+  },
   brandLogo: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
   },
   brandText: {
     color: colors.maroon,

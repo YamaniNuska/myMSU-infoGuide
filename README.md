@@ -30,12 +30,18 @@ content:
 ```text
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+EXPO_PUBLIC_EMAIL_API_URL=
 EXPO_PUBLIC_ORS_API_KEY=
 ```
 
 `EXPO_PUBLIC_ORS_API_KEY` is optional. When it is present, the campus map asks
 OpenRouteService for a walking route and falls back to the bundled campus route
 graph if ORS is unavailable.
+
+`EXPO_PUBLIC_EMAIL_API_URL` is required for Android/iOS builds that need to send
+office emails. Set it to your deployed backend route, for example
+`https://your-backend.example.com/send-email`. Web builds served by the included
+Node backend can omit it because they post to `/send-email` on the same origin.
 
 The current local web server uses:
 
@@ -63,6 +69,43 @@ where email = 'your-admin-email@msumain.edu.ph';
 The prototype policies in `database/schema.sql` are intentionally permissive so
 the Expo app can seed and edit data with the publishable key. Tighten RLS
 policies before using real student data.
+
+## Gmail Email Backend
+
+The Admin Info message form posts saved messages to `POST /send-email` on the
+Node backend. The backend uses Gmail SMTP through Nodemailer, updates
+`admin_contact_messages.status`, and includes a signed Supabase Storage link
+when the student attaches a file.
+
+Install dependencies after pulling these changes:
+
+```bash
+npm install
+```
+
+Set these server-only environment variables on the machine or host that runs
+`npm run serve`:
+
+```text
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+GMAIL_USER=backend-sender@gmail.com
+GMAIL_APP_PASSWORD=your_google_app_password
+EMAIL_FROM="myMSU InfoGuide <backend-sender@gmail.com>"
+```
+
+`GMAIL_USER` is one authenticated backend sender account, not the student's
+account. Gmail SMTP does not let your backend send directly from arbitrary user
+addresses. When a student sends a message, the app includes that student's email
+as `Reply-To`, so the office can reply to the correct user.
+
+`EMAIL_FROM` is optional. Use it only to customize the sender display name; if
+you leave it unset, the backend sends from `GMAIL_USER`.
+
+Use a Gmail App Password for `GMAIL_APP_PASSWORD`; a normal Gmail password will
+not work. In Google Account settings, enable 2-Step Verification, create an App
+Password for Mail, then paste that generated password into the backend
+environment variable.
 
 Class schedule reminders use `expo-notifications`. The schedule row is stored
 in Supabase; the alarm itself is a local device notification, so test reliable
@@ -136,6 +179,9 @@ Do not leave the Web Service Start Command empty. Render may otherwise run
 because Expo Router's entrypoint is not a production Node server. The
 `npm run serve` command starts `server.cjs`, binds to Render's `PORT`, and serves
 the exported `dist` folder.
+
+Use the Web Service option when you need `/send-email`. A static-site deploy can
+serve the Expo web bundle, but it cannot run the Gmail SMTP backend route.
 
 ## Mobile Build
 

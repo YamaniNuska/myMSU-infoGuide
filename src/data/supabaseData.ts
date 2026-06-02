@@ -428,9 +428,27 @@ export type AdminContactEmailInput = AdminContactMessageInput & {
 
 const ADMIN_CONTACT_ATTACHMENT_BUCKET = "admin-contact-files";
 const MAX_ADMIN_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+const EMAIL_API_URL = process.env.EXPO_PUBLIC_EMAIL_API_URL?.trim() ?? "";
 
 const sanitizeFileName = (value: string) =>
   value.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+const getEmailApiUrl = () => {
+  if (EMAIL_API_URL) {
+    return EMAIL_API_URL;
+  }
+
+  const runtimeLocation =
+    typeof globalThis === "undefined"
+      ? undefined
+      : (globalThis as { location?: { origin?: string } }).location;
+
+  if (typeof runtimeLocation?.origin === "string") {
+    return `${runtimeLocation.origin}/send-email`;
+  }
+
+  return "";
+};
 
 export function getAdminAttachmentLimitBytes() {
   return MAX_ADMIN_ATTACHMENT_BYTES;
@@ -534,24 +552,38 @@ export async function supabaseCreateAdminContactMessage(
 export async function supabaseSendAdminContactEmail(
   input: AdminContactEmailInput,
 ) {
-  if (!isSupabaseConfigured()) {
-    throw new Error(
-      "Supabase is not configured. Add the Supabase URL and publishable key to send real office emails.",
-    );
-  }
-
   if (!input.officeEmail) {
     throw new Error(
       "This office does not have an email address in its contact details.",
     );
   }
 
-  const { data, error } = await supabase.functions.invoke("send-office-email", {
-    body: input,
-  });
+  const emailApiUrl = getEmailApiUrl();
 
-  if (error) {
-    throw error;
+  if (!emailApiUrl) {
+    throw new Error(
+      "Email API URL is not configured. Add EXPO_PUBLIC_EMAIL_API_URL for mobile builds.",
+    );
+  }
+
+  const response = await fetch(emailApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof data.error === "string"
+        ? data.error
+        : "Unable to send this office message right now.",
+    );
   }
 
   if (

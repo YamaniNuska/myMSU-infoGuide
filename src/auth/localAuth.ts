@@ -5,7 +5,7 @@ import { deleteRecord, syncAppData, upsertRecord } from "../data/appStore";
 import { UserRecord, UserRole } from "../data/mymsuDatabase";
 
 type PublicUserRole = Exclude<UserRole, "admin">;
-type SignupRole = Extract<UserRole, "student" | "faculty" | "employee">;
+type SignupRole = Extract<UserRole, "student" | "faculty" | "employee" | "visitor">;
 
 type SignUpInput = {
   name: string;
@@ -395,9 +395,8 @@ function resolveSignupRole(
   }
 
   return {
-    ok: false,
-    message:
-      "Use your MSU student email ending in @s.msumain.edu.ph or faculty email ending in @msumain.edu.ph.",
+    ok: true,
+    role: "visitor",
   };
 }
 
