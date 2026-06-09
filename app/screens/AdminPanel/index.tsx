@@ -1882,53 +1882,135 @@ export default function AdminPanelScreen() {
     })).sort((left, right) => left.college.localeCompare(right.college));
   }, [data.coursePrograms, listItems]);
 
-  const renderRecordCard = (item: ListItem) => (
-    <View key={item.id} style={styles.card}>
-      <Text style={styles.cardKicker}>{item.subtitle}</Text>
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      <Text style={styles.cardBody} numberOfLines={3}>
-        {item.body}
-      </Text>
-      <View style={styles.actionRow}>
-        <Pressable style={styles.editButton} onPress={() => editItem(item)}>
-          <Ionicons name="create-outline" size={16} color={colors.maroon} />
-          <Text style={styles.editButtonText}>Edit</Text>
-        </Pressable>
-        {canDeleteRecords ? (
-          <Pressable style={styles.deleteButton} onPress={() => deleteItem(item)}>
-            <Ionicons name="trash-outline" size={16} color={colors.surface} />
-            <Text style={styles.deleteButtonText}>Delete</Text>
+  const renderRecordCard = (item: ListItem, index = 0) => {
+    const active = editingId === item.id;
+
+    return (
+      <View
+        key={item.id}
+        style={[
+          styles.card,
+          styles.recordCard,
+          active && styles.recordCardActive,
+        ]}
+      >
+        <View style={styles.recordCardHeader}>
+          <View style={[styles.recordBadge, active && styles.recordBadgeActive]}>
+            <Ionicons
+              name={active ? "create" : "document-text-outline"}
+              size={16}
+              color={active ? colors.surface : colors.maroon}
+            />
+          </View>
+          <View style={styles.recordCardCopy}>
+            <Text style={styles.cardKicker} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </View>
+          <Text style={styles.recordNumber}>#{index + 1}</Text>
+        </View>
+        <Text style={styles.cardBody} numberOfLines={3}>
+          {item.body || "No additional details saved for this record."}
+        </Text>
+        <View style={styles.actionRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.editButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => editItem(item)}
+          >
+            <Ionicons name="create-outline" size={16} color={colors.maroon} />
+            <Text style={styles.editButtonText}>{active ? "Editing" : "Edit"}</Text>
           </Pressable>
-        ) : null}
+          {canDeleteRecords ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.deleteButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => deleteItem(item)}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.surface} />
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderRecordTable = (items: ListItem[]) => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={styles.recordTable}>
         <View style={[styles.recordTableRow, styles.recordTableHeader]}>
-          <Text style={[styles.recordTableCell, styles.recordTitleCell]}>
+          <Text
+            style={[
+              styles.recordTableCell,
+              styles.recordHeaderCell,
+              styles.recordIndexCell,
+            ]}
+          >
+            #
+          </Text>
+          <Text
+            style={[
+              styles.recordTableCell,
+              styles.recordHeaderCell,
+              styles.recordTitleCell,
+            ]}
+          >
             Record
           </Text>
-          <Text style={[styles.recordTableCell, styles.recordMetaCell]}>
+          <Text
+            style={[
+              styles.recordTableCell,
+              styles.recordHeaderCell,
+              styles.recordMetaCell,
+            ]}
+          >
             Category
           </Text>
-          <Text style={[styles.recordTableCell, styles.recordBodyCell]}>
+          <Text
+            style={[
+              styles.recordTableCell,
+              styles.recordHeaderCell,
+              styles.recordBodyCell,
+            ]}
+          >
             Details
           </Text>
-          <Text style={[styles.recordTableCell, styles.recordActionCell]}>
+          <Text
+            style={[
+              styles.recordTableCell,
+              styles.recordHeaderCell,
+              styles.recordActionCell,
+            ]}
+          >
             Actions
           </Text>
         </View>
-        {items.map((item) => (
+        {items.map((item, index) => (
           <View
             key={item.id}
             style={[
               styles.recordTableRow,
+              index % 2 === 1 && styles.recordTableRowAlt,
               editingId === item.id && styles.recordTableRowActive,
             ]}
           >
+            <Text
+              style={[
+                styles.recordTableCell,
+                styles.recordIndexCell,
+                styles.recordIndexText,
+              ]}
+            >
+              {index + 1}
+            </Text>
             <Text
               style={[
                 styles.recordTableCell,
@@ -1940,7 +2022,11 @@ export default function AdminPanelScreen() {
               {item.title}
             </Text>
             <Text
-              style={[styles.recordTableCell, styles.recordMetaCell]}
+              style={[
+                styles.recordTableCell,
+                styles.recordMetaCell,
+                styles.recordMetaText,
+              ]}
               numberOfLines={2}
             >
               {item.subtitle}
@@ -1952,12 +2038,27 @@ export default function AdminPanelScreen() {
               {item.body}
             </Text>
             <View style={[styles.recordTableCell, styles.recordActionCell]}>
-              <Pressable style={styles.tableIconButton} onPress={() => editItem(item)}>
-                <Ionicons name="create-outline" size={17} color={colors.maroon} />
+              <Pressable
+                style={({ pressed }) => [
+                  styles.tableIconButton,
+                  editingId === item.id && styles.tableIconButtonActive,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => editItem(item)}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={17}
+                  color={editingId === item.id ? colors.surface : colors.maroon}
+                />
               </Pressable>
               {canDeleteRecords ? (
                 <Pressable
-                  style={[styles.tableIconButton, styles.tableDeleteButton]}
+                  style={({ pressed }) => [
+                    styles.tableIconButton,
+                    styles.tableDeleteButton,
+                    pressed && styles.buttonPressed,
+                  ]}
                   onPress={() => deleteItem(item)}
                 >
                   <Ionicons name="trash-outline" size={17} color={colors.danger} />
@@ -2039,12 +2140,27 @@ export default function AdminPanelScreen() {
                 </Text>
               ))}
               <View style={[styles.calendarRecordsCell, styles.calendarRecordsActionCell]}>
-                <Pressable style={styles.tableIconButton} onPress={() => editItem(item)}>
-                  <Ionicons name="create-outline" size={17} color={colors.maroon} />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.tableIconButton,
+                    editingId === item.id && styles.tableIconButtonActive,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => editItem(item)}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={17}
+                    color={editingId === item.id ? colors.surface : colors.maroon}
+                  />
                 </Pressable>
                 {canDeleteRecords ? (
                   <Pressable
-                    style={[styles.tableIconButton, styles.tableDeleteButton]}
+                    style={({ pressed }) => [
+                      styles.tableIconButton,
+                      styles.tableDeleteButton,
+                      pressed && styles.buttonPressed,
+                    ]}
                     onPress={() => deleteItem(item)}
                   >
                     <Ionicons name="trash-outline" size={17} color={colors.danger} />
@@ -2064,7 +2180,7 @@ export default function AdminPanelScreen() {
       ? renderCalendarRecordTable(items)
       : recordViewMode === "table"
       ? renderRecordTable(items)
-      : items.map((item) => renderRecordCard(item));
+      : items.map((item, index) => renderRecordCard(item, index));
 
   const resetForm = () => {
     setEditingId(null);
@@ -2743,10 +2859,20 @@ export default function AdminPanelScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.listHeader}>
+        <View style={styles.recordsPanelHeader}>
           <View style={styles.listHeaderCopy}>
-            <Text style={styles.listTitle}>{visibleTabs.find((tab) => tab.key === activeTab)?.label}</Text>
-            <Text style={styles.listCount}>{listItems.length} record(s)</Text>
+            <Text style={styles.listTitle}>
+              {visibleTabs.find((tab) => tab.key === activeTab)?.label} Records
+            </Text>
+            <View style={styles.listMetaRow}>
+              <View style={styles.listCountPill}>
+                <Ionicons name="server-outline" size={13} color={colors.goldDark} />
+                <Text style={styles.listCount}>{listItems.length} record(s)</Text>
+              </View>
+              {query.trim() ? (
+                <Text style={styles.listFilterText}>Filtered by {query.trim()}</Text>
+              ) : null}
+            </View>
           </View>
           <View style={styles.viewModeToggle}>
             {(["table", "cards"] as const).map((mode) => {
@@ -3572,6 +3698,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  recordsPanelHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   listHeader: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -3588,10 +3726,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  listMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 7,
+  },
+  listCountPill: {
+    minHeight: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   listCount: {
     color: colors.goldDark,
     fontSize: 12,
     fontWeight: "900",
+  },
+  listFilterText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
   },
   viewModeToggle: {
     flexDirection: "row",
@@ -3625,7 +3786,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   recordTable: {
-    minWidth: 920,
+    minWidth: 980,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radii.sm,
@@ -3633,7 +3794,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   recordTableHeader: {
-    backgroundColor: colors.maroonSoft,
+    backgroundColor: colors.maroonDark,
   },
   recordTableRow: {
     flexDirection: "row",
@@ -3641,13 +3802,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  recordTableRowActive: {
+  recordTableRowAlt: {
     backgroundColor: colors.surfaceMuted,
   },
+  recordTableRowActive: {
+    backgroundColor: colors.maroonSoft,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.maroon,
+  },
   recordTableCell: {
-    minHeight: 48,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    minHeight: 54,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     borderRightWidth: 1,
     borderRightColor: colors.line,
     color: colors.muted,
@@ -3655,19 +3822,36 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: "700",
   },
+  recordHeaderCell: {
+    minHeight: 42,
+    color: colors.surface,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0,
+  },
+  recordIndexCell: {
+    width: 56,
+    textAlign: "center",
+  },
+  recordIndexText: {
+    color: colors.goldDark,
+    fontWeight: "900",
+  },
   recordTitleCell: {
-    width: 260,
+    width: 270,
   },
   recordMetaCell: {
-    width: 190,
+    width: 210,
   },
   recordBodyCell: {
-    width: 340,
+    width: 350,
   },
   recordActionCell: {
-    width: 128,
+    width: 138,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     borderRightWidth: 0,
   },
@@ -3675,13 +3859,23 @@ const styles = StyleSheet.create({
     color: colors.maroonDark,
     fontWeight: "900",
   },
+  recordMetaText: {
+    color: colors.goldDark,
+    fontWeight: "900",
+  },
   tableIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  tableIconButtonActive: {
+    backgroundColor: colors.maroon,
+    borderColor: colors.maroon,
   },
   tableDeleteButton: {
     backgroundColor: "#FCE8E6",
@@ -3787,6 +3981,41 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  recordCard: {
+    gap: 12,
+  },
+  recordCardActive: {
+    borderColor: colors.maroon,
+    backgroundColor: colors.maroonSoft,
+  },
+  recordCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  recordBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  recordBadgeActive: {
+    backgroundColor: colors.maroon,
+    borderColor: colors.maroon,
+  },
+  recordCardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  recordNumber: {
+    color: colors.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+  },
   cardKicker: {
     color: colors.goldDark,
     fontSize: 11,
@@ -3801,10 +4030,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   cardBody: {
-    marginTop: 7,
     color: colors.muted,
     fontSize: 13,
     lineHeight: 20,
+    fontWeight: "600",
   },
   emptyCard: {
     padding: 18,
@@ -3829,7 +4058,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginTop: 14,
+  },
+  buttonPressed: {
+    opacity: 0.72,
   },
   editButton: {
     flexDirection: "row",

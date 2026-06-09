@@ -213,12 +213,14 @@ CREATE TABLE IF NOT EXISTS public.course_offerings (
   program TEXT NOT NULL,
   degree TEXT NOT NULL,
   overview TEXT NOT NULL,
+  prospectus_url TEXT,
   tags JSONB NOT NULL DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE public.course_offerings
   ADD COLUMN IF NOT EXISTS college_id TEXT,
+  ADD COLUMN IF NOT EXISTS prospectus_url TEXT,
   DROP COLUMN IF EXISTS summary,
   DROP COLUMN IF EXISTS technical_electives;
 
@@ -252,7 +254,13 @@ CREATE TABLE IF NOT EXISTS public.academic_calendar (
 ALTER TABLE public.academic_calendar
   ADD COLUMN IF NOT EXISTS event_date DATE,
   ADD COLUMN IF NOT EXISTS notification_id TEXT,
-  ADD COLUMN IF NOT EXISTS office_id TEXT;
+  ADD COLUMN IF NOT EXISTS office_id TEXT,
+  ADD COLUMN IF NOT EXISTS table_activity TEXT,
+  ADD COLUMN IF NOT EXISTS first_semester TEXT,
+  ADD COLUMN IF NOT EXISTS second_semester TEXT,
+  ADD COLUMN IF NOT EXISTS summer TEXT,
+  ADD COLUMN IF NOT EXISTS table_highlight BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS table_section BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS public.handbook_entry_offices (
   handbook_entry_id TEXT NOT NULL REFERENCES public.handbook_entries (id) ON DELETE CASCADE,
@@ -656,6 +664,7 @@ INSERT INTO public.course_offerings (
   program,
   degree,
   overview,
+  prospectus_url,
   tags
 )
 VALUES
@@ -666,6 +675,7 @@ VALUES
     'Bachelor of Science in Electrical Engineering',
     'BSEE',
     'Curriculum record for the College of Engineering Bachelor of Science in Electrical Engineering prospectus.',
+    'https://msu-prospectus.vercel.app/msu-bsee-prospectus.pdf',
     '["coe", "engineering", "electrical engineering", "bsee"]'::jsonb
   ),
   (
@@ -675,6 +685,7 @@ VALUES
     'BS-IT (DBs)',
     'BSIT-DBS',
     'Curriculum record for the CICS Bachelor of Science in Information Technology Database Systems track prospectus.',
+    'https://msu-prospectus.vercel.app/CICS/msu-bsit-database-prospectus.pdf',
     '["cics", "it", "database", "database systems", "dbs"]'::jsonb
   )
 ON CONFLICT (id) DO UPDATE SET
@@ -683,4 +694,5 @@ ON CONFLICT (id) DO UPDATE SET
   program = EXCLUDED.program,
   degree = EXCLUDED.degree,
   overview = EXCLUDED.overview,
+  prospectus_url = EXCLUDED.prospectus_url,
   tags = EXCLUDED.tags;
