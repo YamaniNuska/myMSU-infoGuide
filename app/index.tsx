@@ -1,5 +1,5 @@
 import { useNavigation, useRouter, type Href } from "expo-router";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthSession } from "../src/auth/localAuth";
@@ -37,6 +37,12 @@ export default function Index() {
   const [step, setStep] = useState<FlowStep>(() =>
     currentUser ? "home" : "welcome",
   );
+
+  useEffect(() => {
+    if (currentUser) {
+      setStep("home");
+    }
+  }, [currentUser]);
 
   useLayoutEffect(() => {
     const homeTabBarStyle = {

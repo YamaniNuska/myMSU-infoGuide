@@ -466,6 +466,19 @@ export async function restoreAuthSession() {
   }
 
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUser = sessionData.session?.user;
+
+    if (sessionUser) {
+      const profile = await ensureProfileForAuthUser(sessionUser);
+
+      if (profile) {
+        const roleSyncedProfile = await syncDetectedRole(profile);
+        setSignedInUser(roleSyncedProfile);
+        return roleSyncedProfile;
+      }
+    }
+
     const { data, error } = await supabase.auth.getUser();
 
     if (error || !data.user) {

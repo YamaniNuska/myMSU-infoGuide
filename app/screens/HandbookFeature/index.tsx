@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import HeaderUserAvatar from "../../../src/components/HeaderUserAvatar";
+import { useAuthSession } from "../../../src/auth/localAuth";
 import { useAppData } from "../../../src/data/appStore";
 import {
   bottomTabClearance,
@@ -24,6 +25,17 @@ import {
   radii,
   shadow,
 } from "../../../src/theme";
+
+type SimpleStorage = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
+const storage =
+  typeof globalThis !== "undefined"
+    ? (globalThis as unknown as { localStorage?: SimpleStorage }).localStorage
+    : undefined;
 
 if (
   Platform.OS === "android" &&
@@ -36,6 +48,7 @@ export default function HandbookScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { handbookEntries } = useAppData();
+  const currentUser = useAuthSession();
   const isWide = width >= 760;
   const [query, setQuery] = React.useState("");
   const [expandedId, setExpandedId] = React.useState<string | null>(
@@ -44,6 +57,11 @@ export default function HandbookScreen() {
   const didSetDefaultExpanded = React.useRef(!!handbookEntries[0]?.id);
   const [readerMode, setReaderMode] = React.useState<"bites" | "list">("bites");
   const [biteIndex, setBiteIndex] = React.useState(0);
+  const [markedEntryId, setMarkedEntryId] = React.useState<string | null>(null);
+  const progressStorageKey = React.useMemo(
+    () => `mymsu.handbook.progress.${currentUser?.id ?? "guest"}`,
+    [currentUser?.id],
+  );
 
   React.useEffect(() => {
     if (!didSetDefaultExpanded.current && handbookEntries[0]) {
@@ -51,6 +69,15 @@ export default function HandbookScreen() {
       didSetDefaultExpanded.current = true;
     }
   }, [handbookEntries]);
+
+  React.useEffect(() => {
+    const storedEntryId = storage?.getItem(progressStorageKey) ?? null;
+    const isValidStoredEntry = handbookEntries.some(
+      (entry) => entry.id === storedEntryId,
+    );
+
+    setMarkedEntryId(isValidStoredEntry ? storedEntryId : null);
+  }, [handbookEntries, progressStorageKey]);
 
   const filteredEntries = handbookEntries.filter((entry) => {
     const searchable = [
@@ -70,11 +97,37 @@ export default function HandbookScreen() {
     featuredEntries.length > 0
       ? featuredEntries[Math.min(biteIndex, featuredEntries.length - 1)]
       : undefined;
+  const activeBiteIndex = activeBite
+    ? featuredEntries.findIndex((entry) => entry.id === activeBite.id)
+    : -1;
+  const topicRailStart =
+    featuredEntries.length <= 8
+      ? 0
+      : Math.min(
+          Math.max(activeBiteIndex - 3, 0),
+          Math.max(featuredEntries.length - 8, 0),
+        );
+  const topicRailEntries = featuredEntries.slice(
+    topicRailStart,
+    topicRailStart + 8,
+  );
   const activeBiteText = activeBite?.content.trim() ?? "";
   const biteProgress =
     featuredEntries.length > 0
       ? `Topic ${Math.min(biteIndex + 1, featuredEntries.length)} of ${featuredEntries.length}`
       : "No pages yet";
+  const progressPercent =
+    featuredEntries.length > 0
+      ? ((Math.min(biteIndex, featuredEntries.length - 1) + 1) /
+          featuredEntries.length) *
+        100
+      : 0;
+  const markedEntry = handbookEntries.find((entry) => entry.id === markedEntryId);
+  const markedFilteredIndex = markedEntryId
+    ? featuredEntries.findIndex((entry) => entry.id === markedEntryId)
+    : -1;
+  const canContinueFromMarker = markedFilteredIndex >= 0;
+  const activeBiteIsMarked = !!activeBite && activeBite.id === markedEntryId;
 
   React.useEffect(() => {
     setBiteIndex(0);
@@ -94,6 +147,29 @@ export default function HandbookScreen() {
   const chooseTopic = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setBiteIndex(index);
+  };
+
+  const markCurrentTopic = () => {
+    if (!activeBite) {
+      return;
+    }
+
+    setMarkedEntryId(activeBite.id);
+    storage?.setItem(progressStorageKey, activeBite.id);
+  };
+
+  const clearMarker = () => {
+    setMarkedEntryId(null);
+    storage?.removeItem(progressStorageKey);
+  };
+
+  const continueFromMarker = () => {
+    if (!canContinueFromMarker) {
+      return;
+    }
+
+    setReaderMode("bites");
+    chooseTopic(markedFilteredIndex);
   };
 
   const nextTopic = () => {
@@ -177,10 +253,10 @@ export default function HandbookScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Digital handbook database</Text>
+          <Text style={styles.summaryTitle}>Read, search, and return later</Text>
           <Text style={styles.summaryText}>
-            The handbook content is stored as searchable records and syncs with
-            the shared Supabase handbook table.
+            Move through handbook topics one page at a time, save your last
+            progress marker, or switch to the full list when you need to scan.
           </Text>
         </View>
 
@@ -231,29 +307,145 @@ export default function HandbookScreen() {
 
         {readerMode === "bites" && activeBite ? (
           <View style={styles.bitePanel}>
-            <View style={styles.biteTopRow}>
+            <View style={styles.readerToolbar}>
               <View style={styles.biteBadge}>
-                <Ionicons name="bookmarks" size={15} color={colors.teal} />
+                <Ionicons name="reader" size={15} color={colors.teal} />
                 <Text style={styles.biteBadgeText}>{biteProgress}</Text>
+              </View>
+              <Pressable
+                style={[
+                  styles.markerButton,
+                  activeBiteIsMarked && styles.markerButtonActive,
+                ]}
+                onPress={markCurrentTopic}
+              >
+                <Ionicons
+                  name={activeBiteIsMarked ? "bookmark" : "bookmark-outline"}
+                  size={17}
+                  color={activeBiteIsMarked ? colors.surface : colors.maroon}
+                />
+                <Text
+                  style={[
+                    styles.markerButtonText,
+                    activeBiteIsMarked && styles.markerButtonTextActive,
+                  ]}
+                >
+                  {activeBiteIsMarked ? "Marked" : "Mark here"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+            </View>
+
+            {markedEntry ? (
+              <View style={styles.markerCard}>
+                <View style={styles.markerCardIcon}>
+                  <Ionicons name="flag" size={17} color={colors.goldDark} />
+                </View>
+                <View style={styles.markerCardCopy}>
+                  <Text style={styles.markerCardLabel}>Last progress marker</Text>
+                  <Text style={styles.markerCardTitle} numberOfLines={1}>
+                    {markedEntry.title}
+                  </Text>
+                </View>
+                {canContinueFromMarker ? (
+                  <Pressable
+                    style={styles.markerCardAction}
+                    onPress={continueFromMarker}
+                  >
+                    <Text style={styles.markerCardActionText}>Continue</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={styles.markerClearButton} onPress={clearMarker}>
+                  <Ionicons name="close" size={17} color={colors.muted} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View style={styles.articleHeader}>
+              <Text style={styles.biteChapter}>{activeBite.chapter}</Text>
+              <Text style={styles.biteTitle}>{activeBite.title}</Text>
+              <View style={styles.articleMetaRow}>
+                <View style={styles.articleMetaItem}>
+                  <Ionicons name="document-text" size={15} color={colors.blue} />
+                  <Text style={styles.articleMetaText}>
+                    {activeBiteText.split(/\s+/).filter(Boolean).length} words
+                  </Text>
+                </View>
+                <View style={styles.articleMetaItem}>
+                  <Ionicons name="albums" size={15} color={colors.blue} />
+                  <Text style={styles.articleMetaText}>
+                    Section {activeBiteIndex + 1}
+                  </Text>
+                </View>
               </View>
             </View>
 
-            <Text style={styles.biteChapter}>{activeBite.chapter}</Text>
-            <Text style={styles.biteTitle}>{activeBite.title}</Text>
-            <Text style={styles.biteText}>{activeBiteText}</Text>
+            <View style={styles.articleBody}>
+              <View style={styles.articleBodyRule} />
+              <Text style={styles.biteText}>{activeBiteText}</Text>
+            </View>
+
+            {activeBite.tags.length > 0 ? (
+              <View style={styles.topicTagRow}>
+                {activeBite.tags.map((tag) => (
+                  <Text key={tag} style={styles.topicTag}>
+                    {tag}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
 
             <View style={styles.biteActionRow}>
               <Pressable style={styles.biteActionButton} onPress={previousTopic}>
                 <Ionicons name="chevron-back" size={18} color={colors.maroonDark} />
-                <Text style={styles.biteActionText}>Previous topic</Text>
+                <Text style={styles.biteActionText}>Previous</Text>
               </Pressable>
               <Pressable
                 style={[styles.biteActionButton, styles.biteActionButtonPrimary]}
                 onPress={nextTopic}
               >
-                <Text style={styles.biteActionTextPrimary}>Next topic</Text>
+                <Text style={styles.biteActionTextPrimary}>Next</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.surface} />
               </Pressable>
+            </View>
+
+            <View style={styles.topicRail}>
+              {topicRailEntries.map((entry, index) => {
+                const entryIndex = topicRailStart + index;
+                const selected = entry.id === activeBite.id;
+                const marked = entry.id === markedEntryId;
+
+                return (
+                  <Pressable
+                    key={entry.id}
+                    style={[
+                      styles.topicRailItem,
+                      selected && styles.topicRailItemActive,
+                    ]}
+                    onPress={() => chooseTopic(entryIndex)}
+                  >
+                    <Text
+                      style={[
+                        styles.topicRailNumber,
+                        selected && styles.topicRailNumberActive,
+                      ]}
+                    >
+                      {entryIndex + 1}
+                    </Text>
+                    {marked ? (
+                      <Ionicons name="bookmark" size={11} color={colors.goldDark} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -486,11 +678,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     ...shadow,
   },
-  biteTopRow: {
+  readerToolbar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+    flexWrap: "wrap",
   },
   biteBadge: {
     minHeight: 32,
@@ -506,8 +699,109 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
   },
+  markerButton: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    backgroundColor: colors.maroonSoft,
+    borderWidth: 1,
+    borderColor: "rgba(116, 16, 26, 0.14)",
+  },
+  markerButtonActive: {
+    backgroundColor: colors.maroon,
+    borderColor: colors.maroon,
+  },
+  markerButtonText: {
+    color: colors.maroon,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  markerButtonTextActive: {
+    color: colors.surface,
+  },
+  progressTrack: {
+    height: 8,
+    marginTop: 14,
+    overflow: "hidden",
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: radii.pill,
+    backgroundColor: colors.gold,
+  },
+  markerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: "#FFF9E8",
+    borderWidth: 1,
+    borderColor: "#F0D98E",
+  },
+  markerCardIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(216, 178, 74, 0.22)",
+  },
+  markerCardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  markerCardLabel: {
+    color: colors.goldDark,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  markerCardTitle: {
+    marginTop: 2,
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  markerCardAction: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#F0D98E",
+  },
+  markerCardActionText: {
+    color: colors.maroon,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  markerClearButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.pill,
+  },
+  articleHeader: {
+    marginTop: 18,
+    padding: 16,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   biteChapter: {
-    marginTop: 16,
     color: colors.goldDark,
     fontSize: 11,
     lineHeight: 16,
@@ -521,16 +815,66 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     fontWeight: "900",
   },
-  biteText: {
+  articleMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 12,
+  },
+  articleMetaItem: {
+    minHeight: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.blueSoft,
+  },
+  articleMetaText: {
+    color: colors.blue,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  articleBody: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginTop: 16,
+  },
+  articleBodyRule: {
+    width: 4,
+    minHeight: 92,
+    alignSelf: "stretch",
+    borderRadius: radii.pill,
+    backgroundColor: colors.gold,
+  },
+  biteText: {
+    flex: 1,
+    minWidth: 0,
     color: colors.ink,
     fontSize: 15,
-    lineHeight: 25,
+    lineHeight: 26,
+  },
+  topicTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 16,
+  },
+  topicTag: {
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: colors.tealSoft,
+    color: colors.teal,
+    fontSize: 11,
+    fontWeight: "900",
   },
   biteActionRow: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 16,
+    marginTop: 18,
   },
   biteActionButton: {
     flex: 1,
@@ -552,6 +896,39 @@ const styles = StyleSheet.create({
     color: colors.maroonDark,
     fontSize: 12,
     fontWeight: "900",
+  },
+  topicRail: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  topicRailItem: {
+    minWidth: 38,
+    height: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  topicRailItemActive: {
+    backgroundColor: colors.maroonSoft,
+    borderColor: "rgba(116, 16, 26, 0.18)",
+  },
+  topicRailNumber: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  topicRailNumberActive: {
+    color: colors.maroon,
   },
   biteActionTextPrimary: {
     color: colors.surface,

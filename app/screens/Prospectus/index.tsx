@@ -627,8 +627,6 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         </View>
       ) : null}
 
-      {activeView === "semester" ? technicalElectiveTable : null}
-
       {activeView === "electives" ? technicalElectiveTable : null}
 
       {activeView === "semester" ? (
@@ -1041,15 +1039,6 @@ export default function ProspectusScreen({ onBack }: ProspectusScreenProps) {
         </View>
       ) : null}
 
-      <View style={styles.noteCard}>
-        <Text style={styles.noteTitle}>Curriculum note</Text>
-        <Text style={styles.noteText}>
-          Prospectus entries should be added through the Faculty or Admin Console and
-          confirmed with the latest college curriculum. Always confirm final
-          advising, substitutions, and prerequisite clearance with the college or
-          department before enrollment.
-        </Text>
-      </View>
     </SecondaryScreenLayout>
   );
 }
@@ -1873,25 +1862,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRightWidth: 1,
     borderRightColor: colors.line,
-  },
-  noteCard: {
-    padding: 16,
-    borderRadius: radii.sm,
-    backgroundColor: "#FFF8E6",
-    borderWidth: 1,
-    borderColor: "#EEDCA7",
-  },
-  noteTitle: {
-    color: colors.warning,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  noteText: {
-    marginTop: 6,
-    color: colors.ink,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: "600",
   },
   emptyState: {
     alignItems: "center",
